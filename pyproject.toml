@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "relay-audit"
+version = "0.1.0"
+description = "Evidence-oriented API service consistency research prototype"
+requires-python = ">=3.10"
+dependencies = [
+  "inspect-ai==0.3.278",
+  "model-equality-testing==0.0.2",
+  "numpy>=1.26,<3",
+  "torch==2.8.0",
+  "tqdm>=4.66,<5",
+  "transformers>=4.45,<5",
+]
+
+[project.optional-dependencies]
+api = ["openai>=3.4,<4"]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+relay-audit = "relay_audit.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

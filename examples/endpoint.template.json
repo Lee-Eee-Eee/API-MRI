@@ -1,0 +1,16 @@
+{
+  "endpoint_id": "replace-with-service-code",
+  "model_declared": "replace-with-exact-declared-version",
+  "base_url": "https://replace-with-endpoint.example/v1",
+  "api_key_env": "RELAY_AUDIT_API_KEY",
+  "reference_kind": "unknown",
+  "repeats": 12,
+  "max_tokens": 64,
+  "temperature": 0.0,
+  "timeout": 30,
+  "attempt_timeout": 15,
+  "prompts": [
+    {"id": "arithmetic-01", "input": "Compute 17 + 28. Reply with the integer only."},
+    {"id": "format-01", "input": "Return only this JSON object: {\"code\":\"G11\",\"count\":3}"}
+  ]
+}
