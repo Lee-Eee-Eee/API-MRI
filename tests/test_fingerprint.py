@@ -90,7 +90,7 @@ def rehash(rows):
 
 def test_pinned_references_and_upstream_code_have_original_hashes():
     packs = fp.list_reference_packs()
-    assert len(packs) == 4
+    assert len(packs) == 26
     assert packs[0]["source_endpoint"] == "https://openrouter.ai/api/v1/chat/completions"
     assert all(p["source_verified"] is False for p in packs)
     upstream = Path(fp.__file__).parent / "vendor/kbf"

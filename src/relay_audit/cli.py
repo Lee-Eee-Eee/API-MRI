@@ -29,7 +29,10 @@ def _analyze(reference: Path, candidate: Path, out: Path, args: argparse.Namespa
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="API服务一致性研究工具；输出有限行为证据。")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("references", help="列出内置指纹参考包与来源，不调用API")
+    refs = commands.add_parser("references", help="列出内置与本机参考包，不调用模型API")
+    refs.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
+    refs_update = commands.add_parser("references-update", help="从KBF公开目录抓取并检查参考包，不调用模型API")
+    refs_update.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
     fp_plan = commands.add_parser("fingerprint-plan", help="检查单API指纹计划与调用上限，不调用API")
     fp_plan.add_argument("--config", type=Path, required=True)
     fp_run = commands.add_parser("fingerprint", help="用内置参考包检测一个API")
@@ -45,6 +48,8 @@ def build_parser() -> argparse.ArgumentParser:
     fp_demo.add_argument("--reference-pack", required=True)
     fp_demo.add_argument("--variant", choices=["match", "different", "incomplete"], default="different")
     fp_demo.add_argument("--out", type=Path, required=True)
+    for command in (fp_plan, fp_run, fp_replay, fp_demo):
+        command.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
     demo = commands.add_parser("demo", help="使用Inspect合成fixture，完全不调用真实模型")
     demo.add_argument("--out", type=Path, required=True, help="新输出目录；不覆盖已有证据")
     demo.add_argument("--repeats", type=int, default=12)
@@ -74,6 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
     ui = commands.add_parser("ui", help="启动本机浏览器工作台")
     ui.add_argument("--port", type=int, default=8765)
     ui.add_argument("--runs-dir", type=Path, default=Path("runs/ui"))
+    ui.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
     return parser
 
 
@@ -93,7 +99,15 @@ def main(argv: list[str] | None = None) -> int:
         study = validate_study(json.loads(args.study.read_text(encoding="utf-8"))) if getattr(args, "study", None) else {}
         if args.command == "references":
             from .fingerprint import list_reference_packs
-            print(json.dumps(list_reference_packs(), ensure_ascii=False, indent=2))
+            print(json.dumps(list_reference_packs(args.library_dir), ensure_ascii=False, indent=2))
+        elif args.command == "references-update":
+            from .reference_library import update_reference_library
+            result = update_reference_library(args.library_dir)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            if result.get("status") == "cancelled":
+                return 130
+            if result.get("status") in {"failed", "error", "busy", "partial"}:
+                return 1
         elif args.command in {"fingerprint-plan", "fingerprint", "fingerprint-demo", "fingerprint-replay"}:
             from .fingerprint import plan_fingerprint, run_fingerprint, demo_fingerprint, replay_fingerprint
 
@@ -104,14 +118,14 @@ def main(argv: list[str] | None = None) -> int:
                 if "api_key" in payload["candidate"]:
                     raise ValueError("CLI配置请使用api_key_env环境变量名称，移除明文api_key。")
                 if args.command == "fingerprint-plan":
-                    print(json.dumps(plan_fingerprint(payload), ensure_ascii=False, indent=2))
+                    print(json.dumps(plan_fingerprint(payload, library_dir=args.library_dir), ensure_ascii=False, indent=2))
                     return 0
                 study = redact_study(study, payload)
-                result = run_fingerprint(payload, args.out)
+                result = run_fingerprint(payload, args.out, library_dir=args.library_dir)
             elif args.command == "fingerprint-demo":
-                result = demo_fingerprint(args.reference_pack, args.out, variant=args.variant)
+                result = demo_fingerprint(args.reference_pack, args.out, variant=args.variant, library_dir=args.library_dir)
             else:
-                result = replay_fingerprint(args.reference_pack, args.records, args.out)
+                result = replay_fingerprint(args.reference_pack, args.records, args.out, library_dir=args.library_dir)
             result = attach_study(result, study, args.out)
             labels = {"difference_detected": "发现显著差异", "no_difference_detected": "未检出明显差异", "insufficient_evidence": "证据不足"}
             print(labels.get(result["status"], result["status"]))
@@ -123,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
                 from .web import serve
             except ImportError:
                 parser.error('请先安装界面依赖：python -m pip install -e ".[api,ui]"')
-            serve(port=args.port, runs_dir=args.runs_dir)
+            serve(port=args.port, runs_dir=args.runs_dir, library_dir=args.library_dir)
         elif args.command in {"plan", "run"}:
             from .workflows import plan_pair, run_pair
 
@@ -184,6 +198,9 @@ def main(argv: list[str] | None = None) -> int:
             save_records(args.out / "records.jsonl", records)
             print(f"采集完成：{args.out / 'records.jsonl'}；服务端自报字段不是独立身份认证。")
         return 0
+    except KeyboardInterrupt:
+        print("已取消；此前安装的参考包和已保存记录保留。")
+        return 130
     except (ValueError, FileExistsError, FileNotFoundError) as exc:
         parser.error(str(exc))
     except Exception as exc:

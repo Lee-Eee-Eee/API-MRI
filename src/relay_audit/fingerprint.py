@@ -26,6 +26,7 @@ from .records import content_hash, file_hash
 from .vendor.kbf import kbf_common as kbf
 from .vendor.kbf.kbf_test import compute_verdict
 from .vendor.kbf.protocols import build_request
+from .reference_library import catalog_entries, load_reference, ReferenceValidationError
 
 PACK_DIR = Path(__file__).parent / "data" / "reference_packs"
 SCHEMA = "relay-fingerprint/1"
@@ -79,29 +80,8 @@ def _clean(value: Any, secrets: tuple[str, ...] = ()) -> Any:
     return value
 
 
-def _load_pack(pack_id: str) -> tuple[dict, dict]:
-    catalog = json.loads((PACK_DIR / "catalog.json").read_text(encoding="utf-8"))
-    row = next((r for r in catalog if r["id"] == pack_id), None)
-    if row is None:
-        raise ValueError("Unknown reference pack; select an installed reference pack")
-    path = PACK_DIR / row["filename"]
-    if path.parent != PACK_DIR or file_hash(path) != row["sha256"]:
-        raise ValueError("Reference pack integrity check failed")
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if data["reference_model"] != row["model"] or len(data["probes"]) != row["probe_count"]:
-        raise ValueError("Reference pack catalog does not match its contents")
-    self_test = data["target_results"][data["reference_model"].split("/")[-1]]
-    actual = [None if v is None else int(kbf.check_match(kbf.probe_consensus(p), v, p["domain"]))
-              for p, v in zip(data["probes"], self_test["values"])]
-    if (len(actual) != len(data["probes"]) or sum(v == 0 for v in actual) != self_test["hamming"]
-            or sum(v is not None for v in actual) != self_test["total"]
-            or self_test["hamming"] != row["self_hamming"] or self_test["total"] != row["self_total"]
-            or self_test.get("test_config") != {"sys": kbf.TEST_SYS_PROMPT, "temp": kbf.TEST_TEMP}):
-        raise ValueError("Reference self-test cannot be reproduced")
-    meta = {**row, "self_error_rate": self_test["hamming"] / self_test["total"],
-            "domain_count": len({p["domain"] for p in data["probes"]}),
-            "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"}
-    return meta, data
+def _load_pack(pack_id: str, library_dir: Path | None = None) -> tuple[dict, dict]:
+    return load_reference(pack_id, library_dir)
 
 
 def _batches(data: dict) -> list[dict]:
@@ -123,13 +103,21 @@ def _batches(data: dict) -> list[dict]:
     return batches
 
 
-def list_reference_packs() -> list[dict]:
-    rows = json.loads((PACK_DIR / "catalog.json").read_text(encoding="utf-8"))
-    return [{**_load_pack(r["id"])[0], "batch_count": len(_batches(_load_pack(r["id"])[1]))}
-            for r in rows]
+def list_reference_packs(library_dir: Path | None = None) -> list[dict]:
+    packs = []
+    for row, directory in catalog_entries(library_dir):
+        try:
+            meta, data = _load_pack(row["id"], library_dir)
+            packs.append({**meta, "batch_count": len(_batches(data))})
+        except (ReferenceValidationError, OSError):
+            if directory == PACK_DIR:
+                raise
+            # Cached data damage does not hide independently valid installed packs.
+            continue
+    return packs
 
 
-def _config(payload: dict) -> tuple[dict, str | None, str | None]:
+def _config(payload: dict, library_dir: Path | None = None) -> tuple[dict, str | None, str | None]:
     try:
         if not isinstance(payload, dict) or set(payload) - {"reference_pack", "candidate", "timeout"}:
             raise ValueError
@@ -159,16 +147,16 @@ def _config(payload: dict) -> tuple[dict, str | None, str | None]:
             raise ValueError
         if key and env:
             raise ValueError
-        _load_pack(payload["reference_pack"])
+        _load_pack(payload["reference_pack"], library_dir)
         return {"reference_pack": payload["reference_pack"], "candidate": {"api_base": base, "model": model.strip()},
                 "timeout": timeout}, key, env
     except (KeyError, ValueError, TypeError):
         raise ValueError("Invalid fingerprint configuration; use a known pack, HTTPS URL, model name and timeout 1–300; raw values omitted") from None
 
 
-def plan_fingerprint(payload: dict) -> dict:
-    config, key, _ = _config(payload)
-    meta, data = _load_pack(config["reference_pack"])
+def plan_fingerprint(payload: dict, *, library_dir: Path | None = None) -> dict:
+    config, key, _ = _config(payload, library_dir)
+    meta, data = _load_pack(config["reference_pack"], library_dir)
     batches = _batches(data)
     maximum = len(kbf.THINKING_STRATEGIES) + MAX_ATTEMPTS * len(batches)
     return _clean({"kind": "fingerprint", "reference": meta, "candidate": config["candidate"],
@@ -288,14 +276,14 @@ def _call(client: httpx.Client, config: dict, key: str, body: dict, secrets: tup
 
 
 def run_fingerprint(payload: dict, out: Path, progress: Callable | None = None,
-                    cancelled: Callable | None = None) -> dict:
-    config, direct_key, env = _config(payload)
+                    cancelled: Callable | None = None, *, library_dir: Path | None = None) -> dict:
+    config, direct_key, env = _config(payload, library_dir)
     key = direct_key or os.environ.get(env or "")
     if not isinstance(key, str) or not 8 <= len(key) <= 4096 or re.search(r"\s", key):
         raise ValueError("API key missing or invalid; supply a key or configured environment variable")
     secrets = (key, quote(key, safe=""))
     config = _clean(config, secrets)
-    meta, data = _load_pack(config["reference_pack"])
+    meta, data = _load_pack(config["reference_pack"], library_dir)
     batches = _batches(data)
     output = Path(out)
     output.mkdir(parents=True, exist_ok=False)
@@ -303,7 +291,7 @@ def run_fingerprint(payload: dict, out: Path, progress: Callable | None = None,
     records: list[dict] = []
     manifest = _manifest(config, meta)
     _append(path, records, manifest)
-    _write_json(output / "sampling_plan.json", plan_fingerprint(payload))
+    _write_json(output / "sampling_plan.json", plan_fingerprint(payload, library_dir=library_dir))
     state, reason, strategy = "complete", None, None
     def stopped() -> bool:
         return bool(cancelled and cancelled())
@@ -372,8 +360,8 @@ def run_fingerprint(payload: dict, out: Path, progress: Callable | None = None,
     return report
 
 
-def _validate_records(pack_id: str, records: list[dict]) -> list[dict]:
-    meta, data = _load_pack(pack_id)
+def _validate_records(pack_id: str, records: list[dict], library_dir: Path | None = None) -> list[dict]:
+    meta, data = _load_pack(pack_id, library_dir)
     if not isinstance(records, list) or not records or len(records) > 2000:
         raise ValueError("Fingerprint evidence must contain a bounded manifest and request sequence")
     manifest = records[0]
@@ -384,7 +372,7 @@ def _validate_records(pack_id: str, records: list[dict]) -> list[dict]:
     if type(manifest.get("synthetic")) is not bool:
         raise ValueError("Fingerprint evidence must state synthetic provenance")
     config, _, _ = _config({"reference_pack": pack_id, "candidate": manifest.get("candidate"),
-                           "timeout": manifest.get("settings", {}).get("timeout")})
+                           "timeout": manifest.get("settings", {}).get("timeout")}, library_dir)
     if manifest.get("settings") != {**SETTINGS, "timeout": config["timeout"]}:
         raise ValueError("Fingerprint settings do not match the pinned protocol")
     batches = _batches(data)
@@ -452,13 +440,13 @@ def _validate_records(pack_id: str, records: list[dict]) -> list[dict]:
     return records
 
 
-def parse_fingerprint_records(text: str, pack_id: str) -> list[dict]:
+def parse_fingerprint_records(text: str, pack_id: str, *, library_dir: Path | None = None) -> list[dict]:
     if not isinstance(text, str) or len(text.encode("utf-8")) > 20 * 1024 * 1024:
         raise ValueError("Fingerprint evidence exceeds the 20 MiB import limit")
     try:
         rows = [json.loads(line, parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
                 for line in text.splitlines() if line.strip()]
-        return _validate_records(pack_id, rows)
+        return _validate_records(pack_id, rows, library_dir)
     except (KeyError, TypeError, IndexError, AttributeError, ValueError):
         raise ValueError("Invalid fingerprint evidence: pack, hash chain, request order or original response is inconsistent") from None
 
@@ -601,24 +589,24 @@ def _write_report(output: Path, report: dict) -> None:
             writer.writerow({k: "'" + probe[k] if isinstance(probe[k], str) and probe[k].lstrip().startswith(("=", "+", "-", "@")) else probe[k] for k in fields})
 
 
-def replay_fingerprint(pack_id: str, records: list[dict] | Path, out: Path) -> dict:
+def replay_fingerprint(pack_id: str, records: list[dict] | Path, out: Path, *, library_dir: Path | None = None) -> dict:
     if isinstance(records, (Path, str)):
-        records = parse_fingerprint_records(Path(records).read_text(encoding="utf-8"), pack_id)
+        records = parse_fingerprint_records(Path(records).read_text(encoding="utf-8"), pack_id, library_dir=library_dir)
     else:
-        records = _validate_records(pack_id, records)
+        records = _validate_records(pack_id, records, library_dir)
     output = Path(out)
     output.mkdir(parents=True, exist_ok=False)
-    meta, data = _load_pack(pack_id)
+    meta, data = _load_pack(pack_id, library_dir)
     report = _evaluate(meta, data, records)
     (output / "fingerprint_records.jsonl").write_text("\n".join(json.dumps(r, ensure_ascii=False, allow_nan=False) for r in records) + "\n", encoding="utf-8")
     _write_report(output, report)
     return report
 
 
-def demo_fingerprint(pack_id: str, out: Path, variant: str = "match") -> dict:
+def demo_fingerprint(pack_id: str, out: Path, variant: str = "match", *, library_dir: Path | None = None) -> dict:
     if variant not in {"match", "different", "incomplete"}:
         raise ValueError("Unknown fingerprint demo variant")
-    meta, data = _load_pack(pack_id)
+    meta, data = _load_pack(pack_id, library_dir)
     output = Path(out)
     output.mkdir(parents=True, exist_ok=False)
     records: list[dict] = []
@@ -649,7 +637,7 @@ def demo_fingerprint(pack_id: str, out: Path, variant: str = "match") -> dict:
     _append(path, records, {"type": "finish", "run_id": manifest["run_id"],
                            "state": "partial" if variant == "incomplete" else "complete",
                            "reason": "人工构造的缺失样本情境。" if variant == "incomplete" else None})
-    _validate_records(pack_id, records)
+    _validate_records(pack_id, records, library_dir)
     report = _evaluate(meta, data, records)
     report["fingerprint"]["demo_variant"] = variant
     _write_report(output, report)

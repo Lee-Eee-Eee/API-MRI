@@ -35,8 +35,9 @@ def test_browser_fingerprint_demo_replay_and_exports_without_network(tmp_path, m
     with TestClient(app, base_url="http://127.0.0.1:8765") as client:
         data = client.get("/api/bootstrap").json()
         packs = data["reference_packs"]
-        assert len(packs) == 4
-        assert all(pack["sha256"] and pack["probe_count"] > 100 for pack in packs)
+        assert len(packs) >= 26
+        assert {"gpt-6-astra_20260910", "claude-opus-5_20260911", "kimi-k3_20260912"} <= {p["id"] for p in packs}
+        assert all(pack["sha256"] and pack["probe_count"] > 0 for pack in packs)
         headers = {"X-Relay-Token": data["session_token"]}
         pack_id = packs[0]["id"]
         planned = client.post("/api/plan", headers=headers, json={

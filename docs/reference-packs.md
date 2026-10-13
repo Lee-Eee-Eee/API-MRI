@@ -4,18 +4,51 @@
 
 ## 内置参考包
 
-本版收录 [KBF](https://github.com/Ooo0ption/KBF) 固定提交 `68aefbbab879469152aaac9fd988a86c30ee4739` 的 4 份原始 JSON，未改写其内容。以下字段核查于 **2026年10月13日**；日期来自文件时间戳，原文件没有注明时区。
+v0.4 收录 [KBF](https://github.com/Ooo0ption/KBF) 固定提交 `68aefbbab879469152aaac9fd988a86c30ee4739` 中 **26 份兼容参考包**，原始 JSON 保持不变。本次检查的九月目录共有 28 份候选，另 2 份自测汇总与逐题复算不一致，暂不收录。以下字段核查于 **2026年10月13日**；日期来自文件时间戳，原文件没有注明时区。
 
-| 参考包 ID / 模型 | 生成 / 自测日期 | 题数 | 文件记录的参考端点 | 文件记录的提供方 |
+新增覆盖包含 GPT-6 Astra、Claude Opus 5、Claude Fable 5.1、DeepSeek V4 Pro 0813、Kimi K3、MiniMax M3 等作者记录的版本。目录表示已有参考覆盖；模型发布日期与参考生成日期分别理解。精确型号和原始数据见下表。
+
+| 参考包 ID / 模型 | 生成 / 自测日期（2026年） | 题数 | 文件记录的参考端点 | 文件记录的提供方 |
 | --- | --- | ---: | --- | --- |
 | [`gpt-4.1-mini_20260915`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/gpt-4.1-mini_20260915.json) · GPT-4.1 mini | 09-15 / 09-15 | 265 | OpenRouter | OpenAI |
 | [`gpt-5.6-sol_20260912`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/gpt-5.6-sol_20260912.json) · GPT-5.6 sol | 09-12 / 09-12 | 426 | 未记录 | OpenAI |
 | [`claude-opus-4.6_20260912`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/claude-opus-4.6_20260912.json) · Claude Opus 4.6 | 09-12 / 09-12 | 445 | 未记录 | Amazon Bedrock |
 | [`qwen3.5-9b_20260913`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/qwen3.5-9b_20260913.json) · Qwen3.5 9B | 09-13 / 09-16 | 240 | 未记录 | Together |
+| [`claude-fable-5.1_20260911`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/claude-fable-5.1_20260911.json) · Claude Fable 5.1 | 09-11 / 09-11 | 453 | 未记录 | Anthropic |
+| [`claude-opus-5_20260911`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/claude-opus-5_20260911.json) · Claude Opus 5 | 09-11 / 09-19 | 414 | 未记录 | Claude Platform on AWS |
+| [`claude-sonnet-4.6_20260912`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/claude-sonnet-4.6_20260912.json) · Claude Sonnet 4.6 | 09-12 / 09-12 | 436 | 未记录 | Google |
+| [`deepseek-v3.2_20260912`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/deepseek-v3.2_20260912.json) · DeepSeek V3.2 | 09-12 / 09-12 | 380 | 未记录 | Google |
+| [`deepseek-v4-pro-0813_20260911`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/deepseek-v4-pro-0813_20260911.json) · DeepSeek V4 Pro 0813 | 09-11 / 09-11 | 557 | 未记录 | Novita |
+| [`gemini-2.5-flash-lite_20260918`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/gemini-2.5-flash-lite_20260918.json) · Gemini 2.5 Flash Lite | 09-18 / 09-18 | 319 | OpenRouter | Google |
+| [`gemini-3-flash-preview_20260912`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/gemini-3-flash-preview_20260912.json) · Gemini 3 Flash Preview | 09-12 / 09-12 | 409 | 未记录 | Google |
+| [`glm-4.7_20260913`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/glm-4.7_20260913.json) · GLM-4.7 | 09-13 / 09-13 | 430 | 未记录 | Z.AI |
+| [`glm-5_20260912`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/glm-5_20260912.json) · GLM-5 | 09-12 / 09-16 | 332 | 未记录 | Z.AI |
+| [`gpt-4.1-nano_20260918`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/gpt-4.1-nano_20260918.json) · GPT-4.1 nano | 09-18 / 09-18 | 248 | OpenRouter | OpenAI |
+| [`gpt-5.4-mini_20260916`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/gpt-5.4-mini_20260916.json) · GPT-5.4 mini | 09-16 / 09-16 | 194 | OpenRouter | OpenAI |
+| [`gpt-5.4_20260913`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/gpt-5.4_20260913.json) · GPT-5.4 | 09-13 / 09-19 | 531 | OpenRouter | OpenAI |
+| [`gpt-5.6-luna_20260915`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/gpt-5.6-luna_20260915.json) · GPT-5.6 Luna | 09-15 / 09-15 | 305 | OpenRouter | OpenAI |
+| [`gpt-6-astra_20260910`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/gpt-6-astra_20260910.json) · GPT-6 Astra | 09-10 / 09-11 | 538 | 未记录 | OpenAI |
+| [`hy4-preview_20260911`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/hy4-preview_20260911.json) · Hunyuan HY4 Preview | 09-11 / 09-11 | 538 | 未记录 | Tencent |
+| [`kimi-k2-0905_20260912`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/kimi-k2-0905_20260912.json) · Kimi K2 0905 | 09-12 / 09-13 | 363 | 未记录 | Novita |
+| [`kimi-k3_20260912`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/kimi-k3_20260912.json) · Kimi K3 | 09-12 / 09-12 | 424 | 未记录 | Moonshot AI |
+| [`llama-4-scout_20260918`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/llama-4-scout_20260918.json) · Llama 4 Scout | 09-18 / 09-18 | 231 | OpenRouter | Novita |
+| [`minimax-m3_20260911`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/minimax-m3_20260911.json) · MiniMax M3 | 09-11 / 09-16 | 311 | 未记录 | Minimax |
+| [`qwen3.5-27b_20260913`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/qwen3.5-27b_20260913.json) · Qwen3.5 27B | 09-13 / 09-16 | 149 | 未记录 | Alibaba |
+| [`qwen3.5-397b-a17b_20260912`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/qwen3.5-397b-a17b_20260912.json) · Qwen3.5 397B A17B | 09-12 / 09-16 | 254 | 未记录 | Alibaba |
+| [`seed-2-1-turbo_20260911`](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/seed-2-1-turbo_20260911.json) · Seed 2.1 Turbo | 09-11 / 09-11 | 400 | 未记录 | Seed |
 
-这些提供方来自作者保存的 `provider_map`；它与参考模型名称、API 端点是不同字段。GPT-4.1 mini 的 `reference_endpoint` 记录为 `https://openrouter.ai/api/v1/chat/completions`。另外 3 份没有该字段，不能只靠提供方名称补写成厂商直连。当前本组尚未独立认证这些采集来源。
+其中 7 份明确记录 OpenRouter 参考端点，19 份未记录完整端点。提供方来自作者保存的 `provider_map`，与模型名称、API 端点是不同字段；未记录端点时保持未知，不能只靠提供方名称补写成厂商直连。本组尚未独立认证这些采集来源。
 
-本地 [catalog.json](../src/relay_audit/data/reference_packs/catalog.json) 保存每包的完整模型名、日期、原始链接和 SHA-256。运行时检查文件哈希，报告和原始响应记录携带参考包身份；哈希确认文件版本一致，不认证作者的来源声明。
+本地 [catalog.json](../src/relay_audit/data/reference_packs/catalog.json) 保存每包的完整模型名、日期、原始链接、提交和 SHA-256。运行时检查文件哈希，报告和原始响应记录携带参考包身份；哈希确认文件版本一致，不认证作者的来源声明。
+
+### 两份未收录的候选
+
+| 作者文件 | 原文件自测不匹配数 | 本地逐题复算 | 处理 |
+| --- | ---: | ---: | --- |
+| [deepseek-v4.1-flash_20260911.json](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/deepseek-v4.1-flash_20260911.json) | 29 | 28 | 保留来源与原因，等待上游修正或进一步核查 |
+| [glm-5.3_20260911.json](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/glm-5.3_20260911.json) | 27 | 26 | 保留来源与原因，等待上游修正或进一步核查 |
+
+这两份分别为 DeepSeek V4.1 Flash 和 GLM-5.3。自测字段不一致影响基线复算，因此不进入可用列表；这项检查不判定作者的模型来源。完整检查摘要见 [update-audit.json](../src/relay_audit/data/reference_packs/update-audit.json)。
 
 ## 它具体比较什么
 
@@ -43,10 +76,22 @@ KBF 的判据先根据参考自测的不匹配数计算保守基线，再对待�
 
 ## 参考库如何更新
 
-本版使用固定包，不在启动时自动下载或执行远程代码。新增参考包需要核查原始许可与出处、模型版本、采集渠道、生成设置、自测覆盖及文件哈希，并通过本地格式与复算测试。现有包的变化应使用新版本，保留旧文件对应的历史报告。
+v0.4 提供“抓取参考库更新”按钮和 `relay-audit references-update` 命令。更新从固定的 KBF 作者仓库获取公开数据：先将主分支冻结为一个 Git 提交，再扫描 `probes/reference_YYYYMM/` 按月目录中的 JSON。来源提交、原始路径、访问时间和 SHA-256 随每份数据保存；同名文件内容发生变化时，使用带哈希后缀的新 ID，旧版本继续保留。
+
+数据进入可用列表前，需要通过以下检查：
+
+- 文件大小、结构和必需字段符合本地要求，数值与日期可解析。
+- 题组、固定提示、领域定义和自测记录能与当前 KBF 实现对应，逐题自测及汇总可以复算。
+- 下载内容与冻结提交的 Git 文件哈希一致，许可文本与随工具保留的 Apache-2.0 原文一致。
+
+不兼容的数据会跳过并说明原因。更新详情区分新增、已有、跳过和失败；没有新包时保持现有列表，网络失败或限流时也可继续使用旧参考。抓取设置限定来源、文件类型、下载量及等待时间，只获取 JSON 与许可材料，不下载或执行远程代码，也不自动调用任何模型。
+
+新模型需要有人先采集参考并记录配置与自测。这个按钮可以取得已有的数据，不能按一个名称自动产生可靠基线。若上游评分实现变化，本机代码仍保持发布版本，需要另行核查和适配。操作和缓存位置见[使用指南](user-guide.md#抓取参考库更新)。
 
 后续值得验证的是参考随时间和配置变化的稳定性，以及面对参考库未收录模型时的表现。当前尚未完成真实模型的误报和检出能力校准；相关实验需另行确定账户、预算和设计。
 
 ## 许可
 
-上述 KBF 代码与数据按其仓库的 Apache-2.0 许可保留，原许可见 [LICENSE](../src/relay_audit/vendor/kbf/LICENSE)，本组适配代码仍采用 MIT。重新分发时保留相应许可和来源说明。其他候选方法如 LLMmap、MET 历史响应集和 IRIS 尚未作为单 API 参考库打包进本项目，不混用其数据许可。
+上述内置 KBF 代码与数据按固定提交的 Apache-2.0 许可保留，原许可见 [LICENSE](../src/relay_audit/vendor/kbf/LICENSE)，本组适配代码仍采用 MIT。重新分发时保留相应许可和来源说明。其他候选方法如 LLMmap、MET 历史响应集和 IRIS 尚未作为单 API 参考库打包进本项目，不混用其数据许可。
+
+更新时，文件 Git blob 哈希未变的已安装参考不重复下载。发行版已核查并排除的两个文件也按原始哈希复用排除记录；上游内容变化后重新下载和检查，不把旧排除结果沿用到新内容。

@@ -9,6 +9,12 @@
     probes: [],
     scenarios: [],
     referencePacks: [],
+    referenceLibrary: null,
+    referenceUpdate: null,
+    referenceUpdateTimer: null,
+    referenceUpdateRequest: false,
+    referenceUpdatePollFailed: false,
+    referenceUpdateCancelling: false,
     mode: "fingerprint",
     fingerprintPlan: null,
     planRevision: 0,
@@ -205,22 +211,324 @@
     list.append(element("dt", "", label), element("dd", "", textValue(value)));
   }
 
-  function renderReferencePacks() {
-    const select = $("reference-pack");
+  const modelOrder = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
+  const referenceFamilies = ["GPT", "Claude", "DeepSeek", "GLM", "Kimi", "Gemini", "Qwen", "Llama", "其他模型"];
+
+  function referenceFamily(pack) {
+    const name = `${pack.label || ""} ${pack.model || ""}`.toLowerCase();
+    return referenceFamilies.find((family) => family !== "其他模型" && name.includes(family.toLowerCase())) || "其他模型";
+  }
+
+  function referenceSelectionSignature(pack) {
+    return pack ? JSON.stringify(pack) : "";
+  }
+
+  function sortedReferencePacks() {
+    return [...state.referencePacks].sort((left, right) => {
+      const family = referenceFamilies.indexOf(referenceFamily(left)) - referenceFamilies.indexOf(referenceFamily(right));
+      if (family) return family;
+      const name = modelOrder.compare(right.label || right.model || "", left.label || left.model || "");
+      return name || String(right.generated_at || "").localeCompare(String(left.generated_at || ""));
+    });
+  }
+
+  function renderReferenceProviders() {
+    const select = $("reference-provider");
     const previous = select.value;
     clear(select);
-    state.referencePacks.forEach((pack) => {
-      const option = element("option", "", `${pack.label || pack.model} · ${number(pack.probe_count)} 题`);
-      option.value = pack.id;
+    const all = element("option", "", "全部提供方");
+    all.value = "";
+    select.append(all);
+    [...new Set(state.referencePacks.map((pack) => pack.provider || "未记录"))].sort(modelOrder.compare).forEach((provider) => {
+      const option = element("option", "", provider);
+      option.value = provider;
       select.append(option);
     });
-    if (state.referencePacks.some((pack) => pack.id === previous)) select.value = previous;
-    if (!state.referencePacks.length) {
-      select.append(element("option", "", "暂无可用参考包"));
-      $("reference-card").replaceChildren(element("p", "subtle", "当前安装未包含参考数据，请检查安装或使用研究工具中的双端点检测。"));
-      return;
+    if ([...select.options].some((option) => option.value === previous)) select.value = previous;
+  }
+
+  function renderReferencePacks(suggestModel = false) {
+    const select = $("reference-pack");
+    const previous = select.value;
+    const query = $("reference-search").value.trim().toLocaleLowerCase();
+    const provider = $("reference-provider").value;
+    const visible = sortedReferencePacks().filter((pack) =>
+      (!provider || (pack.provider || "未记录") === provider) &&
+      (!query || `${pack.label || ""} ${pack.model || ""} ${pack.provider || ""} ${pack.id || ""}`.toLocaleLowerCase().includes(query)));
+    clear(select);
+    let group = null;
+    let family = null;
+    visible.forEach((pack) => {
+      if (referenceFamily(pack) !== family) {
+        family = referenceFamily(pack);
+        group = element("optgroup");
+        group.label = family;
+        select.append(group);
+      }
+      const option = element("option", "", `${pack.label || pack.model} · ${number(pack.probe_count)} 题`);
+      option.value = pack.id;
+      group.append(option);
+    });
+    if (visible.some((pack) => pack.id === previous)) select.value = previous;
+    if (!visible.length) {
+      const option = element("option", "", state.referencePacks.length ? "没有匹配的参考指纹" : "暂无可用参考指纹");
+      option.value = "";
+      select.append(option);
+      $("reference-card").replaceChildren(element("p", "subtle", state.referencePacks.length ? "试试其他模型关键词，或清除提供方筛选。参考需与待测服务宣称的版本对应。" : "可以抓取公开参考库更新，或使用双端点检测建立对照。"));
+    } else {
+      renderReferenceCard(suggestModel || previous !== select.value);
     }
-    renderReferenceCard(true);
+    $("reference-match-note").textContent = `${number(visible.length)} / ${number(state.referencePacks.length)} 份参考 · 模型家族分组，较新数字版本优先。选择与服务宣称一致的版本。`;
+    if (previous !== select.value) invalidateFingerprintPlan();
+    else updateButtons();
+  }
+
+  function updateReason(reason) {
+    const raw = textValue(reason, "未记录原因");
+    const mismatch = /^self_test_(hamming|total|correct)_mismatch:recorded=([^,]+),recomputed=(.+)$/.exec(raw);
+    if (mismatch) {
+      const label = { hamming: "自测不匹配数", total: "自测有效题数", correct: "自测匹配数" }[mismatch[1]];
+      return `${label}无法复现：原记录 ${mismatch[2]}，重新计算 ${mismatch[3]}`;
+    }
+    if (raw.startsWith("github_rate_limit")) return "GitHub 请求额度已用完，请稍后重试";
+    const http = /^upstream_http_(\d{3})$/.exec(raw);
+    if (http) return `上游返回 HTTP ${http[1]}，未取得参考文件`;
+    const messages = {
+      invalid_json: "文件无法解析为 JSON",
+      invalid_pack_object: "参考文件的顶层格式不正确",
+      invalid_reference_model: "参考模型名称缺失或格式不正确",
+      invalid_generated_at: "参考采集日期缺失或格式不正确",
+      invalid_calibrated_at: "参考自测日期缺失或格式不正确",
+      unsupported_prompt_numbering: "题目编号格式与当前检测方法不兼容",
+      unsupported_reference_protocol: "参考使用的接口协议暂不支持",
+      invalid_reference_endpoint: "参考接口地址格式不正确",
+      invalid_probe_count: "参考题目数量为空或超出支持范围",
+      probe_counter_mismatch: "记录的题数与实际题目数量不一致",
+      invalid_probe: "题目记录格式不正确",
+      invalid_probe_name: "题目名称缺失或格式不正确",
+      unsupported_domain: "参考包含当前检测方法尚不支持的题目领域",
+      invalid_reference_value: "参考答案缺失或不是有效数值",
+      invalid_probe_number: "题目中的数值格式不正确",
+      missing_reference_self_test: "缺少该参考模型的完整自测记录",
+      unsupported_self_test_settings: "自测提示或参数与当前检测方法不一致",
+      invalid_self_test_values: "自测答案格式不完整，无法重新计算",
+      insufficient_reference_self_coverage: "自测中可用答案不足，暂不安装",
+      self_test_match_vector_mismatch: "逐题匹配记录无法由原始自测答案复现",
+      invalid_provider_map: "提供方记录格式不正确",
+      invalid_provider: "提供方名称格式不正确",
+      git_blob_hash_mismatch: "下载文件的校验值与上游目录记录不一致",
+      tree_size_mismatch: "下载文件大小与上游目录记录不一致",
+      immutable_reference_path_conflict: "同一参考版本的文件内容发生变化，已保留原记录",
+      upstream_license_missing: "上游未提供所需的许可文件",
+      upstream_license_changed: "上游许可文件已变化，需要人工核对后再更新",
+      cached_license_changed: "本机缓存的许可文件校验失败",
+      upstream_timeout: "连接上游超时，请稍后重试",
+      upstream_network_error: "未能连接上游，请检查网络后重试",
+      upstream_redirect_rejected: "上游要求跳转到其他地址，已停止获取",
+      update_time_limit: "本次更新已达到时间上限，可再次抓取继续检查",
+      cancelled: "更新已取消",
+      reference_update_already_running: "另一项参考库更新正在运行",
+      no_compatible_reference_directory: "公开目录中尚未找到兼容的参考数据",
+      invalid_or_truncated_upstream_tree: "上游目录记录不完整，无法核对参考文件",
+      invalid_resolved_commit: "未能取得有效的上游版本编号",
+      invalid_commit: "参考版本编号格式不正确",
+      unsupported_source_path: "文件不在受支持的公开参考目录中",
+      untrusted_upstream_url: "获取地址不属于已配置的公开数据来源",
+      unsupported_tree_entry_or_size: "文件类型或大小超出当前支持范围",
+      pack_count_limit: "本次检查已达到参考数量上限",
+      pack_size_limit: "参考文件为空或超过大小上限",
+      response_size_limit: "上游返回内容超过大小上限",
+      catalog_size_or_path_limit: "缓存目录文件的路径或大小未通过检查",
+      invalid_catalog: "缓存目录无法读取或格式不正确",
+      invalid_catalog_entry: "缓存目录中的参考条目格式不正确",
+      cached_catalog_shadows_installed_reference: "缓存条目与已安装的同名参考冲突，已使用安装版本",
+      cached_file_unreadable: "缓存文件无法读取，已跳过",
+      unsafe_filename: "参考文件名未通过检查",
+      unsafe_library_directory: "本机参考缓存目录未通过路径检查",
+      unsafe_update_lock: "更新锁文件未通过检查",
+      library_write_error: "参考文件未能保存到本机",
+      library_read_or_write_error: "本机参考目录读取或保存失败",
+      update_summary_write_error: "更新摘要未能保存到本机",
+      excessive_structure: "参考数据结构过于复杂，超出处理上限",
+      excessive_string: "参考字段长度超出处理上限",
+      non_finite_number: "参考包含无效数值",
+      invalid_object_key: "参考包含格式不正确的字段名",
+      "Reference pack path or size check failed": "缓存参考的路径或大小未通过检查",
+      "Reference pack integrity check failed": "缓存参考文件的完整性校验失败",
+      "Reference pack catalog does not match its contents": "缓存目录记录与参考文件内容不一致",
+      "Unknown reference pack; select an installed reference pack": "该参考尚未安装，请选择本机已有参考",
+    };
+    return messages[raw] || raw;
+  }
+
+  function appendUpdateReason(item, reason) {
+    const raw = textValue(reason, "未记录原因");
+    const readable = updateReason(reason);
+    item.append(element("span", "", readable));
+    if (readable !== raw) {
+      const detail = element("details");
+      detail.append(element("summary", "", "技术码"), element("code", "", raw));
+      item.append(detail);
+    }
+  }
+
+  function applyReferenceLibrary(library) {
+    if (!library || !Array.isArray(library.reference_packs)) return;
+    const previous = selectedPack();
+    const previousSignature = referenceSelectionSignature(previous);
+    state.referenceLibrary = library;
+    state.referencePacks = library.reference_packs;
+    const warnings = Array.isArray(library.warnings) ? library.warnings : [];
+    $("reference-cache-warning").hidden = !warnings.length;
+    $("reference-cache-warning-message").textContent = warnings.length ? `${number(warnings.length)} 个缓存文件未能读取，已跳过。其余参考仍可使用，可重新抓取更新。` : "";
+    const warningList = $("reference-cache-warning-list");
+    clear(warningList);
+    warnings.forEach((warning) => {
+      const item = element("li");
+      item.append(element("strong", "", warning.filename || "缓存文件"));
+      appendUpdateReason(item, warning.reason || "文件未通过检查");
+      warningList.append(item);
+    });
+    renderReferenceProviders();
+    renderReferencePacks(!previous);
+    if (previousSignature !== referenceSelectionSignature(selectedPack())) invalidateFingerprintPlan();
+    if (library.last_update) renderReferenceUpdate(library.last_update);
+  }
+
+  function referenceUpdateRunning() {
+    return Boolean(state.referenceUpdate && ["queued", "running"].includes(state.referenceUpdate.status));
+  }
+
+  function referenceUpdateRows(title, rows, success = false) {
+    if (!Array.isArray(rows) || !rows.length) return null;
+    const section = element("section", "reference-update-list");
+    section.append(element("h5", "", `${title} · ${number(rows.length)}`));
+    const list = element("ul");
+    rows.forEach((row) => {
+      if (typeof row === "string") return list.append(element("li", "", row));
+      const item = element("li");
+      item.append(element("strong", "", row.label || row.model || row.filename || row.id || "参考文件"));
+      if (row.reason) appendUpdateReason(item, row.reason);
+      else if (success && row.generated_at) item.append(element("span", "", `采集 ${String(row.generated_at).slice(0, 10)}`));
+      list.append(item);
+    });
+    section.append(list);
+    return section;
+  }
+
+  function renderReferenceUpdate(job) {
+    if (!job) return;
+    // A persisted last_update may be the result itself rather than a job wrapper.
+    const result = job.result || (Array.isArray(job.added) || Array.isArray(job.catalog) ? job : null);
+    const active = ["queued", "running"].includes(job.status);
+    const progress = job.progress || {};
+    const completed = numeric(progress.completed) ?? numeric(progress.checked) ?? 0;
+    const total = numeric(progress.total) ?? 0;
+    const ratio = total > 0 ? Math.min(100, Math.max(0, completed / total * 100)) : 0;
+    const message = $("reference-update-message");
+    if (active) message.textContent = progress.message || (job.status === "queued" ? "更新任务已排队，准备读取公开目录…" : `正在检查参考文件${total ? ` · ${number(completed)} / ${number(total)}` : "…"}`);
+    else if (result) {
+      const added = Array.isArray(result.added) ? result.added.length : 0;
+      const existing = Array.isArray(result.existing) ? result.existing.length : 0;
+      const failed = Array.isArray(result.failed) ? result.failed.length : 0;
+      const skipped = Array.isArray(result.skipped) ? result.skipped.length : 0;
+      const prefix = job.status === "cancelled" || result.status === "cancelled" ? "更新已取消" : job.status === "failed" || result.status === "failed" ? "更新未完成" : "参考库检查完成";
+      message.textContent = `${prefix} · 新增 ${number(added)}，已有 ${number(existing)}${skipped ? `，跳过 ${number(skipped)}` : ""}${failed ? `，失败 ${number(failed)}` : ""}`;
+    } else if (job.status === "failed") message.textContent = "更新未完成，可重新抓取。";
+    else if (job.status === "cancelled") message.textContent = "更新已取消，已保存的参考仍可使用。";
+    const checkedAt = (result && result.checked_at) || job.checked_at || job.finished_at || job.completed_at;
+    if (checkedAt) $("reference-update-time").textContent = `最近检查 ${dateLabel(checkedAt)}`;
+    const bar = $("reference-update-progress");
+    bar.hidden = !active;
+    bar.classList.toggle("indeterminate", active && total <= 0);
+    bar.setAttribute("aria-valuenow", String(Math.round(ratio)));
+    if (total > 0) bar.setAttribute("aria-valuetext", `${completed} / ${total} 个文件`);
+    else bar.removeAttribute("aria-valuetext");
+    bar.firstElementChild.style.width = `${ratio}%`;
+    const error = job.error || (result && result.error);
+    showError(error ? updateReason(error) : "", "reference-update-error");
+    const details = $("reference-update-details");
+    details.hidden = !result;
+    if (result) {
+      const container = $("reference-update-detail-content");
+      clear(container);
+      const info = element("dl", "reference-dl");
+      addDefinition(info, "上游版本", result.upstream_commit || "未取得");
+      addDefinition(info, "检查时间", result.checked_at || checkedAt || "未记录");
+      container.append(info);
+      [["已新增", result.added, true], ["已存在", result.existing, true], ["已跳过", result.skipped], ["获取失败", result.failed]].forEach(([title, rows, success]) => {
+        const section = referenceUpdateRows(title, rows, success);
+        if (section) container.append(section);
+      });
+      $("reference-update-summary").textContent = `查看更新详情${Array.isArray(result.catalog) ? ` · 本机 ${number(result.catalog.length)} 份参考` : ""}`;
+    }
+    updateButtons();
+  }
+
+  function scheduleReferenceUpdatePoll(delay = 900) {
+    window.clearTimeout(state.referenceUpdateTimer);
+    state.referenceUpdateTimer = window.setTimeout(pollReferenceUpdate, delay);
+  }
+
+  async function refreshReferenceLibrary() {
+    const library = await api("/api/reference-library");
+    applyReferenceLibrary(library);
+    return library;
+  }
+
+  async function pollReferenceUpdate() {
+    try {
+      const job = await api("/api/reference-library/update");
+      state.referenceUpdatePollFailed = false;
+      state.referenceUpdate = job;
+      renderReferenceUpdate(job);
+      if (referenceUpdateRunning()) scheduleReferenceUpdatePoll();
+      else {
+        state.referenceUpdateCancelling = false;
+        await refreshReferenceLibrary();
+        renderReferenceUpdate(job);
+        updateButtons();
+      }
+    } catch (error) {
+      state.referenceUpdatePollFailed = true;
+      const nextStep = referenceUpdateRunning() ? "点击“重新连接更新任务”可继续查看进度。" : "未能读取更新后的参考列表，可再次抓取更新。";
+      showError(`${error.message} ${nextStep}`, "reference-update-error");
+      updateButtons();
+    }
+  }
+
+  async function startReferenceUpdate() {
+    if (state.referenceUpdateRequest || !state.token) return;
+    if (referenceUpdateRunning() && state.referenceUpdatePollFailed) return pollReferenceUpdate();
+    if (referenceUpdateRunning() || hasRunningTask() || state.planning || state.submitting) return;
+    state.referenceUpdateRequest = true;
+    state.referenceUpdatePollFailed = false;
+    showError("", "reference-update-error");
+    $("reference-update-message").textContent = "正在启动参考库更新…";
+    updateButtons();
+    try {
+      const job = await api("/api/reference-library/update", { method: "POST", body: "{}" });
+      state.referenceUpdate = job;
+      renderReferenceUpdate(job);
+      scheduleReferenceUpdatePoll(250);
+    } catch (error) { showError(error.message, "reference-update-error"); }
+    finally { state.referenceUpdateRequest = false; updateButtons(); }
+  }
+
+  async function cancelReferenceUpdate() {
+    if (!referenceUpdateRunning() || state.referenceUpdateCancelling) return;
+    state.referenceUpdateCancelling = true;
+    updateButtons();
+    try {
+      const job = await api("/api/reference-library/update/cancel", { method: "POST", body: "{}" });
+      if (job && job.status) { state.referenceUpdate = job; renderReferenceUpdate(job); }
+      if (referenceUpdateRunning()) $("reference-update-message").textContent = "已请求取消，正在结束当前文件检查…";
+      scheduleReferenceUpdatePoll(250);
+    } catch (error) {
+      state.referenceUpdateCancelling = false;
+      showError(error.message, "reference-update-error");
+      updateButtons();
+    }
   }
 
   function renderReferenceCard(suggestModel = false) {
@@ -264,7 +572,7 @@
   }
 
   async function prepareFingerprintPlan() {
-    if (state.planning || state.submitting || hasRunningTask() || !$("panel-fingerprint").reportValidity()) return;
+    if (state.planning || state.submitting || hasRunningTask() || referenceUpdateRunning() || state.referenceUpdateRequest || !$("panel-fingerprint").reportValidity()) return;
     const revision = state.planRevision;
     state.planning = true;
     $("prepare-fingerprint").textContent = "核对中…";
@@ -579,7 +887,8 @@
   }
 
   function updateButtons() {
-    const busy = !state.token || state.submitting || hasRunningTask();
+    const libraryBusy = referenceUpdateRunning() || state.referenceUpdateRequest;
+    const busy = !state.token || state.submitting || hasRunningTask() || libraryBusy;
     $("start-demo").disabled = busy;
     $("start-lab").disabled = busy || !state.scenarios.length;
     $("start-offline").disabled = busy;
@@ -591,6 +900,14 @@
     $("start-fingerprint-demo").disabled = busy || missingPack;
     $("start-fingerprint-offline").disabled = busy || missingPack;
     $("reference-pack").disabled = busy || !state.referencePacks.length;
+    $("reference-search").disabled = !state.token || hasRunningTask() || state.planning;
+    $("reference-provider").disabled = !state.token || hasRunningTask() || state.planning;
+    const reconnect = referenceUpdateRunning() && state.referenceUpdatePollFailed;
+    $("update-reference-library").disabled = !state.token || state.referenceUpdateRequest || state.submitting || state.planning || hasRunningTask() || (referenceUpdateRunning() && !reconnect);
+    $("update-reference-library").textContent = reconnect ? "重新连接更新任务" : libraryBusy ? "正在抓取参考库…" : "↻ 抓取参考库更新";
+    $("cancel-reference-update").hidden = !referenceUpdateRunning();
+    $("cancel-reference-update").disabled = state.referenceUpdateCancelling;
+    $("cancel-reference-update").textContent = state.referenceUpdateCancelling ? "正在取消…" : "取消更新";
   }
 
   function renderProbes() {
@@ -764,6 +1081,7 @@
   }
 
   async function submitRun(payload, checkPlan = false) {
+    if (referenceUpdateRunning() || state.referenceUpdateRequest) return showError("参考库正在更新。完成后核对所选版本，再开始检测。");
     state.submitting = true;
     updateButtons();
     showError("");
@@ -1187,9 +1505,15 @@
       $("app-version").textContent = bootstrap.version ? `v${bootstrap.version}` : "";
       renderProbes();
       renderScenarios();
-      renderReferencePacks();
+      renderReferenceProviders();
+      renderReferencePacks(true);
       showError("", "connection-error");
       await loadHistory(true);
+      try {
+        const library = await refreshReferenceLibrary();
+        state.referenceUpdate = library.last_update || null;
+        if (referenceUpdateRunning()) scheduleReferenceUpdatePoll(300);
+      } catch (error) { showError(error.message, "reference-update-error"); }
     } catch (error) {
       const alert = $("connection-error");
       clear(alert);
@@ -1321,6 +1645,15 @@
   $("reference-pack").addEventListener("change", () => {
     renderReferenceCard(true);
     invalidateFingerprintPlan();
+  });
+  $("reference-search").addEventListener("input", () => renderReferencePacks());
+  $("reference-provider").addEventListener("change", () => renderReferencePacks());
+  $("update-reference-library").addEventListener("click", startReferenceUpdate);
+  $("cancel-reference-update").addEventListener("click", cancelReferenceUpdate);
+  $("open-pair-comparison").addEventListener("click", () => {
+    setMode("live");
+    $("panel-live").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("reference-base").focus({ preventScroll: true });
   });
   ["fingerprint-base", "fingerprint-model", "fingerprint-key", "fingerprint-timeout"].forEach((id) => {
     $(id).addEventListener("input", invalidateFingerprintPlan);

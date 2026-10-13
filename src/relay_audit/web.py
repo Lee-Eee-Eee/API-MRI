@@ -61,7 +61,7 @@ def _analysis_settings(payload: dict) -> AnalysisSettings:
         raise ValueError("请检查重复次数、置换次数和样本门槛；数字须在界面给定范围内。") from None
 
 
-def validate_job(payload: Any) -> dict:
+def validate_job(payload: Any, *, library_dir: Path | None = None) -> dict:
     if not isinstance(payload, dict):
         raise ValueError("请求应为JSON对象。")
     mode = payload.get("mode")
@@ -71,12 +71,12 @@ def validate_job(payload: Any) -> dict:
         from .fingerprint import list_reference_packs, plan_fingerprint
 
         pack_id = payload.get("reference_pack")
-        if pack_id not in {pack["id"] for pack in list_reference_packs()}:
+        if pack_id not in {pack["id"] for pack in list_reference_packs(library_dir)}:
             raise ValueError("请选择库中已有的参考包；暂不支持的版本需要另建参考。")
         clean["reference_pack"] = pack_id
         if mode == "fingerprint":
             clean.update({key: payload[key] for key in ("candidate", "timeout") if key in payload})
-            plan_fingerprint({key: clean[key] for key in ("reference_pack", "candidate", "timeout") if key in clean})
+            plan_fingerprint({key: clean[key] for key in ("reference_pack", "candidate", "timeout") if key in clean}, library_dir=library_dir)
             clean["study"] = validate_study(payload.get("study"))
         elif mode == "fingerprint_demo":
             variant = payload.get("variant", "different")
@@ -88,7 +88,7 @@ def validate_job(payload: Any) -> dict:
             if not isinstance(value, str) or not value.strip() or len(value.encode("utf-8")) > 4 * 1024 * 1024:
                 raise ValueError("请选择不超过4 MB的指纹证据JSONL。")
             from .fingerprint import parse_fingerprint_records
-            clean["fingerprint_records"] = parse_fingerprint_records(value, pack_id)
+            clean["fingerprint_records"] = parse_fingerprint_records(value, pack_id, library_dir=library_dir)
             clean["study"] = validate_study(payload.get("study"))
         return clean
     if mode == "demo":
@@ -123,8 +123,9 @@ def validate_job(payload: Any) -> dict:
 class JobManager:
     """One worker at a time avoids interleaved experiments and Inspect globals."""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, *, library_dir: Path | None = None):
         self.root = root.resolve()
+        self.library_dir = library_dir
         self.root.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
         self.jobs: dict[str, dict] = {}
@@ -231,15 +232,15 @@ class JobManager:
                 if payload["mode"] == "fingerprint":
                     data = {key: payload[key] for key in ("reference_pack", "candidate", "timeout") if key in payload}
                     study = redact_study(payload.get("study", {}), data)
-                    result = run_fingerprint(data, out, progress=progress, cancelled=event.is_set)
+                    result = run_fingerprint(data, out, progress=progress, cancelled=event.is_set, library_dir=self.library_dir)
                 elif payload["mode"] == "fingerprint_demo":
                     progress({"completed": 0, "total": 1, "phase": "analyzing", "message": "生成本地指纹示例并计算"})
                     study = {}
-                    result = demo_fingerprint(payload["reference_pack"], out, variant=payload["variant"])
+                    result = demo_fingerprint(payload["reference_pack"], out, variant=payload["variant"], library_dir=self.library_dir)
                 else:
                     progress({"completed": 0, "total": 1, "phase": "analyzing", "message": "从原始记录重新解析指纹"})
                     study = payload.get("study", {})
-                    result = replay_fingerprint(payload["reference_pack"], payload["fingerprint_records"], out)
+                    result = replay_fingerprint(payload["reference_pack"], payload["fingerprint_records"], out, library_dir=self.library_dir)
                 reports.append({"name": "fingerprint", "report": attach_study(result, study, out)})
             elif payload["mode"] == "live":
                 from .workflows import run_pair
@@ -347,17 +348,91 @@ class JobManager:
         return output
 
 
-def create_app(runs_dir: Path | str = "runs/ui") -> FastAPI:
-    manager = JobManager(Path(runs_dir))
+class ReferenceUpdateManager:
+    """One explicit data-only update, persisted separately from model evidence."""
+
+    def __init__(self, root: Path):
+        self.root = root.resolve()
+        self.path = self.root / "update-job.json"
+        self.lock = threading.RLock()
+        self.event = threading.Event()
+        self.thread: threading.Thread | None = None
+        self.job: dict = {"id": None, "status": "idle", "progress": {}, "result": None}
+        try:
+            if self.path.is_file() and self.path.stat().st_size <= 2 * 1024 * 1024:
+                previous = json.loads(self.path.read_text(encoding="utf-8"))
+                if isinstance(previous, dict) and previous.get("status") in {"queued", "running", "completed", "cancelled", "failed"}:
+                    if previous["status"] in {"queued", "running"}:
+                        previous.update(status="cancelled", error="上次更新因服务退出中断，已安装的包保留。")
+                    self.job = previous
+        except (OSError, ValueError, TypeError):
+            pass
+
+    def snapshot(self) -> dict:
+        with self.lock:
+            return copy.deepcopy(self.job)
+
+    def _save(self) -> None:
+        self.root.mkdir(parents=True, exist_ok=True)
+        temp = self.path.with_suffix(".tmp")
+        temp.write_text(json.dumps(self.job, ensure_ascii=False, allow_nan=False) + "\n", encoding="utf-8")
+        temp.replace(self.path)
+
+    def _update(self, **changes) -> None:
+        with self.lock:
+            self.job.update(changes)
+            self._save()
+
+    def start(self) -> dict:
+        with self.lock:
+            if self.thread is not None and self.thread.is_alive():
+                raise RuntimeError("Reference update already running")
+            self.event.clear()
+            self.job = {"id": secrets.token_hex(12), "status": "queued", "created_at": datetime.now(timezone.utc).isoformat(),
+                        "progress": {"phase": "queued", "completed": 0, "total": 0, "message": "准备读取 KBF 公开参考目录"}, "result": None}
+            self._save()
+            self.thread = threading.Thread(target=self._run, daemon=True, name="relay-reference-update")
+            self.thread.start()
+            return self.snapshot()
+
+    def _run(self) -> None:
+        try:
+            from .reference_library import update_reference_library
+
+            self._update(status="running")
+            result = update_reference_library(self.root, progress=lambda value: self._update(progress=value), cancelled=self.event.is_set)
+            state = "cancelled" if self.event.is_set() or result.get("status") == "cancelled" else "failed" if result.get("status") in {"failed", "error", "busy"} else "completed"
+            self._update(status=state, result=result, finished_at=datetime.now(timezone.utc).isoformat())
+        except Exception as exc:
+            self._update(status="cancelled" if self.event.is_set() else "failed", error=f"参考更新未完成（{type(exc).__name__}）。请检查网络或稍后重试；已安装的包保留。",
+                         finished_at=datetime.now(timezone.utc).isoformat())
+
+    def cancel(self) -> dict:
+        with self.lock:
+            if self.job["status"] in {"queued", "running"}:
+                self.event.set()
+                self._update(progress={**self.job.get("progress", {}), "message": "正在停止更新，已安装参考保留。"})
+            return self.snapshot()
+
+    def close(self) -> None:
+        self.event.set()
+
+
+def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | None = None) -> FastAPI:
+    library_path = Path(library_dir) if library_dir is not None else Path(runs_dir).parent / "reference-library"
+    manager = JobManager(Path(runs_dir), library_dir=library_path)
+    updater = ReferenceUpdateManager(library_path)
     session_token = secrets.token_urlsafe(32)
 
     @asynccontextmanager
     async def lifespan(app):
         yield
         manager.close()
+        updater.close()
 
     app = FastAPI(title="relay-audit", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.manager = manager
+    app.state.reference_updater = updater
 
     @app.middleware("http")
     async def local_access(request: Request, call_next):
@@ -412,12 +487,44 @@ def create_app(runs_dir: Path | str = "runs/ui") -> FastAPI:
         from .fingerprint import list_reference_packs
 
         return {"version": __version__, "session_token": session_token, "probes": list_probes(),
-                "scenarios": list_scenarios(), "reference_packs": list_reference_packs(),
+                "scenarios": list_scenarios(), "reference_packs": list_reference_packs(library_path),
                 "capabilities": {"modes": ["fingerprint", "fingerprint_demo", "fingerprint_offline", "demo", "lab", "live", "offline"], "protocol": "Chat Completions", "local_only": True}}
 
     @app.get("/api/runs")
     def runs():
         return {"runs": manager.list()}
+
+    @app.get("/api/reference-library")
+    def reference_library():
+        from .fingerprint import list_reference_packs
+        from .reference_library import reference_library_warnings
+
+        state = updater.snapshot()
+        return {"reference_packs": list_reference_packs(library_path),
+                "source": {"repository": "Ooo0ption/KBF", "directory": "probes/reference_YYYYMM",
+                           "url": "https://github.com/Ooo0ption/KBF", "automatic_code_updates": False},
+                "last_update": state if state.get("id") else None, "warnings": reference_library_warnings(library_path)}
+
+    @app.get("/api/reference-library/update")
+    def reference_update():
+        return updater.snapshot()
+
+    @app.post("/api/reference-library/update", status_code=202)
+    def start_reference_update(payload: dict):
+        if payload:
+            raise HTTPException(422, "参考更新不需要模型配置、密钥或自定义网址。")
+        if manager.active is not None:
+            raise HTTPException(409, "请先等待当前检测结束，再更新参考库。")
+        try:
+            return updater.start()
+        except RuntimeError:
+            raise HTTPException(409, "参考库正在更新，请等待或先取消。") from None
+
+    @app.post("/api/reference-library/update/cancel")
+    def cancel_reference_update(payload: dict):
+        if payload:
+            raise HTTPException(422, "取消更新需要空 JSON 对象。")
+        return updater.cancel()
 
     @app.post("/api/plan")
     def plan(payload: dict):
@@ -426,8 +533,8 @@ def create_app(runs_dir: Path | str = "runs/ui") -> FastAPI:
         try:
             if payload.get("mode") == "fingerprint":
                 from .fingerprint import plan_fingerprint
-                cleaned = validate_job(payload)
-                return plan_fingerprint({key: cleaned[key] for key in ("reference_pack", "candidate", "timeout") if key in cleaned})
+                cleaned = validate_job(payload, library_dir=library_path)
+                return plan_fingerprint({key: cleaned[key] for key in ("reference_pack", "candidate", "timeout") if key in cleaned}, library_dir=library_path)
             cleaned = validate_job({**payload, "mode": "live"})
             return plan_pair({key: value for key, value in cleaned.items() if key not in {"mode", "study"}})
         except (ValueError, TypeError):
@@ -436,7 +543,7 @@ def create_app(runs_dir: Path | str = "runs/ui") -> FastAPI:
     @app.post("/api/runs", status_code=202)
     def start(payload: dict):
         try:
-            cleaned = validate_job(payload)
+            cleaned = validate_job(payload, library_dir=library_path)
         except (ValueError, TypeError) as exc:
             detail = str(exc) if payload.get("mode") == "offline" and not isinstance(exc, ValidationError) else "请检查参考包、服务地址、模型名和文件格式；指纹复算需使用同一参考包的原始JSONL。"
             raise HTTPException(422, detail) from None
@@ -477,10 +584,10 @@ def create_app(runs_dir: Path | str = "runs/ui") -> FastAPI:
     return app
 
 
-def serve(*, port: int = 8765, runs_dir: Path | str = "runs/ui") -> None:
+def serve(*, port: int = 8765, runs_dir: Path | str = "runs/ui", library_dir: Path | str | None = None) -> None:
     import uvicorn
 
     if not 1024 <= port <= 65535:
         raise ValueError("端口应在1024到65535之间。")
     print(f"relay-audit 工作台：http://127.0.0.1:{port}（Ctrl+C停止）", flush=True)
-    uvicorn.run(create_app(runs_dir), host="127.0.0.1", port=port, access_log=False, log_level="warning")
+    uvicorn.run(create_app(runs_dir, library_dir=library_dir), host="127.0.0.1", port=port, access_log=False, log_level="warning")

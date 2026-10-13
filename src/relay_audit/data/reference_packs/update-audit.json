@@ -1,0 +1,23 @@
+{
+  "checked_at": "2026-10-13",
+  "upstream_commit": "68aefbbab879469152aaac9fd988a86c30ee4739",
+  "source_directory": "probes/reference_202609",
+  "candidate_count": 28,
+  "accepted_count": 26,
+  "skipped": [
+    {
+      "filename": "deepseek-v4.1-flash_20260911.json",
+      "source_path": "probes/reference_202609/deepseek-v4.1-flash_20260911.json",
+      "git_blob_sha": "6cbd6e6167f9afbbb2b78fbf5146c1225f79913c",
+      "reason": "self_test_hamming_mismatch:recorded=29,recomputed=28"
+    },
+    {
+      "filename": "glm-5.3_20260911.json",
+      "source_path": "probes/reference_202609/glm-5.3_20260911.json",
+      "git_blob_sha": "d94dc96d4986491bd2ef2ee500b5298b09668b18",
+      "reason": "self_test_hamming_mismatch:recorded=27,recomputed=26"
+    }
+  ],
+  "source_verified": false,
+  "license": "Apache-2.0"
+}

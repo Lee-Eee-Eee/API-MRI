@@ -2,5 +2,8 @@ Unmodified KBF reference data from commit 68aefbbab879469152aaac9fd988a86c30ee47
 Copyright 2026 The KBF Authors. Licensed under Apache-2.0.
 See ../../vendor/kbf/LICENSE and catalog.json for source URLs and SHA-256 hashes.
 These are author-published reference fingerprints, not independently authenticated.
-The GPT-4.1 mini file records an OpenRouter reference endpoint; the other three
-files do not record a reference endpoint. Provider labels are author-recorded.
+This distribution includes 26 compatible files from probes/reference_202609.
+Two further files were excluded because their self-test counters cannot be
+reproduced by the pinned local implementation; see update-audit.json.
+Some files record an OpenRouter reference endpoint; others omit the endpoint.
+Provider labels are author-recorded. See each catalog entry for recorded fields.
