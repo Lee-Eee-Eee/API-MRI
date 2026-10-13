@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <meta name="description" content="选择公开参考指纹，只连接一个待测 API。检查模型行为、复核逐题证据，并保存可复现的研究记录。">
-  <title>Relay Audit · 模型一致性工作台</title>
+  <title>API-MRI · 模型响应检查工作台</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230f766e'/%3E%3Cpath d='M17 19h13v26H17zm20 0h10v17H37z' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/app.css">
   <script src="/app.js" defer></script>
@@ -14,9 +14,9 @@
   <a class="skip-link" href="#main">跳到主要内容</a>
   <div class="app-shell">
     <aside class="sidebar" aria-label="工作台导航">
-      <a class="brand" href="#main" aria-label="Relay Audit 首页">
+      <a class="brand" href="#main" aria-label="API-MRI 首页">
         <span class="brand-symbol" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span>Relay Audit<small>MODEL OBSERVATORY</small></span>
+        <span>API-MRI<small>MODEL RESPONSE INSPECTOR</small></span>
       </a>
       <div class="sidebar-label">WORKSPACE / 工作台</div>
       <nav class="side-nav">
@@ -27,15 +27,15 @@
       <div class="sidebar-note">
         <span class="eyebrow">观察 · 证据 · 解释</span>
         <p>从服务的模型承诺出发，留下可以重新检查的记录。</p>
-        <a class="sidebar-source" href="https://github.com/Lee-Eee-Eee/relay-audit" target="_blank" rel="noopener noreferrer">GitHub / 开源项目 ↗</a>
+        <a class="sidebar-source" href="https://github.com/Lee-Eee-Eee/API-MRI" target="_blank" rel="noopener noreferrer">GitHub / 开源项目 ↗</a>
       </div>
       <div class="sidebar-footer"><span class="status-dot"></span>本机工作台 <span id="app-version">…</span></div>
     </aside>
 
     <main id="main" tabindex="-1">
-      <header class="topbar"><span>研究工作台 <span class="topbar-separator">/</span> API 聚合与中转</span><a href="https://github.com/Lee-Eee-Eee/relay-audit/blob/main/docs/user-guide.md" target="_blank" rel="noopener noreferrer">使用指南 <span aria-hidden="true">↗</span></a></header>
+      <header class="topbar"><span>研究工作台 <span class="topbar-separator">/</span> API 聚合与中转</span><a href="https://github.com/Lee-Eee-Eee/API-MRI/blob/main/docs/user-guide.md" target="_blank" rel="noopener noreferrer">使用指南 <span aria-hidden="true">↗</span></a></header>
       <section class="hero" aria-labelledby="page-title">
-        <div><div class="eyebrow">RELAY AUDIT / 模型服务核验</div><h1 id="page-title">模型一致性工作台</h1><p>选一个参考指纹，连接你要检查的 API。<br>从整体差异，追到每一道题的原始回答。</p></div>
+        <div><div class="eyebrow">API-MRI / 模型服务核验</div><h1 id="page-title">模型响应检查工作台</h1><p>选一个参考指纹，连接你要检查的 API。<br>从整体差异，追到每一道题的原始回答。</p></div>
         <div class="hero-caption"><span class="hero-index">01—03</span><span>选择参考<br>采集回答<br>复核证据</span></div>
       </section>
 
@@ -76,7 +76,7 @@
 
         <form id="panel-fingerprint_offline" role="tabpanel" aria-labelledby="tab-fingerprint_offline" class="panel mode-panel" hidden>
           <div class="panel-heading"><span class="field-index">证据复算 / REPLAY</span><h3>从原始回答重新计算</h3><p>选择导出记录时使用的同一个参考包，再上传原始 JSONL。程序会重新解析回答并计算结果。</p></div>
-          <label class="upload-card" for="fingerprint-file"><span class="upload-icon" aria-hidden="true">↥</span><strong>原始指纹记录</strong><span>Relay Audit 导出的 .jsonl · 最大 4 MB</span><input id="fingerprint-file" type="file" accept=".jsonl,.ndjson,application/x-ndjson,application/json" required><small id="fingerprint-file-name">尚未选择文件</small></label>
+          <label class="upload-card" for="fingerprint-file"><span class="upload-icon" aria-hidden="true">↥</span><strong>原始指纹记录</strong><span>API-MRI 导出的 .jsonl · 最大 4 MB</span><input id="fingerprint-file" type="file" accept=".jsonl,.ndjson,application/x-ndjson,application/json" required><small id="fingerprint-file-name">尚未选择文件</small></label>
           <div class="action-row"><p class="subtle">在本机复算，不再调用模型 API。</p><button class="button primary" id="start-fingerprint-offline" type="submit" disabled>读取记录并复算 →</button></div>
         </form>
 
@@ -119,7 +119,7 @@
         </form>
 
         <form id="panel-offline" role="tabpanel" aria-labelledby="tab-offline" class="panel mode-panel" hidden>
-          <div class="panel-heading"><h3>用已有记录重新计算</h3><p>上传 Relay Audit 导出的两份 JSONL 记录，每份不超过 2 MB；每行保存一次请求的输入、响应与采样信息。</p></div>
+          <div class="panel-heading"><h3>用已有记录重新计算</h3><p>上传 API-MRI 导出的两份 JSONL 记录，每份不超过 2 MB；每行保存一次请求的输入、响应与采样信息。</p></div>
           <div class="upload-grid"><label class="upload-card" for="reference-file"><span class="upload-icon" aria-hidden="true">↥</span><strong>参考服务的记录</strong><span>选择 .jsonl 文件</span><input id="reference-file" type="file" accept=".jsonl,.ndjson,application/x-ndjson,application/json" required><small id="reference-file-name">尚未选择</small></label><label class="upload-card" for="candidate-file"><span class="upload-icon" aria-hidden="true">↥</span><strong>待测服务的记录</strong><span>选择 .jsonl 文件</span><input id="candidate-file" type="file" accept=".jsonl,.ndjson,application/x-ndjson,application/json" required><small id="candidate-file-name">尚未选择</small></label></div>
           <div id="offline-study-container"></div>
           <div class="action-row"><p class="subtle">文件发送到本机工作台处理，不调用模型 API。</p><button class="button primary" id="start-offline" type="submit" disabled>读取记录并复算</button></div>

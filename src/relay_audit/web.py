@@ -48,7 +48,7 @@ def parse_jsonl(text: Any, *, allow_empty: bool = False) -> list[AuditRecord]:
         try:
             records.append(AuditRecord.model_validate_json(line))
         except ValueError:
-            raise ValueError(f"第{number}行不是relay-audit证据记录，请导入采集生成的JSONL。") from None
+            raise ValueError(f"第{number}行不是API-MRI证据记录，请导入采集生成的JSONL。") from None
     if not records and not allow_empty:
         raise ValueError("文件中没有证据记录。")
     return records
@@ -430,7 +430,7 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
         manager.close()
         updater.close()
 
-    app = FastAPI(title="relay-audit", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
+    app = FastAPI(title="API-MRI", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.manager = manager
     app.state.reference_updater = updater
 
@@ -572,7 +572,7 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
             path = manager.file(identifier, report_name, format_name)
         except KeyError:
             raise HTTPException(404, "报告尚未生成或格式不存在。") from None
-        return FileResponse(path, filename=f"relay-audit-{identifier}-{report_name}.{format_name}")
+        return FileResponse(path, filename=f"api-mri-{identifier}-{report_name}.{format_name}")
 
     @app.get("/api/runs/{identifier}/records")
     def records(identifier: str, report: str = "comparison"):
@@ -589,5 +589,5 @@ def serve(*, port: int = 8765, runs_dir: Path | str = "runs/ui", library_dir: Pa
 
     if not 1024 <= port <= 65535:
         raise ValueError("端口应在1024到65535之间。")
-    print(f"relay-audit 工作台：http://127.0.0.1:{port}（Ctrl+C停止）", flush=True)
+    print(f"API-MRI 工作台：http://127.0.0.1:{port}（Ctrl+C停止）", flush=True)
     uvicorn.run(create_app(runs_dir, library_dir=library_dir), host="127.0.0.1", port=port, access_log=False, log_level="warning")

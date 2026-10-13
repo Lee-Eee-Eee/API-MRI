@@ -1,10 +1,12 @@
-# relay-audit · API 服务一致性检测工作台
+# API-MRI · 模型响应检查工作台
+
+API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧命令 `relay-audit` 仍可使用。
 
 **选一份公开参考包，填入你正在用的 API，看看它在相同探针上的回答是否与参考相符。** 你只需提供待测端的地址、模型名和 Key，参考数据随工具提供，无需再购买一个官方 API 账户。
 
-v0.4 扩充了内置参考库，并加入“抓取参考库更新”按钮。可以搜索模型、按参考提供方筛选，再为精确版本选择参考。双端点比较和六情境实验台继续保留。单 API 表示只配置一个服务，一次检测仍会发送多次请求；页面在开始前显示请求计划。
+v0.4.1 使用 API-MRI 品牌与 `api-mri` 命令，沿用扩充后的参考库和“抓取参考库更新”按钮。可以搜索模型、按参考提供方筛选，再为精确版本选择参考。双端点比较和六情境实验台继续保留。单 API 表示只配置一个服务，一次检测仍会发送多次请求；页面在开始前显示请求计划。
 
-![Relay Audit 本机工作台](docs/images/workbench.jpg)
+![API-MRI 本机工作台](docs/images/workbench.jpg)
 
 这是清华大学《人工智能发展与治理》第 11 小组研究的附加开源工具。我们关注模型服务的商业承诺怎样被验证，以及用户取得证据需要付出什么成本。
 
@@ -15,13 +17,13 @@ v0.4 扩充了内置参考库，并加入“抓取参考库更新”按钮。可
 ### Windows · PowerShell
 
 ```powershell
-git clone https://github.com/Lee-Eee-Eee/relay-audit.git
-cd relay-audit
+git clone https://github.com/Lee-Eee-Eee/API-MRI.git
+cd API-MRI
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
 .\.venv\Scripts\python.exe -m pip install -e ".[api,ui,dev]"
-.\.venv\Scripts\relay-audit.exe ui
+.\.venv\Scripts\api-mri.exe ui
 ```
 
 若已安装 Python 3.11，把 `py -3.12` 改为 `py -3.11`。以上命令直接使用虚拟环境里的程序，无需修改 PowerShell 执行策略。
@@ -29,8 +31,8 @@ py -3.12 -m venv .venv
 ### Linux / macOS · 终端
 
 ```bash
-git clone https://github.com/Lee-Eee-Eee/relay-audit.git
-cd relay-audit
+git clone https://github.com/Lee-Eee-Eee/API-MRI.git
+cd API-MRI
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -52,10 +54,34 @@ python -m pip install torch==2.8.0
 
 ```bash
 python -m pip install -e '.[api,ui,dev]'
-relay-audit ui
+api-mri ui
 ```
 
 在浏览器打开 **http://127.0.0.1:8765**，保留启动终端，按 `Ctrl+C` 停止。工作台只接受本机访问；端口冲突时加 `--port 8766`。已进行的平台测试见[验证记录](docs/validation.md)，Linux/macOS 的安装路径不等于已完成对应平台验证。
+
+## 已有版本的升级
+
+如果已经安装旧版，在原仓库目录更新源码，再用同一虚拟环境卸载旧发行包、安装新发行包。目录可以继续叫 `relay-audit`，已有运行记录和参考缓存保留。
+
+Windows PowerShell：
+
+```powershell
+git pull
+.\.venv\Scripts\python.exe -m pip uninstall -y relay-audit
+.\.venv\Scripts\python.exe -m pip install -e ".[api,ui,dev]"
+.\.venv\Scripts\api-mri.exe ui
+```
+
+Linux/macOS 在已激活虚拟环境的终端中：
+
+```bash
+git pull
+python -m pip uninstall -y relay-audit
+python -m pip install -e '.[api,ui,dev]'
+api-mri ui
+```
+
+发行包现名为 `api-mri`，Python 模块仍为 `relay_audit`。新旧命令 `api-mri`、`relay-audit` 指向同一入口。
 
 ## 第一次检测
 
@@ -89,11 +115,11 @@ relay-audit ui
 
 ## 命令行
 
-以下命令在虚拟环境激活后使用；Windows 也可将 `relay-audit` 换成 `.\.venv\Scripts\relay-audit.exe`。
+以下命令在虚拟环境激活后使用；Windows 也可将 `api-mri` 换成 `.\.venv\Scripts\api-mri.exe`。
 
 ```bash
-relay-audit references
-relay-audit references-update --library-dir runs/reference-library
+api-mri references
+api-mri references-update --library-dir runs/reference-library
 ```
 
 需要单独管理缓存时，`references`、`references-update`、`fingerprint-*` 和 `ui` 均可加 `--library-dir path/to/library`；一起使用的命令指定同一目录。默认是启动目录下的 `runs/reference-library/`。
@@ -101,8 +127,8 @@ relay-audit references-update --library-dir runs/reference-library
 复制 [fingerprint.example.json](examples/fingerprint.example.json) 为 `fingerprint.json`，填写参考包 ID 和候选端配置，保留 `api_key_env` 为环境变量名称。随后执行：
 
 ```bash
-relay-audit fingerprint-plan --config fingerprint.json
-relay-audit fingerprint --config fingerprint.json --out runs/fingerprint-01
+api-mri fingerprint-plan --config fingerprint.json
+api-mri fingerprint --config fingerprint.json --out runs/fingerprint-01
 ```
 
 `fingerprint-plan` 只检查计划。真实运行前，按照[密钥输入指南](docs/user-guide.md#在命令行中提供密钥)设置候选端的环境变量。
@@ -110,8 +136,8 @@ relay-audit fingerprint --config fingerprint.json --out runs/fingerprint-01
 无需 Key 的示例和离线复算：
 
 ```bash
-relay-audit fingerprint-demo --reference-pack gpt-4.1-mini_20260915 --variant different --out runs/fingerprint-demo-01
-relay-audit fingerprint-replay --reference-pack gpt-4.1-mini_20260915 --records runs/fingerprint-demo-01/fingerprint_records.jsonl --out runs/fingerprint-replay-01
+api-mri fingerprint-demo --reference-pack gpt-4.1-mini_20260915 --variant different --out runs/fingerprint-demo-01
+api-mri fingerprint-replay --reference-pack gpt-4.1-mini_20260915 --records runs/fingerprint-demo-01/fingerprint_records.jsonl --out runs/fingerprint-replay-01
 ```
 
 示例支持 `match`、`different` 和 `incomplete`，分别展示匹配、偏离和记录不足。复算时使用原来那份参考包和候选记录，不会再次请求模型。每次使用新的输出目录，保留已有证据。
@@ -121,9 +147,9 @@ relay-audit fingerprint-replay --reference-pack gpt-4.1-mini_20260915 --records 
 当你需要自己的任务或现有参考库没有覆盖目标版本时，可以提供两端参考，使用 Inspect 采集和 MET 逐题分布比较：
 
 ```bash
-relay-audit plan --config pair.json
-relay-audit run --config pair.json --out runs/pair-01
-relay-audit compare --reference runs/pair-01/reference.jsonl --candidate runs/pair-01/candidate.jsonl --out runs/replay-01
+api-mri plan --config pair.json
+api-mri run --config pair.json --out runs/pair-01
+api-mri compare --reference runs/pair-01/reference.jsonl --candidate runs/pair-01/candidate.jsonl --out runs/replay-01
 ```
 
 先将[双端点模板](examples/pair.template.json)复制为 `pair.json`，修改地址和模型。这里需要两端各自的 Key；采样参数和任务两端共享，MET 结论与单 API 指纹标签分别解释。
@@ -131,7 +157,7 @@ relay-audit compare --reference runs/pair-01/reference.jsonl --candidate runs/pa
 “对照与实验”中的六个可控情境展示同来源、模型替换、混合路由、提示改写、输出截断和请求不稳定。特别可以对照“替换”与“提示改写”：程序让它们产生相同的回答观察，帮助讨论还需要哪些证据才能判断原因。
 
 ```bash
-relay-audit lab --scenario prompt_rewrite --out runs/lab-01
+api-mri lab --scenario prompt_rewrite --out runs/lab-01
 ```
 
 服务研究档案把模型、价格、路由、数据用途和补救声明与测量结果并列，进一步连接课程的市场与治理问题。详见[研究背景](docs/research-context.md)。

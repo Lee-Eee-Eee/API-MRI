@@ -1,6 +1,8 @@
-# 使用指南
+# API-MRI 使用指南
 
-Relay Audit 用预先采集的参考回答检查一个 API。你选择参考包、填写待测服务，工具发送相同探针，保存回答并生成报告。安装步骤见 [README](../README.md)，参考数据的原理与来源见[参考包说明](reference-packs.md)。
+API-MRI 用预先采集的参考回答检查一个 API。你选择参考包、填写待测服务，工具发送相同探针，保存回答并生成报告。安装步骤见 [README](../README.md)，参考数据的原理与来源见[参考包说明](reference-packs.md)。
+
+命令行入口为 `api-mri`，原来的 `relay-audit` 保留为兼容别名。发行包名称已改为 `api-mri`，Python 模块名称仍是 `relay_audit`。旧版用户按[升级步骤](../README.md#已有版本的升级)先卸载旧发行包再安装，已有运行记录和缓存可以继续使用。
 
 ## 先选择一种方式
 
@@ -13,7 +15,7 @@ Relay Audit 用预先采集的参考回答检查一个 API。你选择参考包�
 | 双端点比较 | 两端地址、Key 和匹配的模型版本 | 是，可能计费 | 自己采集参考，比较两端逐题回答分布 |
 | 机制实验台 | 选择一个情境 | 否 | 观察替换、路由、提示与故障造成的现象 |
 
-工作台默认地址为 `http://127.0.0.1:8765`。页面和分析进程运行在你的电脑上。保留启动它的终端，按 `Ctrl+C` 关闭；端口冲突可用 `relay-audit ui --port 8766`。
+工作台默认地址为 `http://127.0.0.1:8765`。页面和分析进程运行在你的电脑上。保留启动它的终端，按 `Ctrl+C` 关闭；端口冲突可用 `api-mri ui --port 8766`。
 
 ## 完成第一次单 API 检测
 
@@ -75,16 +77,16 @@ Relay Audit 用预先采集的参考回答检查一个 API。你选择参考包�
 默认缓存目录为 **`runs/reference-library/`**，相对于启动程序时的工作目录。可用以下命令指定位置：
 
 ```bash
-relay-audit references-update --library-dir runs/reference-library
-relay-audit references --library-dir runs/reference-library
-relay-audit ui --library-dir runs/reference-library
+api-mri references-update --library-dir runs/reference-library
+api-mri references --library-dir runs/reference-library
+api-mri ui --library-dir runs/reference-library
 ```
 
 使用自定义目录时，`fingerprint-plan`、`fingerprint`、`fingerprint-demo` 和 `fingerprint-replay` 也加相同的 `--library-dir`。例如：
 
 ```bash
-relay-audit fingerprint-plan --config fingerprint.json --library-dir path/to/library
-relay-audit fingerprint --config fingerprint.json --out runs/fingerprint-01 --library-dir path/to/library
+api-mri fingerprint-plan --config fingerprint.json --library-dir path/to/library
+api-mri fingerprint --config fingerprint.json --out runs/fingerprint-01 --library-dir path/to/library
 ```
 
 这个按钮只获取作者已经发布的参考，不会自动向新模型采样，也不更新本机评分代码。网络失败、GitHub 限流、无新增包和不兼容会分别显示；可以继续使用原有参考，稍后再检查。模型刚发布时，公开目录可能尚未覆盖，仍需自行建立对照。
@@ -126,22 +128,22 @@ relay-audit fingerprint --config fingerprint.json --out runs/fingerprint-01 --li
 PowerShell 中可交互输入，避免把值写进命令历史：
 
 ```powershell
-.\.venv\Scripts\relay-audit.exe fingerprint-plan --config fingerprint.json
+.\.venv\Scripts\api-mri.exe fingerprint-plan --config fingerprint.json
 $candidateCredential = Get-Credential -UserName 'candidate' -Message '在密码框中粘贴待测端 API Key'
 $env:CANDIDATE_API_KEY = $candidateCredential.GetNetworkCredential().Password
-.\.venv\Scripts\relay-audit.exe fingerprint --config fingerprint.json --out runs/fingerprint-01
+.\.venv\Scripts\api-mri.exe fingerprint --config fingerprint.json --out runs/fingerprint-01
 Remove-Item Env:CANDIDATE_API_KEY
 ```
 
 Linux/macOS 在已激活虚拟环境的终端进入 Bash 后输入：
 
 ```bash
-relay-audit fingerprint-plan --config fingerprint.json
+api-mri fingerprint-plan --config fingerprint.json
 bash
 read -r -s -p 'Candidate API key: ' CANDIDATE_API_KEY
 echo
 export CANDIDATE_API_KEY
-relay-audit fingerprint --config fingerprint.json --out runs/fingerprint-01
+api-mri fingerprint --config fingerprint.json --out runs/fingerprint-01
 unset CANDIDATE_API_KEY
 exit
 ```
@@ -149,9 +151,9 @@ exit
 `fingerprint-plan` 不读取 Key、不发送请求。示例和复算也不需要 Key：
 
 ```bash
-relay-audit references
-relay-audit fingerprint-demo --reference-pack gpt-4.1-mini_20260915 --variant different --out runs/example-01
-relay-audit fingerprint-replay --reference-pack gpt-4.1-mini_20260915 --records runs/example-01/fingerprint_records.jsonl --out runs/replay-01
+api-mri references
+api-mri fingerprint-demo --reference-pack gpt-4.1-mini_20260915 --variant different --out runs/example-01
+api-mri fingerprint-replay --reference-pack gpt-4.1-mini_20260915 --records runs/example-01/fingerprint_records.jsonl --out runs/replay-01
 ```
 
 每次 `--out` 使用一个新目录，已有目录会被拒绝覆盖。
@@ -163,8 +165,8 @@ relay-audit fingerprint-replay --reference-pack gpt-4.1-mini_20260915 --records 
 命令行可以使用 [study.template.json](../examples/study.template.json)，在真实指纹采集或离线复算时附加 `--study study.json`：
 
 ```bash
-relay-audit fingerprint --config fingerprint.json --study study.json --out runs/case-01
-relay-audit fingerprint-replay --reference-pack gpt-4.1-mini_20260915 --records runs/case-01/fingerprint_records.jsonl --study study.json --out runs/case-replay-01
+api-mri fingerprint --config fingerprint.json --study study.json --out runs/case-01
+api-mri fingerprint-replay --reference-pack gpt-4.1-mini_20260915 --records runs/case-01/fingerprint_records.jsonl --study study.json --out runs/case-replay-01
 ```
 
 研究档案保存到本机并加入报告，不进入发给模型的请求。它帮助组员从“出现了差异”继续讨论“商家具体承诺了什么、还需取得什么材料”，参见[研究背景](research-context.md)。
@@ -176,9 +178,9 @@ relay-audit fingerprint-replay --reference-pack gpt-4.1-mini_20260915 --records 
 将 [pair.template.json](../examples/pair.template.json) 复制为 `pair.json`，填写两端 Base URL、同一模型版本和环境变量名称。配置模板使用 `RELAY_REFERENCE_KEY`、`RELAY_CANDIDATE_KEY`，可按前面的隐藏输入方式分别设置。
 
 ```bash
-relay-audit plan --config pair.json
-relay-audit run --config pair.json --out runs/pair-01
-relay-audit compare --reference runs/pair-01/reference.jsonl --candidate runs/pair-01/candidate.jsonl --out runs/pair-replay-01
+api-mri plan --config pair.json
+api-mri run --config pair.json --out runs/pair-01
+api-mri compare --reference runs/pair-01/reference.jsonl --candidate runs/pair-01/candidate.jsonl --out runs/pair-replay-01
 ```
 
 两端共享任务、温度与输出限制，逐轮交换调用顺序。客户端缓存和自动重试关闭，逐次保存结果。总请求数为“题数 × 每题重复数 × 2”；单次计划至多 1,000 次请求，请求输出上限合计至多 250,000 token。最低样本数是运行下限，真实差异的检出能力需通过校准确定。
@@ -201,17 +203,17 @@ relay-audit compare --reference runs/pair-01/reference.jsonl --candidate runs/pa
 | 请求不稳定 | `unstable` | 错误和缺失样本怎样影响判断 |
 
 ```bash
-relay-audit lab --scenario substitution --out runs/lab-substitution
-relay-audit lab --scenario prompt_rewrite --out runs/lab-rewrite
+api-mri lab --scenario substitution --out runs/lab-substitution
+api-mri lab --scenario prompt_rewrite --out runs/lab-rewrite
 ```
 
 用相同种子运行“模型替换”和“提示改写”，可以取得相同的回答、耗时和计量记录。课堂上让组员先判断，再揭示设定，讨论还需要哪些配置、日志或条款证据。人工情境的耗时与 token 是设定值。
 
-旧版 Inspect/MET 合成流程仍可用 `relay-audit demo --out runs/legacy-demo` 运行。
+旧版 Inspect/MET 合成流程仍可用 `api-mri demo --out runs/legacy-demo` 运行。
 
 ## 常见问题
 
-**找不到 `relay-audit` 命令。** Windows 使用 `.\.venv\Scripts\relay-audit.exe`；Linux/macOS 先执行 `source .venv/bin/activate`。也可用虚拟环境中的 Python 执行 `python -m relay_audit.cli ui`。
+**找不到 `api-mri` 命令。** Windows 使用 `.\.venv\Scripts\api-mri.exe`；Linux/macOS 先执行 `source .venv/bin/activate`。也可用虚拟环境中的 Python 执行 `python -m relay_audit.cli ui`。
 
 **网页打不开或提示会话更新。** 确认启动终端仍在运行，打开它打印的本机地址；会话更新后刷新页面。端口被占用时换用 `--port 8766`。
 

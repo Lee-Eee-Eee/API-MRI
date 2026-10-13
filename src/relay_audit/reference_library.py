@@ -332,7 +332,7 @@ def _http_fetch(url: str, *, max_bytes: int, timeout: float, cancelled: Callable
         raise ReferenceFetchError("untrusted_upstream_url")
     try:
         with httpx.Client(timeout=timeout, follow_redirects=False, trust_env=True,
-                          headers={"User-Agent": "relay-audit-reference-updater", "Accept": "application/vnd.github+json"}) as client:
+                          headers={"User-Agent": "api-mri-reference-updater", "Accept": "application/vnd.github+json"}) as client:
             with client.stream("GET", url) as response:
                 length = response.headers.get("content-length")
                 if length and (not length.isdecimal() or int(length) > max_bytes):
@@ -497,7 +497,7 @@ def update_reference_library(library_dir: Path, progress: Callable | None = None
             notice_path.write_text("KBF reference data, Ooo0ption/KBF, Apache-2.0.\n"
                                    "Model identity and source are author records, not independently authenticated.\n"
                                    "Pinned raw source, commit, blob hash and licence are recorded in catalog.json.\n"
-                                   "Relay Audit downloads data only; the local KBF implementation is not updated.\n", encoding="utf-8")
+                                   "API-MRI downloads data only; the local KBF implementation is not updated.\n", encoding="utf-8")
         candidates = []
         for path, row in sorted(paths.items(), key=lambda item: (-int(item[0].split("/")[1].split("_")[-1]) if _allowed_path(item[0]) else 0, item[0])):
             if not _allowed_path(path):

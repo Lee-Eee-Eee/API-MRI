@@ -1686,7 +1686,7 @@
     event.preventDefault();
     if (state.submitting || hasRunningTask() || !selectedPack() || !event.currentTarget.reportValidity()) return;
     const file = $("fingerprint-file").files[0];
-    if (!file) return showError("请选择 Relay Audit 导出的原始指纹 JSONL 文件。");
+    if (!file) return showError("请选择 API-MRI 导出的原始指纹 JSONL 文件。");
     if (file.size > 4 * 1024 * 1024) return showError("原始记录请控制在 4 MB 以内。更大的记录可使用命令行复算。");
     state.submitting = true;
     updateButtons();

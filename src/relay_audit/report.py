@@ -76,7 +76,7 @@ def reason_text(reason: str) -> str:
 
 def runtime_versions() -> dict[str, str]:
     versions: dict[str, str] = {}
-    for package in ["relay-audit", "inspect-ai", "model-equality-testing", "torch", "numpy"]:
+    for package in ["api-mri", "inspect-ai", "model-equality-testing", "torch", "numpy"]:
         try:
             versions[package] = version(package)
         except PackageNotFoundError:

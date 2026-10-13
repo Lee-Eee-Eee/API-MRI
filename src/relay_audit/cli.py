@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from .records import load_records, save_records
@@ -84,6 +85,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Pipes on Windows may default to a Western code page; Chinese help and
+    # JSON should remain readable when redirected or launched by another app.
+    for stream in (sys.stdout, sys.stderr):
+        if (hasattr(stream, "reconfigure") and not stream.isatty()
+                and (getattr(stream, "encoding", "") or "").lower().replace("-", "") != "utf8"):
+            stream.reconfigure(encoding="utf-8")
     parser = build_parser()
     args = parser.parse_args(argv)
     if getattr(args, "out", None) is not None and args.out.exists():
