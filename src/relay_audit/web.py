@@ -67,6 +67,30 @@ def validate_job(payload: Any) -> dict:
     mode = payload.get("mode")
     settings = _analysis_settings(payload)
     clean = {"mode": mode, **settings.model_dump()}
+    if mode in {"fingerprint", "fingerprint_demo", "fingerprint_offline"}:
+        from .fingerprint import list_reference_packs, plan_fingerprint
+
+        pack_id = payload.get("reference_pack")
+        if pack_id not in {pack["id"] for pack in list_reference_packs()}:
+            raise ValueError("请选择库中已有的参考包；暂不支持的版本需要另建参考。")
+        clean["reference_pack"] = pack_id
+        if mode == "fingerprint":
+            clean.update({key: payload[key] for key in ("candidate", "timeout") if key in payload})
+            plan_fingerprint({key: clean[key] for key in ("reference_pack", "candidate", "timeout") if key in clean})
+            clean["study"] = validate_study(payload.get("study"))
+        elif mode == "fingerprint_demo":
+            variant = payload.get("variant", "different")
+            if variant not in {"match", "different", "incomplete"}:
+                raise ValueError("请选择已有指纹演示情境。")
+            clean["variant"] = variant
+        else:
+            value = payload.get("evidence_jsonl")
+            if not isinstance(value, str) or not value.strip() or len(value.encode("utf-8")) > 4 * 1024 * 1024:
+                raise ValueError("请选择不超过4 MB的指纹证据JSONL。")
+            from .fingerprint import parse_fingerprint_records
+            clean["fingerprint_records"] = parse_fingerprint_records(value, pack_id)
+            clean["study"] = validate_study(payload.get("study"))
+        return clean
     if mode == "demo":
         return clean
     if mode == "lab":
@@ -93,7 +117,7 @@ def validate_job(payload: Any) -> dict:
         plan_pair({key: value for key, value in clean.items() if key != "mode"})
         clean["study"] = study
         return clean
-    raise ValueError("请选择演示、机制实验台、双端点检测或离线复算。")
+    raise ValueError("请选择工作台支持的检测或复算方式。")
 
 
 class JobManager:
@@ -140,7 +164,20 @@ class JobManager:
 
     def list(self) -> list[dict]:
         with self.lock:
-            return [copy.deepcopy(job) for job in sorted(self.jobs.values(), key=lambda j: j["created_at"], reverse=True)[:50]]
+            rows = []
+            for job in sorted(self.jobs.values(), key=lambda j: j["created_at"], reverse=True)[:50]:
+                row = {key: copy.deepcopy(value) for key, value in job.items() if key != "reports"}
+                row["reports"] = []
+                for entry in job.get("reports", []):
+                    report = entry["report"]
+                    summary = {key: copy.deepcopy(report[key]) for key in ("kind", "status", "synthetic", "study") if key in report}
+                    if report.get("lab"):
+                        summary["lab"] = {"scenario": copy.deepcopy(report["lab"].get("scenario", {}))}
+                    if report.get("fingerprint"):
+                        summary["fingerprint"] = {key: copy.deepcopy(report["fingerprint"][key]) for key in ("reference", "summary", "demo_variant") if key in report["fingerprint"]}
+                    row["reports"].append({"name": entry["name"], "report": summary})
+                rows.append(row)
+            return rows
 
     def start(self, payload: dict) -> dict:
         with self.lock:
@@ -188,7 +225,23 @@ class JobManager:
             if event.is_set():
                 self._update(identifier, status="cancelled")
                 return
-            if payload["mode"] == "live":
+            if payload["mode"] in {"fingerprint", "fingerprint_demo", "fingerprint_offline"}:
+                from .fingerprint import run_fingerprint, demo_fingerprint, replay_fingerprint
+
+                if payload["mode"] == "fingerprint":
+                    data = {key: payload[key] for key in ("reference_pack", "candidate", "timeout") if key in payload}
+                    study = redact_study(payload.get("study", {}), data)
+                    result = run_fingerprint(data, out, progress=progress, cancelled=event.is_set)
+                elif payload["mode"] == "fingerprint_demo":
+                    progress({"completed": 0, "total": 1, "phase": "analyzing", "message": "生成本地指纹示例并计算"})
+                    study = {}
+                    result = demo_fingerprint(payload["reference_pack"], out, variant=payload["variant"])
+                else:
+                    progress({"completed": 0, "total": 1, "phase": "analyzing", "message": "从原始记录重新解析指纹"})
+                    study = payload.get("study", {})
+                    result = replay_fingerprint(payload["reference_pack"], payload["fingerprint_records"], out)
+                reports.append({"name": "fingerprint", "report": attach_study(result, study, out)})
+            elif payload["mode"] == "live":
                 from .workflows import run_pair
 
                 study = redact_study(payload.get("study", {}), payload)
@@ -257,7 +310,10 @@ class JobManager:
         job = self.get(identifier)
         if report_name not in {item["name"] for item in job.get("reports", [])}:
             raise KeyError(report_name)
-        filename = {"json": "report.json", "md": "report.md", "csv": "prompts.csv"}.get(format_name)
+        names = {"json": "report.json", "md": "report.md", "csv": "prompts.csv"}
+        if job["mode"].startswith("fingerprint"):
+            names["jsonl"] = "fingerprint_records.jsonl"
+        filename = names.get(format_name)
         if filename is None:
             raise KeyError(format_name)
         directory = self.root / identifier / "evidence"
@@ -275,6 +331,12 @@ class JobManager:
         if report_name not in {item["name"] for item in job.get("reports", [])}:
             raise KeyError(report_name)
         directory = self.root / identifier / "evidence"
+        if job["mode"].startswith("fingerprint"):
+            path = (directory / "fingerprint_records.jsonl").resolve()
+            if not path.is_relative_to(self.root):
+                raise KeyError("fingerprint_records.jsonl")
+            rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()] if path.exists() else []
+            return {"fingerprint": rows}
         names = {"reference": "reference.jsonl", "candidate": f"{report_name}.jsonl" if job["mode"] == "demo" else "candidate.jsonl"}
         output = {}
         for role, filename in names.items():
@@ -347,10 +409,11 @@ def create_app(runs_dir: Path | str = "runs/ui") -> FastAPI:
     def bootstrap():
         from .lab import list_scenarios
         from .probes import list_probes
+        from .fingerprint import list_reference_packs
 
         return {"version": __version__, "session_token": session_token, "probes": list_probes(),
-                "scenarios": list_scenarios(),
-                "capabilities": {"modes": ["demo", "lab", "live", "offline"], "protocol": "Chat Completions", "local_only": True}}
+                "scenarios": list_scenarios(), "reference_packs": list_reference_packs(),
+                "capabilities": {"modes": ["fingerprint", "fingerprint_demo", "fingerprint_offline", "demo", "lab", "live", "offline"], "protocol": "Chat Completions", "local_only": True}}
 
     @app.get("/api/runs")
     def runs():
@@ -361,17 +424,21 @@ def create_app(runs_dir: Path | str = "runs/ui") -> FastAPI:
         from .workflows import plan_pair
 
         try:
+            if payload.get("mode") == "fingerprint":
+                from .fingerprint import plan_fingerprint
+                cleaned = validate_job(payload)
+                return plan_fingerprint({key: cleaned[key] for key in ("reference_pack", "candidate", "timeout") if key in cleaned})
             cleaned = validate_job({**payload, "mode": "live"})
             return plan_pair({key: value for key, value in cleaned.items() if key not in {"mode", "study"}})
         except (ValueError, TypeError):
-            raise HTTPException(422, "请检查两侧地址、相同模型名、任务和采样参数。") from None
+            raise HTTPException(422, "请检查参考包、服务地址、模型名和采样参数；地址应填写Base URL。") from None
 
     @app.post("/api/runs", status_code=202)
     def start(payload: dict):
         try:
             cleaned = validate_job(payload)
         except (ValueError, TypeError) as exc:
-            detail = str(exc) if payload.get("mode") == "offline" and not isinstance(exc, ValidationError) else "请检查服务地址、模型名、任务和采样参数。"
+            detail = str(exc) if payload.get("mode") == "offline" and not isinstance(exc, ValidationError) else "请检查参考包、服务地址、模型名和文件格式；指纹复算需使用同一参考包的原始JSONL。"
             raise HTTPException(422, detail) from None
         try:
             return manager.start(cleaned)

@@ -29,6 +29,22 @@ def _analyze(reference: Path, candidate: Path, out: Path, args: argparse.Namespa
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="API服务一致性研究工具；输出有限行为证据。")
     commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("references", help="列出内置指纹参考包与来源，不调用API")
+    fp_plan = commands.add_parser("fingerprint-plan", help="检查单API指纹计划与调用上限，不调用API")
+    fp_plan.add_argument("--config", type=Path, required=True)
+    fp_run = commands.add_parser("fingerprint", help="用内置参考包检测一个API")
+    fp_run.add_argument("--config", type=Path, required=True)
+    fp_run.add_argument("--out", type=Path, required=True)
+    fp_run.add_argument("--study", type=Path, help="可选服务研究档案JSON")
+    fp_replay = commands.add_parser("fingerprint-replay", help="从指纹原始记录离线复算")
+    fp_replay.add_argument("--reference-pack", required=True)
+    fp_replay.add_argument("--records", type=Path, required=True)
+    fp_replay.add_argument("--out", type=Path, required=True)
+    fp_replay.add_argument("--study", type=Path)
+    fp_demo = commands.add_parser("fingerprint-demo", help="用人工回答演示指纹报告，不调用API")
+    fp_demo.add_argument("--reference-pack", required=True)
+    fp_demo.add_argument("--variant", choices=["match", "different", "incomplete"], default="different")
+    fp_demo.add_argument("--out", type=Path, required=True)
     demo = commands.add_parser("demo", help="使用Inspect合成fixture，完全不调用真实模型")
     demo.add_argument("--out", type=Path, required=True, help="新输出目录；不覆盖已有证据")
     demo.add_argument("--repeats", type=int, default=12)
@@ -75,7 +91,34 @@ def main(argv: list[str] | None = None) -> int:
         from .study import attach_study, redact_study, validate_study
 
         study = validate_study(json.loads(args.study.read_text(encoding="utf-8"))) if getattr(args, "study", None) else {}
-        if args.command == "ui":
+        if args.command == "references":
+            from .fingerprint import list_reference_packs
+            print(json.dumps(list_reference_packs(), ensure_ascii=False, indent=2))
+        elif args.command in {"fingerprint-plan", "fingerprint", "fingerprint-demo", "fingerprint-replay"}:
+            from .fingerprint import plan_fingerprint, run_fingerprint, demo_fingerprint, replay_fingerprint
+
+            if args.command in {"fingerprint-plan", "fingerprint"}:
+                payload = json.loads(args.config.read_text(encoding="utf-8"))
+                if not isinstance(payload, dict) or not isinstance(payload.get("candidate"), dict):
+                    raise ValueError("配置需要reference_pack和candidate对象。")
+                if "api_key" in payload["candidate"]:
+                    raise ValueError("CLI配置请使用api_key_env环境变量名称，移除明文api_key。")
+                if args.command == "fingerprint-plan":
+                    print(json.dumps(plan_fingerprint(payload), ensure_ascii=False, indent=2))
+                    return 0
+                study = redact_study(study, payload)
+                result = run_fingerprint(payload, args.out)
+            elif args.command == "fingerprint-demo":
+                result = demo_fingerprint(args.reference_pack, args.out, variant=args.variant)
+            else:
+                result = replay_fingerprint(args.reference_pack, args.records, args.out)
+            result = attach_study(result, study, args.out)
+            labels = {"difference_detected": "发现显著差异", "no_difference_detected": "未检出明显差异", "insufficient_evidence": "证据不足"}
+            print(labels.get(result["status"], result["status"]))
+            print(f"报告：{args.out / 'report.md'}")
+            if result.get("collection", {}).get("failure"):
+                return 1
+        elif args.command == "ui":
             try:
                 from .web import serve
             except ImportError:

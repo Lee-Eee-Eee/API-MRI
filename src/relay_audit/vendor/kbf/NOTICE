@@ -1,0 +1,12 @@
+KBF: Knowledge Boundary Fingerprinting
+Copyright 2026 The KBF Authors
+Source: https://github.com/Ooo0ption/KBF/tree/68aefbbab879469152aaac9fd988a86c30ee4739
+License: Apache License, Version 2.0 (see LICENSE).
+The upstream has no NOTICE file; this attribution notice was added by relay-audit.
+Vendored Python changes: attribution header and package-relative imports only.
+relay-audit reuses the upstream probes, prompts, parser, consensus labels, domain
+tolerances, validation and statistical scoring. Its own HTTP transport uses
+timeouts, cancellation, credential redaction, truncation checks and replay validation.
+Thinking discovery questions are reproduced with attribution in fingerprint.py.
+Each of six discovery strategies is tried at most once; each batch has at most
+three format attempts, no automatic network retries, and no 50x token fallback.

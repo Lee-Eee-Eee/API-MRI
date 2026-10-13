@@ -58,20 +58,28 @@ def claim_matrix(report: dict, study: dict) -> list[dict]:
     """Suggestions describe evidence needed, never infer operators' hidden acts."""
     roles = report.get("diagnostics", {}).get("roles", {})
     candidate = roles.get("candidate", {})
-    difference = report.get("status") == "behavior_difference"
+    difference = report.get("status") in {"behavior_difference", "difference_detected"}
     behavior = ("本次采样检出了回答分布差异，需核对配置、版本和服务约定。" if difference
                 else "本次采样未形成总体差异结论；可查看逐题结果和采样覆盖。")
+    is_fingerprint = report.get("kind") == "fingerprint"
+    if is_fingerprint:
+        behavior = {"difference_detected": "待测回答与所选参考指纹存在显著差异，需核对版本、参数和参考来源。",
+                    "no_difference_detected": "本次未检出与所选参考指纹的明显差异；结果与参考包的版本和设置有关。",
+                    "insufficient_evidence": "当前指纹证据不足，可检查缺失回答、采集状态和参考覆盖。"}.get(report.get("status"), "当前指纹证据不足。")
+    collection = report.get("collection", {})
+    service_observation = (f"本次记录{collection.get('requests', 0)}个请求；采集状态见报告，尚未验证投诉、退款或长期可用性。" if is_fingerprint
+                           else f"本次待测端记录{candidate.get('records', 0)}次请求，其中{candidate.get('errors', 0)}次错误；尚未验证投诉、退款或长期可用性。")
     definitions = [
         ("model_claim", "模型与能力", behavior,
          "检查提示、参数与版本后，在另一时段复采；必要时向服务方索取上游型号及配置记录。"),
         ("price_claim", "价格与计量", "报告保留服务端自报用量；本次未核对余额变化、实际扣费或结算账单。",
          "保存同一工作负载的账单和价格条款，核对缓存、推理token、倍率、币种及用途限制。"),
-        ("route_claim", "上游与路由", "报告记录两侧返回结果；响应内容与延迟不能独立证明请求经过哪些主体。",
+        ("route_claim", "上游与路由", "报告保存待测响应与参考材料；响应内容与延迟不能独立证明请求经过哪些主体。",
          "收集上游披露、路由变更条款与可核验的服务日志，区分声明路径和实测路径。"),
         ("data_policy_claim", "数据留存与用途", "本次黑盒检测没有服务端留存、删除或训练用途的直接证据。",
          "核对适用产品、数据类别、保留时长、例外、转委托及删除渠道；进一步证据需运营方配合。"),
         ("remedy_claim", "持续服务与补救",
-         f"本次待测端记录{candidate.get('records', 0)}次请求，其中{candidate.get('errors', 0)}次错误；尚未验证投诉、退款或长期可用性。",
+         service_observation,
          "结合故障记录、服务条款和有同意的用户访谈，核查通知、退款及停运余额处理。"),
     ]
     return [{"field": field, "label": label, "claim": study[field],
@@ -103,6 +111,9 @@ def attach_study(report: dict, study: dict, output_dir: Path) -> dict:
     if not cleaned:
         return report
     from .report import markdown_report
+    if report.get("kind") == "fingerprint":
+        from .fingerprint import markdown_fingerprint_report
+        markdown_report = markdown_fingerprint_report
 
     enriched = copy.deepcopy(report)
     enriched["study"] = cleaned

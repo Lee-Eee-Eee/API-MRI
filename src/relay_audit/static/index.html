@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta name="description" content="在本机对照两个 API 的回答、任务完成情况和响应速度。先运行免费离线演示，再开始自己的检测。">
-  <title>Relay Audit · API 一致性检查</title>
+  <meta name="description" content="选择公开参考指纹，只连接一个待测 API。检查模型行为、复核逐题证据，并保存可复现的研究记录。">
+  <title>Relay Audit · 模型一致性工作台</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230f766e'/%3E%3Cpath d='M17 19h13v26H17zm20 0h10v17H37z' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/app.css">
   <script src="/app.js" defer></script>
@@ -16,40 +16,69 @@
     <aside class="sidebar" aria-label="工作台导航">
       <a class="brand" href="#main" aria-label="Relay Audit 首页">
         <span class="brand-symbol" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span>Relay Audit<small>API 一致性检查</small></span>
+        <span>Relay Audit<small>MODEL OBSERVATORY</small></span>
       </a>
-      <div class="sidebar-label">研究工作台</div>
+      <div class="sidebar-label">WORKSPACE / 工作台</div>
       <nav class="side-nav">
-        <a class="nav-link active" href="#new-audit"><span aria-hidden="true">＋</span>开始检测</a>
+        <a class="nav-link active" href="#new-audit"><span aria-hidden="true">＋</span>新建检测</a>
         <a class="nav-link" href="#history"><span aria-hidden="true">◷</span>历史结果<span id="history-count" class="nav-count">0</span></a>
         <a class="nav-link" href="#reading-guide"><span aria-hidden="true">≡</span>如何看结果</a>
       </nav>
       <div class="sidebar-note">
-        <span class="eyebrow">从一个好问题开始</span>
-        <p>同样的问题、相同的参数，两个服务会怎样回答？</p>
-        <div class="mini-route" aria-hidden="true"><span>问题</span><b>→</b><span>两侧 API</span><b>→</b><span>对照</span></div>
+        <span class="eyebrow">观察 · 证据 · 解释</span>
+        <p>从服务的模型承诺出发，留下可以重新检查的记录。</p>
+        <a class="sidebar-source" href="https://github.com/Lee-Eee-Eee/relay-audit" target="_blank" rel="noopener noreferrer">GitHub / 开源项目 ↗</a>
       </div>
       <div class="sidebar-footer"><span class="status-dot"></span>本机工作台 <span id="app-version">…</span></div>
     </aside>
 
     <main id="main" tabindex="-1">
-      <header class="topbar"><span>第 11 小组 · 开源研究工具</span><a href="https://github.com/Lee-Eee-Eee/relay-audit" target="_blank" rel="noopener noreferrer">使用指南 <span aria-hidden="true">↗</span></a></header>
+      <header class="topbar"><span>研究工作台 <span class="topbar-separator">/</span> API 聚合与中转</span><a href="https://github.com/Lee-Eee-Eee/relay-audit/blob/main/docs/user-guide.md" target="_blank" rel="noopener noreferrer">使用指南 <span aria-hidden="true">↗</span></a></header>
       <section class="hero" aria-labelledby="page-title">
-        <div><div class="eyebrow">COMPARE WHAT YOU CAN OBSERVE</div><h1 id="page-title">把 API 的表现，<br class="mobile-break">放在一起看。</h1><p>用同一组问题比较回答、任务完成情况和响应速度，<br class="desktop-break">为服务是否兑现承诺留下可复核的记录。</p></div>
-        <div class="hero-graphic" aria-hidden="true"><div class="route-input">同一组问题</div><div class="route-split"><div><span class="tiny-dot"></span>参考服务</div><div><span class="tiny-dot blue"></span>待测服务</div></div><div class="route-output"><span>逐题比较</span><span>可导出报告</span></div></div>
+        <div><div class="eyebrow">RELAY AUDIT / 模型服务核验</div><h1 id="page-title">模型一致性工作台</h1><p>选一个参考指纹，连接你要检查的 API。<br>从整体差异，追到每一道题的原始回答。</p></div>
+        <div class="hero-caption"><span class="hero-index">01—03</span><span>选择参考<br>采集回答<br>复核证据</span></div>
       </section>
 
       <div id="connection-error" class="notice error" role="alert" hidden></div>
       <section id="new-audit" class="work-section" aria-labelledby="new-audit-title">
-        <div class="section-heading"><div><span class="step-number">01</span><h2 id="new-audit-title">开始一次检测</h2></div><span class="section-hint">先看演示，也可以直接配置</span></div>
-        <div class="mode-tabs" role="tablist" aria-label="选择检测方式">
-          <button type="button" id="tab-demo" role="tab" aria-controls="panel-demo" aria-selected="true" tabindex="0" class="mode-tab selected" data-mode="demo"><span class="mode-icon" aria-hidden="true">▷</span><span><strong>离线演示</strong><small>无需密钥 · 不产生 API 费用</small></span><span class="mode-check" aria-hidden="true">✓</span></button>
+        <div class="section-heading"><div><span class="step-number">01</span><h2 id="new-audit-title">新建检测</h2></div><button type="button" id="toggle-advanced" class="text-button" aria-expanded="false" aria-controls="advanced-modes">研究工具 <span aria-hidden="true">＋</span></button></div>
+        <div class="mode-tabs primary-tabs" role="tablist" aria-label="指纹检测方式">
+          <button type="button" id="tab-fingerprint" role="tab" aria-controls="panel-fingerprint" aria-selected="true" tabindex="0" class="mode-tab selected" data-mode="fingerprint"><strong>单 API 检测</strong><small>使用内置参考库</small></button>
+          <button type="button" id="tab-fingerprint_demo" role="tab" aria-controls="panel-fingerprint_demo" aria-selected="false" tabindex="-1" class="mode-tab" data-mode="fingerprint_demo"><strong>离线体验</strong><small>无需密钥</small></button>
+          <button type="button" id="tab-fingerprint_offline" role="tab" aria-controls="panel-fingerprint_offline" aria-selected="false" tabindex="-1" class="mode-tab" data-mode="fingerprint_offline"><strong>指纹记录复算</strong><small>导入已有证据</small></button>
+        </div>
+        <div id="advanced-modes" class="advanced-modes" hidden><p>为新模型建立对照，或研究不同中转机制怎样影响观察。</p><div class="mode-tabs advanced-tabs" role="tablist" aria-label="研究工具">
+          <button type="button" id="tab-demo" role="tab" aria-controls="panel-demo" aria-selected="false" tabindex="-1" class="mode-tab" data-mode="demo"><span class="mode-icon" aria-hidden="true">▷</span><span><strong>统计演示</strong><small>两组分布的比较</small></span><span class="mode-check" aria-hidden="true">✓</span></button>
           <button type="button" id="tab-lab" role="tab" aria-controls="panel-lab" aria-selected="false" tabindex="-1" class="mode-tab" data-mode="lab"><span class="mode-icon" aria-hidden="true">⚗</span><span><strong>机制实验台</strong><small>改变中转环节，观察结果</small></span><span class="mode-check" aria-hidden="true">✓</span></button>
           <button type="button" id="tab-live" role="tab" aria-controls="panel-live" aria-selected="false" tabindex="-1" class="mode-tab" data-mode="live"><span class="mode-icon" aria-hidden="true">⇄</span><span><strong>双端点检测</strong><small>连接参考服务与待测服务</small></span><span class="mode-check" aria-hidden="true">✓</span></button>
           <button type="button" id="tab-offline" role="tab" aria-controls="panel-offline" aria-selected="false" tabindex="-1" class="mode-tab" data-mode="offline"><span class="mode-icon" aria-hidden="true">↥</span><span><strong>已有记录复算</strong><small>上传 JSONL · 无需再次调用</small></span><span class="mode-check" aria-hidden="true">✓</span></button>
-        </div>
+        </div></div>
 
-        <div id="panel-demo" role="tabpanel" aria-labelledby="tab-demo" class="panel mode-panel">
+        <section id="reference-library" class="reference-library" aria-labelledby="reference-library-title">
+          <div class="reference-select"><span class="field-index">A / 参考</span><label id="reference-library-title" for="reference-pack">选择商家宣称的模型</label><select id="reference-pack" disabled><option>正在读取参考库…</option></select><p class="field-note">使用随工具提供的 KBF 参考数据，无须填写官方 API 密钥。</p></div>
+          <div id="reference-card" class="reference-card" aria-live="polite"><p class="subtle">正在读取参考信息…</p></div>
+        </section>
+
+        <form id="panel-fingerprint" role="tabpanel" aria-labelledby="tab-fingerprint" class="panel mode-panel fingerprint-form">
+          <div class="fingerprint-layout"><div class="endpoint-fields"><span class="field-index">B / 待测 API</span><h3>连接待测服务</h3><div class="field-row"><div><label for="fingerprint-base">API 地址 <span>Base URL</span></label><input id="fingerprint-base" type="url" autocomplete="off" placeholder="https://api.example.com/v1" required spellcheck="false"></div><div><label for="fingerprint-model">请求中的模型名称</label><input id="fingerprint-model" type="text" autocomplete="off" placeholder="该服务使用的模型 ID" required maxlength="200" spellcheck="false"></div></div><label for="fingerprint-key">API 密钥</label><div class="key-field"><input id="fingerprint-key" type="password" autocomplete="new-password" placeholder="粘贴待测服务的 API Key" required minlength="8" maxlength="4096" spellcheck="false"><button id="toggle-key" class="text-button" type="button" aria-pressed="false" aria-label="显示 API 密钥">显示</button></div><p class="field-note">密钥仅用于本次请求，不保存在浏览器或运行记录中。</p><details class="connection-options"><summary>连接设置</summary><label for="fingerprint-timeout">单次请求超时（秒）</label><input id="fingerprint-timeout" type="number" min="5" max="300" step="1" value="90" required><p>使用 Chat Completions 兼容接口。模型别名应与所选参考版本对应。</p></details></div><aside class="run-outline"><span class="field-index">C / 采样计划</span><h3>开始前，先看调用规模</h3><p>探针按参考包的原始配置分批发送。核对计划后再开始实际调用。</p><ol><li>读取参考题与自测误差</li><li>仅向待测服务发送探针</li><li>检验差异，保存逐题证据</li></ol><p class="subtle">“未检出差异”表示本次探针未发现明显偏离。</p></aside></div>
+          <div id="fingerprint-study-container"></div>
+          <div id="fingerprint-plan" class="fingerprint-plan" hidden aria-live="polite"></div>
+          <div class="action-row"><p id="fingerprint-plan-note" class="subtle">先核对请求数和输出上限。实际费用以服务账单为准。</p><div class="action-buttons"><button class="button quiet" id="prepare-fingerprint" type="button" disabled>核对采样计划</button><button class="button primary" id="start-fingerprint" type="submit" disabled>开始检测 <span aria-hidden="true">→</span></button></div></div>
+        </form>
+
+        <form id="panel-fingerprint_demo" role="tabpanel" aria-labelledby="tab-fingerprint_demo" class="panel mode-panel" hidden>
+          <div class="panel-heading"><span class="field-index">离线体验 / SYNTHETIC</span><h3>先看看，检测结果怎样呈现</h3><p>用所选参考包生成三种已知情形，不连接外部 API。体验结果页与证据导出。</p></div>
+          <div class="demo-options"><label><input type="radio" name="fingerprint-variant" value="match" checked><span><strong>接近参考</strong><small>回答与参考答案一致</small></span></label><label><input type="radio" name="fingerprint-variant" value="different"><span><strong>明显偏离</strong><small>预设部分答案发生变化</small></span></label><label><input type="radio" name="fingerprint-variant" value="incomplete"><span><strong>采样不完整</strong><small>观察缺失回答的影响</small></span></label></div>
+          <div class="action-row"><p class="subtle">合成数据用于理解流程，不能评估真实服务的准确率。</p><button class="button primary" id="start-fingerprint-demo" type="submit" disabled>生成演示报告 →</button></div>
+        </form>
+
+        <form id="panel-fingerprint_offline" role="tabpanel" aria-labelledby="tab-fingerprint_offline" class="panel mode-panel" hidden>
+          <div class="panel-heading"><span class="field-index">证据复算 / REPLAY</span><h3>从原始回答重新计算</h3><p>选择导出记录时使用的同一个参考包，再上传原始 JSONL。程序会重新解析回答并计算结果。</p></div>
+          <label class="upload-card" for="fingerprint-file"><span class="upload-icon" aria-hidden="true">↥</span><strong>原始指纹记录</strong><span>Relay Audit 导出的 .jsonl · 最大 4 MB</span><input id="fingerprint-file" type="file" accept=".jsonl,.ndjson,application/x-ndjson,application/json" required><small id="fingerprint-file-name">尚未选择文件</small></label>
+          <div class="action-row"><p class="subtle">在本机复算，不再调用模型 API。</p><button class="button primary" id="start-fingerprint-offline" type="submit" disabled>读取记录并复算 →</button></div>
+        </form>
+
+        <div id="panel-demo" role="tabpanel" aria-labelledby="tab-demo" class="panel mode-panel" hidden>
           <div class="demo-copy"><span class="pill neutral">推荐第一次使用</span><h3>先用两组已知样本，认识检测结果</h3><p>程序会生成“来自同一分布”和“回答分布发生变化”的两组样本，展示从采集记录到比较报告的完整流程。</p></div>
           <div class="demo-scenarios"><div><span class="scenario-mark same" aria-hidden="true">≈</span><strong>相同来源对照</strong><p>观察没有设置差异时，报告怎样表达结果。</p></div><div><span class="scenario-mark different" aria-hidden="true">≠</span><strong>已知变化对照</strong><p>观察预设的回答变化怎样出现在逐题结果中。</p></div></div>
           <div class="action-row"><p class="subtle">全部在本机生成合成数据，通常需要几十秒。</p><button class="button primary" id="start-demo" type="button" disabled><span aria-hidden="true">▷</span>运行免费演示</button></div>
@@ -105,7 +134,20 @@
       <section id="results" class="work-section" aria-labelledby="results-title" hidden>
         <div class="section-heading"><div><span class="step-number">02</span><h2 id="results-title">检测结果</h2></div><span id="result-date" class="section-hint"></span></div>
         <div id="report-tabs" class="report-tabs" role="tablist" aria-label="选择报告" hidden></div>
-        <article class="panel result-panel">
+        <article id="fingerprint-report" class="panel result-panel" hidden>
+          <div id="fp-banner" class="result-banner"><span class="result-symbol" aria-hidden="true">≈</span><div><span class="eyebrow" id="fp-scope">参考指纹比较</span><h3 id="fp-headline"></h3><p id="fp-explanation"></p></div></div>
+          <div id="fp-metrics" class="metric-grid"></div>
+          <div class="fingerprint-context" id="fp-reference-info"></div>
+          <div id="fp-domains" class="domain-strip" aria-label="各领域匹配情况"></div>
+          <div class="table-header"><div><h3>逐题证据</h3><p>答案一致性与原始响应，按题可追溯。</p></div><span class="pill neutral" id="fp-filter-count"></span></div>
+          <div class="evidence-filters"><label for="fp-search" class="search-field"><span class="sr-only">搜索题目</span><input id="fp-search" type="search" placeholder="搜索题目、编号或领域" autocomplete="off"></label><label for="fp-outcome"><span class="sr-only">筛选判断</span><select id="fp-outcome"><option value="all">全部判断</option><option value="mismatch">只看不一致</option><option value="match">只看一致</option><option value="missing">缺失或失败</option></select></label><label for="fp-domain"><span class="sr-only">筛选领域</span><select id="fp-domain"><option value="all">全部领域</option></select></label></div>
+          <div class="table-scroll"><table class="results-table fingerprint-table"><caption class="sr-only">参考答案与待测答案逐题比较</caption><thead><tr><th scope="col">题目 / 领域</th><th scope="col">参考答案</th><th scope="col">待测答案</th><th scope="col">一致性</th><th scope="col">证据</th></tr></thead><tbody id="fp-probe-results"></tbody></table></div>
+          <div class="pagination"><span id="fp-page-count"></span><div><button id="fp-prev" type="button" class="text-button">← 上一页</button><button id="fp-next" type="button" class="text-button">下一页 →</button></div></div>
+          <section id="fp-viewer" class="sample-viewer" hidden aria-labelledby="fp-viewer-title"><div class="sample-heading"><div><h3 id="fp-viewer-title">题目证据</h3><p id="fp-viewer-meta"></p></div><button id="fp-viewer-close" type="button" class="text-button">收起 ×</button></div><div class="fingerprint-answers"><div><span>参考答案</span><strong id="fp-reference-answer"></strong></div><div><span>待测答案</span><strong id="fp-candidate-answer"></strong></div></div><h4>完整题目</h4><pre id="fp-question"></pre><details id="fp-raw-details"><summary>查看 API 原始响应</summary><p class="subtle">探针可能合并在同一个请求中，下方保留该批次的完整回答。</p><pre id="fp-raw-response"></pre></details><p id="fp-probe-error" class="probe-error" hidden></p></section>
+          <details class="method-details"><summary>参考来源与统计设置</summary><div id="fp-method" class="method-content"></div></details>
+          <div class="export-row"><div><strong>保存这次结果</strong><p>JSONL 保留原始记录，可用同一参考包再次复算。</p></div><div class="export-buttons" id="fp-exports"></div></div>
+        </article>
+        <article id="pair-report" class="panel result-panel">
           <div id="result-banner" class="result-banner"><div class="result-symbol" aria-hidden="true">≈</div><div><span class="eyebrow" id="result-scope">本次采样</span><h3 id="result-headline">等待结果</h3><p id="result-explanation"></p></div></div>
           <div id="lab-result" class="lab-result" hidden></div>
           <div class="metric-grid" id="metrics"></div>
@@ -120,8 +162,8 @@
 
       <section id="history" class="work-section" aria-labelledby="history-title"><div class="section-heading"><div><span class="step-number">◷</span><h2 id="history-title">历史结果</h2></div><button class="text-button" id="refresh-history" type="button">刷新列表</button></div><div class="panel history-panel"><div id="history-empty" class="empty-state"><span aria-hidden="true">◷</span><div><strong>第一次检测，从这里开始积累</strong><p>运行演示后，记录会出现在这里，随时可以重新打开。</p></div></div><div id="history-list" class="history-list"></div></div></section>
 
-      <section id="reading-guide" class="work-section" aria-labelledby="reading-guide-title"><div class="section-heading"><div><span class="step-number">?</span><h2 id="reading-guide-title">怎样读懂结果</h2></div></div><div class="guide-grid"><article><span class="guide-number">01</span><h3>先看采样是否完整</h3><p>两侧用了相同的问题和参数吗？失败请求、缺失样本和来源未核实，都会影响比较。</p></article><article><span class="guide-number">02</span><h3>再看差异出现在哪里</h3><p>结合逐题回答、任务通过率和延迟，寻找需要复核的现象。平均值只是起点。</p></article><article><span class="guide-number">03</span><h3>带着记录继续核实</h3><p>核对服务宣称、模型版本和调用配置。此次未检出差异，也不能确认模型相同。</p></article></div></section>
-      <footer class="page-footer"><span>Relay Audit · 让观察有依据，让结果可复核。</span><span>Inspect AI + Model Equality Testing</span></footer>
+      <section id="reading-guide" class="work-section" aria-labelledby="reading-guide-title"><div class="section-heading"><div><span class="step-number">03</span><h2 id="reading-guide-title">如何读懂这份证据</h2></div></div><div class="guide-grid"><article><span class="guide-number">01</span><h3>参考来自哪里</h3><p>参考包记录模型版本、采集时间与提供方。选择与你要核验的承诺对应的版本，来源信息保留在报告中。</p></article><article><span class="guide-number">02</span><h3>差异出现在哪里</h3><p>先看可解析回答的覆盖率，再看哪些领域、哪些题出现偏离。点开原始响应，检查格式和截断是否影响了解析。</p></article><article><span class="guide-number">03</span><h3>还需要怎样核实</h3><p>显著差异是复核线索。版本、推理配置和动态路由都可能改变行为，结合服务宣称进一步调查。</p></article></div></section>
+      <footer class="page-footer"><span>第 11 小组 · 大模型服务供应链研究</span><span>KBF · Inspect AI · Model Equality Testing</span></footer>
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

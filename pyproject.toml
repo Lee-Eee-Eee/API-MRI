@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "relay-audit"
-version = "0.2.0"
-description = "Evidence-oriented API service consistency research prototype"
+version = "0.3.0"
+description = "Single-API fingerprint checks and reproducible service-consistency research"
 requires-python = ">=3.10"
 dependencies = [
   "inspect-ai==0.3.278",
@@ -14,6 +14,9 @@ dependencies = [
   "torch==2.8.0",
   "tqdm>=4.66,<5",
   "transformers>=4.45,<5",
+  "scipy>=1.11,<2",
+  "httpx>=0.27,<1",
+  "requests>=2.32,<3",
 ]
 
 [project.optional-dependencies]
@@ -28,7 +31,7 @@ relay-audit = "relay_audit.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-relay_audit = ["static/*.html", "static/*.css", "static/*.js"]
+relay_audit = ["static/*.html", "static/*.css", "static/*.js", "data/reference_packs/*.json", "data/reference_packs/NOTICE", "vendor/kbf/LICENSE", "vendor/kbf/NOTICE", "vendor/kbf/UPSTREAM.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

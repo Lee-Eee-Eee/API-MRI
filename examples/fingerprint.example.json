@@ -1,0 +1,9 @@
+{
+  "reference_pack": "gpt-4.1-mini_20260915",
+  "candidate": {
+    "api_base": "https://api.example.com/v1",
+    "model": "gpt-4.1-mini",
+    "api_key_env": "CANDIDATE_API_KEY"
+  },
+  "timeout": 30
+}

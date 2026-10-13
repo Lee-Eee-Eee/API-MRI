@@ -1,0 +1,35 @@
+{
+  "upstream_commit": "68aefbbab879469152aaac9fd988a86c30ee4739",
+  "files": [
+    {
+      "path": "scripts/kbf_common.py",
+      "source_url": "https://raw.githubusercontent.com/Ooo0ption/KBF/68aefbbab879469152aaac9fd988a86c30ee4739/scripts/kbf_common.py",
+      "upstream_sha256": "090836b4c58ed6dabe56884bfce2cd54b27d75c14cb185d01c99f06d0ec811e6",
+      "local_sha256": "590fac338ba884fb8b28f8143d2dba39151be8b0c533daa20fa4ea41880b92c1"
+    },
+    {
+      "path": "scripts/domains.py",
+      "source_url": "https://raw.githubusercontent.com/Ooo0ption/KBF/68aefbbab879469152aaac9fd988a86c30ee4739/scripts/domains.py",
+      "upstream_sha256": "7d86662c40a1b6370eeb442c0a58467f5f70b9b9b64bddddb8e6b0f5153ac4c5",
+      "local_sha256": "0633eb5b069b246cd611fb80eca503dc883ecbb69500ab3b08f79467918fe55d"
+    },
+    {
+      "path": "scripts/protocols.py",
+      "source_url": "https://raw.githubusercontent.com/Ooo0ption/KBF/68aefbbab879469152aaac9fd988a86c30ee4739/scripts/protocols.py",
+      "upstream_sha256": "48d98d4337ace927a6191a6c6577736119cad3394fa46bba1ce9857b5d74d3df",
+      "local_sha256": "83f6a17eabf4575c3efd1072cd0a4bcd32065c2b99a208c84284402317685630"
+    },
+    {
+      "path": "scripts/kbf_test.py",
+      "source_url": "https://raw.githubusercontent.com/Ooo0ption/KBF/68aefbbab879469152aaac9fd988a86c30ee4739/scripts/kbf_test.py",
+      "upstream_sha256": "319f11e439d2ddf82a2d45d62e8abb43e2bd3bdb3514779e86435e7d580da651",
+      "local_sha256": "cdaf2e9aeef6757ad79a32d4edd47116f164d0c55c8bf020a6eed5fd91048885"
+    },
+    {
+      "path": "LICENSE",
+      "source_url": "https://raw.githubusercontent.com/Ooo0ption/KBF/68aefbbab879469152aaac9fd988a86c30ee4739/LICENSE",
+      "upstream_sha256": "0485fff26320cac0547cdd92fc503066869f02110ef5914f121c7a50b8cb1467",
+      "local_sha256": "0485fff26320cac0547cdd92fc503066869f02110ef5914f121c7a50b8cb1467"
+    }
+  ]
+}
