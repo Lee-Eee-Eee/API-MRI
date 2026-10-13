@@ -13,8 +13,13 @@ from .report import STATUS_LABELS, write_report
 def _analyze(reference: Path, candidate: Path, out: Path, args: argparse.Namespace) -> dict:
     from .stats import compare_records
 
+    def read_partial(path: Path):
+        return load_records(path) if path.read_text(encoding="utf-8").strip() else []
+    left, right = read_partial(reference), read_partial(candidate)
+    if not left and not right:
+        raise ValueError("两份文件都没有记录；至少需要一侧的已保存证据。")
     result = compare_records(
-        load_records(reference), load_records(candidate),
+        left, right,
         permutations=args.permutations, seed=args.seed,
         alpha=args.alpha, min_samples=args.min_samples,
     )
@@ -31,7 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("--reference", type=Path, required=True)
     compare.add_argument("--candidate", type=Path, required=True)
     compare.add_argument("--out", type=Path, required=True)
-    for command in [demo, compare]:
+    compare.add_argument("--study", type=Path, help="可选服务研究档案JSON")
+    lab = commands.add_parser("lab", help="模拟替换、路由、提示改写、限额或故障，无API调用")
+    lab.add_argument("--scenario", choices=["honest", "substitution", "mixed_route", "prompt_rewrite", "output_cap", "unstable"], default="substitution")
+    lab.add_argument("--out", type=Path, required=True)
+    lab.add_argument("--repeats", type=int, default=12)
+    for command in [demo, compare, lab]:
         command.add_argument("--permutations", type=int, default=499)
         command.add_argument("--seed", type=int, default=11)
         command.add_argument("--alpha", type=float, default=0.05)
@@ -39,21 +49,65 @@ def build_parser() -> argparse.ArgumentParser:
     collect = commands.add_parser("collect", help="按显式配置调用OpenAI兼容端点，可能产生费用")
     collect.add_argument("--config", type=Path, required=True)
     collect.add_argument("--out", type=Path, required=True)
+    plan = commands.add_parser("plan", help="检查双端点配置与请求上限，不调用API")
+    plan.add_argument("--config", type=Path, required=True)
+    run = commands.add_parser("run", help="交错采集两侧服务并生成报告，可能产生费用")
+    run.add_argument("--config", type=Path, required=True)
+    run.add_argument("--out", type=Path, required=True)
+    run.add_argument("--study", type=Path, help="可选服务研究档案JSON，不发送至API")
+    ui = commands.add_parser("ui", help="启动本机浏览器工作台")
+    ui.add_argument("--port", type=int, default=8765)
+    ui.add_argument("--runs-dir", type=Path, default=Path("runs/ui"))
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.out.exists():
+    if getattr(args, "out", None) is not None and args.out.exists():
         parser.error("输出目录已存在，请选一个新目录以保留已有证据。")
-    if args.command in ["demo", "compare"]:
+    if args.command in ["demo", "compare", "lab"]:
         if args.permutations < 19 or not 0 < args.alpha < 1 or args.min_samples < 2:
             parser.error("permutations至少19；alpha在0与1之间；min-samples至少2。")
     if args.command == "demo" and args.repeats < 2:
         parser.error("repeats至少2。")
     try:
-        if args.command == "demo":
+        from .study import attach_study, redact_study, validate_study
+
+        study = validate_study(json.loads(args.study.read_text(encoding="utf-8"))) if getattr(args, "study", None) else {}
+        if args.command == "ui":
+            try:
+                from .web import serve
+            except ImportError:
+                parser.error('请先安装界面依赖：python -m pip install -e ".[api,ui]"')
+            serve(port=args.port, runs_dir=args.runs_dir)
+        elif args.command in {"plan", "run"}:
+            from .workflows import plan_pair, run_pair
+
+            payload = json.loads(args.config.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("配置应为JSON对象。")
+            for role in ("reference", "candidate"):
+                if "api_key" in payload.get(role, {}):
+                    raise ValueError("CLI配置只填写api_key_env环境变量名称；请从文件中移除明文api_key。")
+            if args.command == "plan":
+                print(json.dumps(plan_pair(payload), ensure_ascii=False, indent=2))
+            else:
+                study = redact_study(study, payload)
+                result = run_pair(payload, args.out)
+                result = attach_study(result, study, args.out)
+                print(STATUS_LABELS.get(result["status"], result["status"]))
+                print(f"报告：{args.out / 'report.md'}")
+                if result.get("collection", {}).get("failure"):
+                    return 1
+        elif args.command == "lab":
+            from .lab import run_scenario
+
+            result = run_scenario(args.scenario, args.out, repeats=args.repeats, seed=args.seed,
+                                  permutations=args.permutations, alpha=args.alpha, min_samples=args.min_samples)
+            print(STATUS_LABELS.get(result["status"], result["status"]))
+            print(f"模拟情境：{result['lab']['scenario']['name']}；报告：{args.out / 'report.md'}")
+        elif args.command == "demo":
             from .collect import collect_fixture
 
             args.out.mkdir(parents=True)
@@ -77,9 +131,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"合成流程完成；报告：{args.out}")
         elif args.command == "compare":
             result = _analyze(args.reference, args.candidate, args.out, args)
+            result = attach_study(result, study, args.out)
             print(STATUS_LABELS.get(result["status"], result["status"]))
             print(f"报告：{args.out / 'report.md'}")
-        else:
+        elif args.command == "collect":
             from .collect import collect_endpoint
 
             records = collect_endpoint(args.config, log_dir=args.out / "inspect")

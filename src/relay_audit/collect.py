@@ -29,6 +29,7 @@ from inspect_ai.solver import generate
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .records import AuditRecord, content_hash, file_hash
+from .probes import ProbeCheck
 
 
 FIXTURE_MODEL = "research-fixture/declared-a"
@@ -45,19 +46,20 @@ _SECRET_FIELDS = {"authorization", "proxyauthorization", "apikey", "xapikey", "a
 
 
 class _Prompt(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    id: str = Field(min_length=1)
-    input: str = Field(min_length=1)
+    model_config = ConfigDict(extra="forbid", strict=True)
+    id: str = Field(min_length=1, max_length=80)
+    input: str = Field(min_length=1, max_length=16000)
+    check: ProbeCheck | None = None
 
 
 class _EndpointConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    endpoint_id: str = Field(min_length=1)
-    model_declared: str = Field(min_length=1)
-    base_url: str = Field(min_length=1)
-    api_key_env: str = Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
+    model_config = ConfigDict(extra="forbid", strict=True)
+    endpoint_id: str = Field(min_length=1, max_length=80)
+    model_declared: str = Field(min_length=1, max_length=200)
+    base_url: str = Field(min_length=1, max_length=2048)
+    api_key_env: str | None = Field(default=None, pattern=r"^[A-Za-z_][A-Za-z0-9_]*$", max_length=128)
     reference_kind: Literal["official", "third_party", "unknown"] = "unknown"
-    prompts: list[_Prompt] = Field(min_length=1)
+    prompts: list[_Prompt] = Field(min_length=1, max_length=20)
     repeats: int = Field(default=1, ge=1, le=10000, strict=True)
     max_tokens: int = Field(default=64, ge=1, le=100000, strict=True)
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
@@ -81,6 +83,8 @@ class _EndpointConfig(BaseModel):
             raise ValueError("base_url must be an absolute HTTP(S) URL")
         if parsed.username is not None or parsed.password is not None or parsed.query or parsed.fragment:
             raise ValueError("base_url cannot contain userinfo, query parameters, or fragments")
+        if parsed.scheme == "http" and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+            raise ValueError("base_url requires HTTPS except for local loopback tests")
         return value.rstrip("/")
 
     @model_validator(mode="after")
@@ -327,12 +331,26 @@ def collect_endpoint(config_path: Path, log_dir: Path) -> list[AuditRecord]:
     """
     try:
         parsed = json.loads(Path(config_path).read_text(encoding="utf-8"))
-        settings = _EndpointConfig.model_validate(parsed)
     except (OSError, ValueError) as exc:
         raise ValueError(f"Invalid endpoint configuration ({type(exc).__name__}); raw values omitted") from None
-    api_key = os.environ.get(settings.api_key_env)
-    if not api_key or len(api_key) < 8:
-        raise ValueError("Configured credential environment variable is missing or shorter than 8 characters")
+    return collect_endpoint_config(parsed, log_dir)
+
+
+def collect_endpoint_config(config: dict[str, Any], log_dir: Path, *,
+                            api_key: str | None = None) -> list[AuditRecord]:
+    """Collect a validated in-memory configuration without saving credentials.
+
+    ``api_key`` is deliberately separate from the serializable configuration.
+    When omitted, resolve ``api_key_env``. File callers keep the original API.
+    """
+    try:
+        settings = _EndpointConfig.model_validate(config)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid endpoint configuration ({type(exc).__name__}); raw values omitted") from None
+    if api_key is None:
+        api_key = os.environ.get(settings.api_key_env) if settings.api_key_env else None
+    if not isinstance(api_key, str) or not 8 <= len(api_key) <= 4096 or re.search(r"\s", api_key):
+        raise ValueError("Credential is missing or invalid; expected 8 to 4096 non-whitespace characters")
     # Do not accept endpoint-selected options that emulate tools, silently
     # choose Responses API, stream, enable caches, or turn retries back on.
     config = _generation_config(max_tokens=settings.max_tokens, temperature=settings.temperature,
@@ -348,7 +366,7 @@ def collect_endpoint(config_path: Path, log_dir: Path) -> list[AuditRecord]:
         {"base_url": settings.base_url, "api_key": api_key, "responses_api": False,
          "stream": False, "max_retries": 0},
     )
-    return _records(
+    rows = _records(
         logs, endpoint_id=settings.endpoint_id, model_declared=settings.model_declared,
         reference_kind=settings.reference_kind, synthetic=False,
         prompts=settings.prompts, config=config, repeats=settings.repeats, key=api_key,
@@ -358,3 +376,10 @@ def collect_endpoint(config_path: Path, log_dir: Path) -> list[AuditRecord]:
                                   "Response model, IDs and usage are provider supplied; no upstream authenticity guarantee.",
                                   "No tool emulation, streaming, Responses API or context-window claim is tested."]},
     )
+    checks = {prompt.id: prompt.check.model_dump() for prompt in settings.prompts if prompt.check is not None}
+    for row in rows:
+        if row.prompt_id in checks:
+            row.metadata["probe_check"] = checks[row.prompt_id]
+    # Config labels and probe expectations can also accidentally contain a
+    # credential. Apply the same policy to all exported record fields.
+    return [AuditRecord.model_validate(_redact(row.model_dump(), (api_key, quote(api_key, safe="")))) for row in rows]

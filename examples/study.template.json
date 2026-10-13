@@ -1,0 +1,14 @@
+{
+  "case_id": "case-01",
+  "service_name": "填写服务名称",
+  "product": "填写具体套餐或渠道",
+  "observed_on": "2026-10-13",
+  "source_url": "https://example.invalid/replace-with-your-source",
+  "model_claim": "填写该产品对模型及版本的公开承诺",
+  "price_claim": "保留币种、计量单位、输入输出价格及特殊条件",
+  "route_claim": "填写已披露上游或路由；未找到材料时留空",
+  "data_policy_claim": "填写该产品的留存、训练与转委托条款",
+  "remedy_claim": "填写故障、退款或停运余额处理条款",
+  "research_question": "哪些承诺能用此次测量核查？哪些还需要合同或运营材料？",
+  "notes": "这是占位模板。测试前替换示例；多份来源可在此逐项注明链接和日期。"
+}

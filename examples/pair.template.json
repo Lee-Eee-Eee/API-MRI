@@ -1,0 +1,37 @@
+{
+  "reference": {
+    "endpoint_id": "official-reference",
+    "model_declared": "same-model-version",
+    "base_url": "https://official.example/v1",
+    "api_key_env": "RELAY_REFERENCE_KEY",
+    "reference_kind": "official"
+  },
+  "candidate": {
+    "endpoint_id": "candidate-service",
+    "model_declared": "same-model-version",
+    "base_url": "https://candidate.example/v1",
+    "api_key_env": "RELAY_CANDIDATE_KEY",
+    "reference_kind": "third_party"
+  },
+  "prompts": [
+    {
+      "id": "arithmetic",
+      "input": "计算 (17 + 8) × 3 - 30。只返回最终整数，不加解释。",
+      "check": {"kind": "exact", "expected": "45"}
+    },
+    {
+      "id": "json_format",
+      "input": "只返回一个 JSON 对象，不要 Markdown 或解释：name 字段为字符串 relay，count 字段为整数 3，active 字段为布尔值 true。不要增加其他字段。",
+      "check": {"kind": "json_object", "expected": {"name": "relay", "count": 3, "active": true}}
+    }
+  ],
+  "repeats": 12,
+  "max_tokens": 128,
+  "temperature": 0,
+  "timeout": 30,
+  "attempt_timeout": 15,
+  "permutations": 199,
+  "seed": 11,
+  "alpha": 0.05,
+  "min_samples": 8
+}

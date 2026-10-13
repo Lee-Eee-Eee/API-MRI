@@ -45,3 +45,21 @@ def test_offline_cli_replays_without_network_and_preserves_existing_evidence(tmp
     assert error.value.code == 2
     assert file_hash(out / "report.json") == report_before
     assert {name: file_hash(path) for name, path in paths.items()} == before
+
+
+def test_partial_cancelled_evidence_can_be_replayed(tmp_path):
+    reference, candidate = tmp_path / "reference.jsonl", tmp_path / "candidate.jsonl"
+    save_records(reference, [AuditRecord(
+        run_id="ref", endpoint_id="ref", prompt_id="p1", replicate=0,
+        prompt_hash=content_hash("prompt"), config_hash=content_hash("config"),
+        model_declared="synthetic", reference_kind="synthetic_control", synthetic=True,
+        status="success", response="blue",
+        metadata={"expected_prompt_ids": ["p1"], "expected_repeats": 12},
+    )])
+    candidate.touch()
+    out = tmp_path / "replay"
+    assert main(["compare", "--reference", str(reference), "--candidate", str(candidate),
+                 "--out", str(out), "--permutations", "99"]) == 0
+    result = json.loads((out / "report.json").read_text(encoding="utf-8"))
+    assert result["status"] == "insufficient_evidence"
+    assert result["diagnostics"]["roles"]["candidate"]["records"] == 0
