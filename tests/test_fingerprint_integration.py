@@ -41,14 +41,14 @@ def test_browser_fingerprint_demo_replay_and_exports_without_network(tmp_path, m
         headers = {"X-Relay-Token": data["session_token"]}
         pack_id = packs[0]["id"]
         planned = client.post("/api/plan", headers=headers, json={
-            "mode": "fingerprint", "reference_pack": pack_id,
+            "mode": "fingerprint", "reference_pack": pack_id, "profile": "full",
             "candidate": {"api_base": "https://api.example.com/v1", "model": packs[0]["model"], "api_key": "synthetic-key-for-plan"},
         })
         assert planned.status_code == 200, planned.text
         assert "synthetic-key-for-plan" not in planned.text
         assert client.get("/api/runs").json()["runs"] == []
         response = client.post("/api/runs", headers=headers, json={
-            "mode": "fingerprint_demo", "reference_pack": pack_id, "variant": "different",
+            "mode": "fingerprint_demo", "reference_pack": pack_id, "variant": "different", "profile": "full",
         })
         assert response.status_code == 202, response.text
         identifier = response.json()["id"]
@@ -114,10 +114,20 @@ def test_cli_fingerprint_demo_replay_and_config_key_policy(tmp_path, monkeypatch
     assert main(["fingerprint-demo", "--reference-pack", pack["id"], "--variant", "match", "--out", str(out)]) == 0
     before = (out / "report.json").read_bytes()
     report = json.loads(before)
-    assert report["status"] == "no_difference_detected"
+    assert report["profile"] == "screening"
+    assert report["status"] == "insufficient_evidence"
+    assert report["fingerprint"]["screening"]["outcome"] == "no_differences_observed"
+    assert report["fingerprint"]["summary"]["p_value"] is None
+    assert len(report["fingerprint"]["probes"]) <= 30
     replay = tmp_path / "replay"
     assert main(["fingerprint-replay", "--reference-pack", pack["id"], "--records", str(out / "fingerprint_records.jsonl"), "--out", str(replay)]) == 0
     assert json.loads((replay / "report.json").read_text(encoding="utf-8"))["fingerprint"]["summary"] == report["fingerprint"]["summary"]
+    full = tmp_path / "full-demo"
+    assert main(["fingerprint-demo", "--reference-pack", pack["id"], "--profile", "full", "--variant", "match", "--out", str(full)]) == 0
+    full_report = json.loads((full / "report.json").read_text(encoding="utf-8"))
+    assert full_report["profile"] == "full"
+    assert full_report["status"] == "no_difference_detected"
+    assert len(full_report["fingerprint"]["probes"]) == pack["probe_count"]
     with pytest.raises(SystemExit):
         main(["fingerprint-demo", "--reference-pack", pack["id"], "--out", str(out)])
     assert (out / "report.json").read_bytes() == before

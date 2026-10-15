@@ -1,0 +1,156 @@
+{
+  "schema_version": "1.0",
+  "computed_on": "2026-10-15",
+  "method": "Independent Python JSD and ROC calculations from author's normalized main-02 records",
+  "source": {
+    "paper": "https://arxiv.org/abs/2607.10252v1",
+    "data": "https://doi.org/10.5281/zenodo.21278557",
+    "data_license": "CC-BY-4.0",
+    "data_attribution": "Tomáš Bruckner, 2026",
+    "code_configuration": "https://doi.org/10.5281/zenodo.21278793",
+    "configuration_license": "MIT (Zenodo metadata)",
+    "data_archive": {
+      "filename": "pamela-publish-data.zip",
+      "bytes": 52366366,
+      "md5": "f2ce3fba3081f73e9908179fb2f061b6",
+      "sha256": "160104321694472ba328d48de6f6b93ee962d0e97fb4d212a023efa5a2de9f7c"
+    },
+    "code_archive": {
+      "filename": "pamela-publish-code.zip",
+      "bytes": 63741,
+      "md5": "d81de3b8ef5c0bca74fd7c2bdbb41a6b",
+      "sha256": "8a9c8db47609fd0682a44398e55a4e0b322cf3ae479c3189f0874aae928044ef"
+    }
+  },
+  "execution": {
+    "network_calls": 0,
+    "model_api_calls": 0,
+    "upstream_code_executed": false,
+    "archive_extracted": false
+  },
+  "corpus": {
+    "catalog_models": 342,
+    "included_catalog_models": 165,
+    "raw_main02_records": 335889,
+    "raw_model_identifiers": 176,
+    "raw_provider_labels": 54,
+    "raw_first_utc": "2026-07-06T19:43:41.754Z",
+    "raw_last_utc": "2026-07-08T16:45:40.538Z",
+    "raw_duplicate_keys": 0,
+    "reported_usage_main02": {
+      "prompt_tokens": 23775305,
+      "completion_tokens": 1237640,
+      "cost_usd": 34.65246965025161,
+      "cached_tokens": 2371210
+    },
+    "included_models_main02_records_all_tasks_temperatures": 326047,
+    "included_model_provider_labels": 53,
+    "reported_usage_included_models_all_tasks_temperatures": {
+      "prompt_tokens": 23304507,
+      "completion_tokens": 1161765,
+      "cost_usd": 34.43839376405147,
+      "cached_tokens": 2356517
+    },
+    "normalized_records": 335889,
+    "normalized_runs": {
+      "main-02": 335889
+    },
+    "normalized_classes_all_tasks": {
+      "valid": 320693,
+      "empty": 6578,
+      "invalid": 3782,
+      "post_reasoning": 4462,
+      "refusal": 374
+    },
+    "normalized_raw_signature_mismatches": 0
+  },
+  "analysis": {
+    "run_id": "main-02",
+    "temperature": 1,
+    "study1_tasks": [
+      "animal-random",
+      "city-random",
+      "coin-flip",
+      "color-favorite",
+      "color-random",
+      "letter-random",
+      "num-favorite",
+      "num10-random",
+      "num100-random",
+      "word-random"
+    ],
+    "cells": 40,
+    "model_identifiers": 165,
+    "records_before_validity_filter": 197615,
+    "valid_records": 192466,
+    "answer_classes": {
+      "valid": 192466,
+      "post_reasoning": 1555,
+      "invalid": 2694,
+      "empty": 699,
+      "refusal": 201
+    },
+    "half_split": "rep parity, pooled across providers within a model identifier",
+    "minimum_valid_answers_per_half": 5,
+    "valid_half_sample_sizes": {
+      "min": 1,
+      "median": 15.0,
+      "max": 15
+    },
+    "eligible_half_sample_sizes": {
+      "min": 5,
+      "median": 15,
+      "max": 15
+    },
+    "normalization": "Author-supplied normalized/answer_class fields reused; text provenance checked against raw records"
+  },
+  "recomputed_full_battery": {
+    "auc": 0.9713419113529979,
+    "eer": 0.07281966001478198,
+    "descriptive_eer_threshold": 0.35620250000000003,
+    "same_label_pairs": 165,
+    "different_label_pairs": 27060
+  },
+  "author_archived_full_battery": {
+    "auc": 0.971342,
+    "eer": 0.07282,
+    "n_genuine": 165,
+    "n_impostor": 27060
+  },
+  "absolute_difference": {
+    "auc": 8.864700218325083e-08,
+    "eer": 3.399852180202556e-07
+  },
+  "exploratory_budget_curve": [
+    {
+      "cells": 4,
+      "subset_resamples": 20,
+      "eer_mean": 0.14978935698447893,
+      "eer_min": 0.07995195861049517,
+      "eer_max": 0.3200480413895048
+    },
+    {
+      "cells": 8,
+      "subset_resamples": 20,
+      "eer_mean": 0.10662878787878789,
+      "eer_min": 0.07795639320029561,
+      "eer_max": 0.1575757575757576
+    },
+    {
+      "cells": 16,
+      "subset_resamples": 20,
+      "eer_mean": 0.0939911308203991,
+      "eer_min": 0.07878787878787877,
+      "eer_max": 0.1333333333333333
+    }
+  ],
+  "exploratory_seed": 20261015,
+  "limitations": [
+    "Offline reuse of one published corpus; model/provider identity labels are not independently authenticated.",
+    "Parity halves share a collection period and may share provider mixtures; this is not cross-day or origin-verified evaluation.",
+    "Author normalization is reused; multilingual normalization was not independently reimplemented.",
+    "EER threshold is chosen on the same scores for description, not calibrated as a deployable decision threshold.",
+    "Exploratory budget subsets use Python RNG and fewer resamples than the paper; ranges are subset variation, not confidence intervals.",
+    "Reported usage is server metadata, not independently verified billing. Per-half repetitions vary, so cells do not equal request counts."
+  ]
+}

@@ -4,7 +4,9 @@ API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧�
 
 **选一份公开参考包，填入你正在用的 API，看看它在相同探针上的回答是否与参考相符。** 你只需提供待测端的地址、模型名和 Key，参考数据随工具提供，无需再购买一个官方 API 账户。
 
-v0.4.1 使用 API-MRI 品牌与 `api-mri` 命令，沿用扩充后的参考库和“抓取参考库更新”按钮。可以搜索模型、按参考提供方筛选，再为精确版本选择参考。双端点比较和六情境实验台继续保留。单 API 表示只配置一个服务，一次检测仍会发送多次请求；页面在开始前显示请求计划。
+v0.5 默认使用**低成本初筛**：固定抽取最多 3 个原始批次、最多 30 题，默认最多发送 4 次请求，累计申请的输出配额不超过 4,096 token。结果列出实际回答差异和缺失，帮助决定是否值得进一步核查。需要比较整份参考时，可主动选择“完整参考比较”。两种方式的证据强度和调用量在开始前分别展示。
+
+少量题目能发现某些差异，但目前没有经过真实模型校准，因此初筛不计算鉴真分数或显著性。完整模式继续使用 KBF 判据。参考库、按键更新、双端点比较和六情境实验台均可使用。
 
 ![API-MRI 本机工作台](docs/images/workbench.jpg)
 
@@ -88,10 +90,10 @@ api-mri ui
 1. **先看示例。** 选择“离线体验”，挑选一个参考包，熟悉计划、报告和逐题记录。示例用于展示流程，回答由本机生成。
 2. **选匹配的参考包。** 转到“单 API 检测”，搜索模型并查看版本、参考来源和日期。点击“抓取参考库更新”可检查 KBF 作者公开目录中的新增数据；列表没有匹配版本时，使用进阶双端点比较。
 3. **填一个 API。** 输入候选服务的 Base URL、实际请求模型名和 Key。例如 `https://api.example.com/v1` 是接口根地址，通常不要带 `/chat/completions`。
-4. **查看计划。** 点击“核对采样计划”，检查将发送的请求数和输出上限。题目、温度和系统提示随参考包固定，便于和已有数据比较。
+4. **选择模式与预算。** 默认先做低成本初筛；点击“核对采样计划”，检查实际选题、请求上限和输出配额。完整比较会增加题目与调用量，需要重新核对计划。
 5. **开始并阅读结果。** 点击“开始检测”，查看进度、取消或打开历史记录。结果页按顺序展示结论、主要原因、参考来源和逐题记录，可下载报告。
 
-输出 token 上限不包含全部输入与其他计费项目，实际费用仍按服务账单计算。先确认套餐允许自动 API 调用；仅限特定交互工具的订阅权益需核查使用范围。
+请求输出配额是每次请求中 `max_tokens` 的累加上限，兼容性试探和格式尝试也计入预算。额度不足以发出下一笔完整请求时停止，保留已有结果。它不等于实际总 token 或费用上限；报告另列服务自报用量，未返回用量时显示未知。先确认套餐允许自动 API 调用。
 
 运行结果保存在启动目录下的 `runs/ui/`。界面 Key 用于当前运行，不保存为配置或浏览器持久化设置；CLI 从你指定的环境变量读 Key。报告与原始回答保存到本机。详细操作见[使用指南](docs/user-guide.md)。
 
@@ -99,11 +101,14 @@ api-mri ui
 
 | 结果 | 含义和下一步 |
 | --- | --- |
+| 初筛完成，尚不能判断模型身份 | 查看这次抽取的题目中哪些回答不同、哪些缺失；短样本没有经过鉴别能力校准，不返回 SAME / DIFF |
 | 发现显著差异（DIFF） | 在这份参考包及其设置下，待测回答的偏离达到判据。先核对版本、提示处理和输出限制，再考虑复采 |
 | 未检出明显差异（SAME） | 本次探针没有检出超过参考基线的偏离；保留这次记录，按实际服务变化安排复核 |
 | 证据不足（UNDETERMINED） | 覆盖不足、解析失败、条件不符或其他问题妨碍比较，按报告原因修正 |
 
 **SAME 是方法返回的标签，不是模型真伪认证。** 模型版本、参数或中转处理都可能改变回答。报告保留参考来源及日期，让结果对应到具体条件。[参考包说明](docs/reference-packs.md)解释数据从哪里来、怎样比较，以及哪些变化需要更新参考。
+
+完整模式中，只要计划内题目存在未解析的回答，就返回“证据不足”。只回答容易匹配的题目不能获得“未检出明显差异”的结论。初筛选题在运行前固定，不会看到答案后反复加题直至出现显著结果。
 
 内置参考从 4 份扩展到 **26 份**，包含 GPT-6 Astra、Claude Opus 5 / Fable 5.1、DeepSeek V4 Pro 0813、Kimi K3 等作者记录的版本。数据来自 KBF 的 2026 年 9 月目录，逐包核对探针格式、提示与领域配置、自测记录和文件哈希。模型名、提供方和采集渠道来自作者记录，尚未由本组独立认证。完整数量和版本见[来源清单](docs/reference-packs.md#内置参考包)。采集日期与模型发布日期是两回事；参考列表表示当前有数据可比对的版本。
 
@@ -120,6 +125,7 @@ api-mri ui
 ```bash
 api-mri references
 api-mri references-update --library-dir runs/reference-library
+api-mri reference-audit --out runs/reference-audit-01
 ```
 
 需要单独管理缓存时，`references`、`references-update`、`fingerprint-*` 和 `ui` 均可加 `--library-dir path/to/library`；一起使用的命令指定同一目录。默认是启动目录下的 `runs/reference-library/`。
@@ -133,14 +139,20 @@ api-mri fingerprint --config fingerprint.json --out runs/fingerprint-01
 
 `fingerprint-plan` 只检查计划。真实运行前，按照[密钥输入指南](docs/user-guide.md#在命令行中提供密钥)设置候选端的环境变量。
 
+示例配置包含 `"profile": "screening"` 和 `"budget": {"max_requests": 4, "max_output_tokens": 4096}`。完整比较使用 `"profile": "full"`，可保留自定预算；删除 `budget` 则使用完整计划的默认上限。旧配置省略 `profile` 时也会采用初筛，历史记录复算仍按其原始完整计划处理。
+
 无需 Key 的示例和离线复算：
 
 ```bash
-api-mri fingerprint-demo --reference-pack gpt-4.1-mini_20260915 --variant different --out runs/fingerprint-demo-01
+api-mri fingerprint-demo --reference-pack gpt-4.1-mini_20260915 --profile screening --variant different --out runs/fingerprint-demo-01
 api-mri fingerprint-replay --reference-pack gpt-4.1-mini_20260915 --records runs/fingerprint-demo-01/fingerprint_records.jsonl --out runs/fingerprint-replay-01
 ```
 
 示例支持 `match`、`different` 和 `incomplete`，分别展示匹配、偏离和记录不足。复算时使用原来那份参考包和候选记录，不会再次请求模型。每次使用新的输出目录，保留已有证据。
+
+`reference-audit` 读取本机参考，列出采集渠道、留存自测/其他模型记录及两种模式的调用计划，输出 Markdown 与 JSON。它可帮助安排后续校准；已有参考的自测偏离不代表真实误报率。
+
+我们还用公开的短答案指纹数据做了[独立统计复算](docs/low-cost-evidence.md)，检查减少问题后的信息损失。复算脚本和结果随仓库提供，原始数据从作者发布页下载；这条实验路线尚未成为默认身份判定器。
 
 ## 进阶：双端点比较与课堂实验
 
@@ -171,7 +183,7 @@ api-mri lab --scenario prompt_rewrite --out runs/lab-01
 开发时运行：
 
 ```bash
-python -m pytest -q
+python -X utf8 -m pytest -q
 ```
 
 反馈问题时提供复现步骤、参考包 ID、组件版本和合成样例即可。参考库覆盖、更新和实测校准仍是研究的一部分，更多说明见[参考包指南](docs/reference-packs.md)。

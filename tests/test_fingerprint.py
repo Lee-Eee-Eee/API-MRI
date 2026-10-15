@@ -18,7 +18,7 @@ KEY = "test-secret-do-not-persist-123456"
 
 
 def payload(base="https://api.example.invalid/v1", **extra):
-    return {"reference_pack": PACK, "candidate": {"api_base": base, "model": "custom-model-alias", "api_key": KEY}, **extra}
+    return {"reference_pack": PACK, "profile": "full", "candidate": {"api_base": base, "model": "custom-model-alias", "api_key": KEY}, **extra}
 
 
 @pytest.fixture
@@ -38,6 +38,8 @@ def server():
             code = 200
             if state["mode"] == "error":
                 code, body = 401, {"error": KEY, KEY: {"api_key": KEY}}
+            elif text == fp.DISCOVERY_PROMPT and (state["mode"] == "discovery_fail" or state["mode"] == "discovery_retry" and len(state["calls"]) <= 2):
+                code, body = 400, {"error": "unsupported_parameter"}
             elif state["mode"] == "redirect":
                 code, body = 302, {"error": "redirect not followed"}
             else:
@@ -277,3 +279,154 @@ def test_malformed_provider_bodies_have_no_parseable_text(raw):
     row = {"http_status": 200, "error": None, "raw_response": raw}
     assert fp._raw_text(row) is None
     assert not fp._discovery_ok({**row, "strategy": "bare"})
+
+
+def test_default_screening_selects_fixed_unchanged_batches_offline(monkeypatch):
+    monkeypatch.setattr(socket.socket, "connect", lambda *a: pytest.fail("Unexpected network"))
+    request = payload()
+    request.pop("profile")
+    plan = fp.plan_fingerprint(request)
+    assert plan["profile"] == "screening"
+    assert plan["budget"] == {"max_requests": 4, "max_output_tokens": 4096}
+    assert plan["max_requests"] == 4
+    assert plan["max_output_tokens_total"] <= 3200
+    assert plan["batch_count"] == 3 and 0 < plan["probe_count"] <= 30
+    assert len(plan["selection"]["domains"]) == 3
+    assert plan["reference_probe_count"] == 265
+    assert plan["budget_can_complete_minimum"]
+    assert plan["selection"] == fp.plan_fingerprint(request)["selection"]
+    all_batches = {b["id"]: b for b in fp._batches(fp._load_pack(PACK)[1])}
+    selected, _ = fp._selection(fp._load_pack(PACK)[1], "screening")
+    assert all(b == all_batches[b["id"]] for b in selected)
+
+
+def test_screening_collects_once_per_batch_and_never_claims_statistical_identity(tmp_path, server):
+    report = fp.run_fingerprint(payload(server["base"], profile="screening"), tmp_path / "screen")
+    assert len(server["calls"]) == 4
+    assert report["status"] == "insufficient_evidence"
+    assert report["profile"] == "screening"
+    assert report["fingerprint"]["screening"]["outcome"] == "no_differences_observed"
+    assert report["fingerprint"]["summary"]["p_value"] is None
+    assert report["fingerprint"]["upstream_statistics"] is None
+    assert report["fingerprint"]["summary"]["total"] <= 30
+    assert report["cost"]["requested_output_tokens"] == sum(c["max_tokens"] for c in server["calls"])
+    assert report["cost"]["usage"]["prompt_tokens"] == 4 * 12
+    assert report["cost"]["usage"]["completion_tokens"] == 4 * 25
+    assert report["cost"]["usage"]["total_tokens"] is None
+    assert report["cost"]["usage"]["complete"] is False
+    replay = fp.replay_fingerprint(PACK, tmp_path / "screen/fingerprint_records.jsonl", tmp_path / "replay-screen")
+    assert replay["cost"] == report["cost"]
+    assert replay["fingerprint"] == report["fingerprint"]
+
+
+def test_screening_format_failure_does_not_trigger_retries(tmp_path, server):
+    server["mode"] = "retry"
+    report = fp.run_fingerprint(payload(server["base"], profile="screening"), tmp_path / "screen")
+    assert len(server["calls"]) == 4
+    assert report["fingerprint"]["screening"]["outcome"] == "incomplete"
+    fp.replay_fingerprint(PACK, tmp_path / "screen/fingerprint_records.jsonl", tmp_path / "replay-screen")
+
+
+@pytest.mark.parametrize("budget,calls,stop_code", [
+    ({"max_requests": 2}, 2, "budget_max_requests"),
+    ({"max_output_tokens": 1599}, 1, "budget_max_output_tokens"),
+    ({"max_output_tokens": 799}, 0, "budget_max_output_tokens"),
+])
+def test_budget_reserves_whole_request_before_sending(tmp_path, server, budget, calls, stop_code):
+    report = fp.run_fingerprint(payload(server["base"], profile="screening", budget=budget), tmp_path / "capped")
+    assert len(server["calls"]) == calls
+    assert report["collection"]["state"] == "partial"
+    assert report["collection"]["stop_code"] == stop_code
+    assert report["cost"]["requested_output_tokens"] <= report["budget"]["max_output_tokens"]
+    assert all(c["max_tokens"] == 800 for c in server["calls"])
+    replay = fp.replay_fingerprint(PACK, tmp_path / "capped/fingerprint_records.jsonl", tmp_path / "replay-capped")
+    assert replay["cost"] == report["cost"]
+    assert replay["collection"]["stop_code"] == stop_code
+
+
+def test_partial_answers_cannot_report_full_compatibility(tmp_path):
+    fp.demo_fingerprint(PACK, tmp_path / "demo")
+    rows = fp.parse_fingerprint_records((tmp_path / "demo/fingerprint_records.jsonl").read_text(encoding="utf-8"), PACK)
+    batches = fp._batches(fp._load_pack(PACK)[1])
+    for row in rows[1:-1]:
+        items = batches[row["batch_id"]]["items"]
+        retained = (len(items) + 1) // 2
+        row["raw_response"]["choices"][0]["message"]["content"] = "\n".join(
+            f"({i + 1}) {fp.kbf.probe_consensus(p) if i < retained else 'unknown'}" for i, (_, p) in enumerate(items))
+    rehash(rows)
+    report = fp.replay_fingerprint(PACK, rows, tmp_path / "partial-answers")
+    assert report["fingerprint"]["summary"]["coverage"] >= .5
+    assert report["fingerprint"]["upstream_verdict"] == "SAME"
+    assert report["status"] == "insufficient_evidence"
+    assert report["fingerprint"]["summary"]["p_value"] is None
+    assert "missing_answers" in report["fingerprint"]["assessment_reasons"]
+
+
+@pytest.mark.parametrize("change", ["selection", "budget", "cost", "profile"])
+def test_replay_rejects_inconsistent_screening_ledger(tmp_path, change):
+    fp.demo_fingerprint(PACK, tmp_path / "demo", profile="screening")
+    rows = fp.parse_fingerprint_records((tmp_path / "demo/fingerprint_records.jsonl").read_text(encoding="utf-8"), PACK)
+    if change == "selection":
+        rows[0]["selection"]["batch_ids"][0] += 1
+    elif change == "budget":
+        rows[0]["budget"]["max_requests"] = 1
+    elif change == "cost":
+        rows[-1]["cost"]["requested_output_tokens"] = 0
+    else:
+        rows[0]["profile"] = "full"
+    rehash(rows)
+    with pytest.raises(ValueError):
+        fp.replay_fingerprint(PACK, rows, tmp_path / "invalid")
+
+
+def test_legacy_manifest_without_budget_remains_full_and_replayable(tmp_path):
+    report = fp.demo_fingerprint(PACK, tmp_path / "demo")
+    rows = fp.parse_fingerprint_records((tmp_path / "demo/fingerprint_records.jsonl").read_text(encoding="utf-8"), PACK)
+    for name in ("profile", "budget", "selection"):
+        rows[0].pop(name)
+    for name in ("cost", "stop_code"):
+        rows[-1].pop(name)
+    rehash(rows)
+    replay = fp.replay_fingerprint(PACK, rows, tmp_path / "legacy")
+    assert replay["profile"] == "full"
+    assert replay["fingerprint"]["summary"] == report["fingerprint"]["summary"]
+    assert replay["status"] == "no_difference_detected"
+
+
+@pytest.mark.parametrize("budget", [{"max_requests": 0}, {"max_requests": True}, {"max_output_tokens": -1},
+                                     {"max_requests": 2.5}, {"max_output_tokens": None}, {"money": 10}])
+def test_invalid_budgets_fail_before_network(budget):
+    with pytest.raises(ValueError):
+        fp.plan_fingerprint(payload(budget=budget))
+
+
+@pytest.mark.parametrize("mode,calls,completed", [("discovery_retry", 4, 1), ("discovery_fail", 3, 0)])
+def test_discovery_attempts_share_budget_and_keep_probe_reserve(tmp_path, server, mode, calls, completed):
+    server["mode"] = mode
+    report = fp.run_fingerprint(payload(server["base"], profile="screening"), tmp_path / "discovery")
+    assert len(server["calls"]) == calls
+    assert report["collection"]["completed"] == completed
+    assert report["collection"]["stop_code"] == "budget_max_requests"
+    assert report["collection"]["failure"] is None
+    assert report["cost"]["requested_output_tokens"] == calls * 800
+    fp.replay_fingerprint(PACK, tmp_path / "discovery/fingerprint_records.jsonl", tmp_path / "replay")
+
+
+def test_usage_missing_partial_and_zero_are_distinct():
+    rows = [{"request": {"max_tokens": 800}, "raw_response": {"usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}}},
+            {"request": {"max_tokens": 800}, "raw_response": {}}]
+    cost = fp._cost(rows)
+    assert cost["usage"]["total_tokens"] == 0
+    assert cost["usage"]["missing_requests"] == 1
+    assert cost["usage"]["complete"] is False
+    assert fp._cost(rows[1:])["usage"]["total_tokens"] is None
+    assert fp._cost(rows, synthetic=True)["usage"]["total_tokens"] is None
+
+
+def test_legacy_report_can_be_rendered_without_inventing_costs(tmp_path):
+    report = fp.demo_fingerprint(PACK, tmp_path / "demo")
+    for name in ("profile", "budget", "cost"):
+        report.pop(name)
+    report["fingerprint"]["summary"].pop("reference_total")
+    text = fp.markdown_fingerprint_report(report)
+    assert "未记录" in text and "未知 / 未知 / 未知" in text

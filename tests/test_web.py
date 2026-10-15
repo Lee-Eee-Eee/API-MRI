@@ -22,12 +22,14 @@ def evidence(role, answer):
 
 
 def wait_for(client, identifier):
-    for _ in range(200):
+    # The first MET calculation may initialize scientific/JIT dependencies on Windows.
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
         data = client.get(f"/api/runs/{identifier}").json()
         if data["status"] not in {"running", "queued"}:
             return data
         time.sleep(.05)
-    pytest.fail("local job did not complete")
+    pytest.fail(f"local job did not complete: {data.get('status')} / {data.get('progress')}")
 
 
 def test_local_boundary_and_session_token(tmp_path):

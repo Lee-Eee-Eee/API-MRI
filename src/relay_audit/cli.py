@@ -32,6 +32,9 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
     refs = commands.add_parser("references", help="列出内置与本机参考包，不调用模型API")
     refs.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
+    refs_audit = commands.add_parser("reference-audit", help="离线盘点参考证据与调用计划，不调用模型API")
+    refs_audit.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
+    refs_audit.add_argument("--out", type=Path, required=True)
     refs_update = commands.add_parser("references-update", help="从KBF公开目录抓取并检查参考包，不调用模型API")
     refs_update.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
     fp_plan = commands.add_parser("fingerprint-plan", help="检查单API指纹计划与调用上限，不调用API")
@@ -48,6 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     fp_demo = commands.add_parser("fingerprint-demo", help="用人工回答演示指纹报告，不调用API")
     fp_demo.add_argument("--reference-pack", required=True)
     fp_demo.add_argument("--variant", choices=["match", "different", "incomplete"], default="different")
+    fp_demo.add_argument("--profile", choices=["screening", "full"], default="screening")
     fp_demo.add_argument("--out", type=Path, required=True)
     for command in (fp_plan, fp_run, fp_replay, fp_demo):
         command.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
@@ -107,6 +111,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "references":
             from .fingerprint import list_reference_packs
             print(json.dumps(list_reference_packs(args.library_dir), ensure_ascii=False, indent=2))
+        elif args.command == "reference-audit":
+            from .reference_audit import write_reference_audit
+            result = write_reference_audit(args.out, library_dir=args.library_dir)
+            print(f"已盘点 {result['summary']['pack_count']} 份参考；未调用模型。")
+            print(f"报告：{args.out / 'reference-audit.md'}")
         elif args.command == "references-update":
             from .reference_library import update_reference_library
             result = update_reference_library(args.library_dir)
@@ -130,12 +139,17 @@ def main(argv: list[str] | None = None) -> int:
                 study = redact_study(study, payload)
                 result = run_fingerprint(payload, args.out, library_dir=args.library_dir)
             elif args.command == "fingerprint-demo":
-                result = demo_fingerprint(args.reference_pack, args.out, variant=args.variant, library_dir=args.library_dir)
+                result = demo_fingerprint(args.reference_pack, args.out, variant=args.variant,
+                                          profile=args.profile, library_dir=args.library_dir)
             else:
                 result = replay_fingerprint(args.reference_pack, args.records, args.out, library_dir=args.library_dir)
             result = attach_study(result, study, args.out)
             labels = {"difference_detected": "发现显著差异", "no_difference_detected": "未检出明显差异", "insufficient_evidence": "证据不足"}
-            print(labels.get(result["status"], result["status"]))
+            if result.get("profile") == "screening":
+                outcome = result["fingerprint"]["screening"]["outcome"]
+                print("初筛未完成；已有记录可供复核。" if outcome == "incomplete" else "初筛完成，尚不能判断模型身份。")
+            else:
+                print(labels.get(result["status"], result["status"]))
             print(f"报告：{args.out / 'report.md'}")
             if result.get("collection", {}).get("failure"):
                 return 1

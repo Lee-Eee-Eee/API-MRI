@@ -545,7 +545,7 @@
     card.append(list);
     const details = element("details");
     details.append(element("summary", "", "来源、版本与文件校验"));
-    details.append(element("p", "", `参考模型：${pack.model || pack.label}。校准日期：${pack.calibrated_at ? String(pack.calibrated_at).slice(0, 10) : "未记录"}。许可：${textValue(pack.license)}。`));
+    details.append(element("p", "", `参考模型：${pack.model || pack.label}。自测日期：${pack.calibrated_at ? String(pack.calibrated_at).slice(0, 10) : "未记录"}。许可：${textValue(pack.license)}。`));
     if (pack.source_url) details.append(sourceLink(pack.source_url, "查看上游参考文件 ↗"));
     details.append(element("code", "", `SHA-256 ${textValue(pack.sha256)}`));
     card.append(details);
@@ -556,15 +556,38 @@
     state.planRevision += 1;
     state.fingerprintPlan = null;
     $("fingerprint-plan").hidden = true;
-    $("fingerprint-plan-note").textContent = "先核对请求数和输出上限。实际费用以服务账单为准。";
-    $("start-fingerprint").textContent = "开始检测 →";
+    $("fingerprint-plan-note").textContent = "核对所选题目和采样预算，再开始调用。实际费用以服务账单为准。";
+    $("start-fingerprint").textContent = fingerprintProfile() === "screening" ? "开始初筛 →" : "开始完整比较 →";
     updateButtons();
   }
 
+  function fingerprintProfile() {
+    return document.querySelector('input[name="fingerprint-profile"]:checked').value;
+  }
+
+  const profileBudgets = { screening: ["4", "4096"], full: ["", ""] };
+  let activeProfile = "screening";
+  function changeFingerprintProfile() {
+    profileBudgets[activeProfile] = [$("fingerprint-budget-requests").value, $("fingerprint-budget-output").value];
+    activeProfile = fingerprintProfile();
+    [$("fingerprint-budget-requests").value, $("fingerprint-budget-output").value] = profileBudgets[activeProfile];
+    $("fingerprint-budget-requests").placeholder = activeProfile === "full" ? "完整计划默认值" : "4";
+    $("fingerprint-budget-output").placeholder = activeProfile === "full" ? "完整计划默认值" : "4096";
+    $("fingerprint-budget-help").textContent = activeProfile === "screening"
+      ? "默认最多 4 次请求、4,096 输出配额。到达任一上限就停止；输入与服务端额外计量仍需查看账单。"
+      : "留空使用完整参考包的计划上限，也可填写更低预算。全量比较通常需要几十至上百次请求，预算不足时仅保存部分证据。";
+    invalidateFingerprintPlan();
+  }
+
   function fingerprintPayload() {
+    const budget = {};
+    if ($("fingerprint-budget-requests").value !== "") budget.max_requests = Number($("fingerprint-budget-requests").value);
+    if ($("fingerprint-budget-output").value !== "") budget.max_output_tokens = Number($("fingerprint-budget-output").value);
     return {
       mode: "fingerprint",
       reference_pack: $("reference-pack").value,
+      profile: fingerprintProfile(),
+      budget,
       candidate: { api_base: $("fingerprint-base").value.trim(), model: $("fingerprint-model").value.trim(), api_key: $("fingerprint-key").value.trim() },
       timeout: Number($("fingerprint-timeout").value),
       study: studyPayload("fingerprint"),
@@ -584,15 +607,22 @@
       state.fingerprintPlan = result;
       const box = $("fingerprint-plan");
       clear(box);
-      box.append(element("h4", "", "采样计划已就绪 · 尚未调用模型"));
+      const screening = result.profile === "screening";
+      box.append(element("h4", "", `${screening ? "低成本初筛" : "完整参考比较"}计划 · 尚未调用模型`));
       const metrics = element("div", "plan-metrics");
-      [["参考探针", result.probe_count], ["最多请求", result.max_requests ?? result.request_count], ["最多输出 tokens", result.max_output_tokens_total]].forEach(([label, value]) => {
+      [["本次题目 / 全包题目", `${number(result.probe_count)} / ${number(result.reference_probe_count ?? result.probe_count)}`], ["本次请求上限", number(result.max_requests ?? result.request_count)], ["本次输出配额上限", number(result.max_output_tokens_total)]].forEach(([label, value]) => {
         const item = element("div");
-        item.append(element("span", "", label), element("strong", "", number(value)));
+        item.append(element("span", "", label), element("strong", "", value));
         metrics.append(item);
       });
       box.append(metrics);
-      box.append(element("p", "", `${number(result.batch_count)} 批探针，每批最多 ${number(result.batch_size)} 题；包括最多 ${number(result.discovery_max_requests)} 次协议与参数适配请求。以上为输出上限，另有输入用量。`));
+      box.append(element("p", "", `${number(result.batch_count)} 批固定探针，每批最多 ${number(result.batch_size)} 题。参数适配与重试也占用上述预算。输出配额按请求上限累计，实际 token 用量另记。`));
+      if (result.budget) box.append(element("p", "", `你设置的预算：最多 ${number(result.budget.max_requests)} 次请求、${number(result.budget.max_output_tokens)} 输出配额；计划上限同时受所选探针数量限制。`));
+      const selection = result.selection || {};
+      if (Array.isArray(selection.domains) && selection.domains.length) box.append(element("p", "plan-selection", `覆盖领域：${selection.domains.map(domainName).join("、")}。题目在调用前确定。`));
+      if (result.budget_can_complete_minimum === false) {
+        box.append(element("p", "plan-budget-warning", `当前预算低于完成计划的最低需求（${number(result.minimum_requests)} 次请求、${number(result.minimum_output_tokens_total)} 输出配额）。可提高预算，或按此预算只保存已取得的部分回答。`));
+      }
       if (Array.isArray(result.notes) && result.notes.length) {
         const notes = element("ul");
         result.notes.forEach((note) => notes.append(element("li", "", textValue(note))));
@@ -600,7 +630,7 @@
       }
       box.hidden = false;
       $("fingerprint-plan-note").textContent = "开始后会使用待测账户额度。可随时取消，已发出的请求仍可能计费。";
-      $("start-fingerprint").textContent = `开始检测 · 最多 ${number(result.max_requests ?? result.request_count)} 次`;
+      $("start-fingerprint").textContent = `${screening ? "开始初筛" : "开始完整比较"} · 最多 ${number(result.max_requests ?? result.request_count)} 次`;
       box.scrollIntoView({ behavior: "smooth", block: "nearest" });
     } catch (error) { showError(error.message); }
     finally {
@@ -611,6 +641,11 @@
   }
 
   function fingerprintDisplay(report) {
+    if (report.profile === "screening") {
+      const outcome = ((report.fingerprint || {}).screening || report.screening || {}).outcome;
+      if (outcome === "incomplete") return { kind: "screening", symbol: "…", title: "初筛未完成，已保留部分回答", explanation: "预算、采集或解析条件限制了这次观察。下方可检查已完成的题目、缺失项和停止原因。" };
+      return { kind: "screening", symbol: "·", title: "初筛完成，尚不能判断模型身份", explanation: outcome === "differences_observed" ? "少量探针中观察到与参考不同的回答。先检查具体差异，再决定是否值得投入更多调用复核。" : "已取得的回答中未观察到差异。少量题目相同仍可能来自不同模型，需要更多证据才能判断。" };
+    }
     if (report.status === "difference_detected") return { kind: "difference", symbol: "≠", title: "发现显著差异", explanation: "待测回答与参考指纹的偏离超过本次检验阈值。查看具体题目，再结合版本、配置与服务承诺复核。" };
     if (report.status === "no_difference_detected") return { kind: "", symbol: "≈", title: "未检出明显差异", explanation: "本次探针未发现超出参考自测误差的明显偏离。这是一次行为检验结果，不能单独确认服务端模型身份。" };
     return { kind: "incomplete", symbol: "…", title: "证据尚不充分", explanation: "可解析回答不足，或记录未满足本次检验条件。已取得的回答保留在下方，可据此检查失败与缺失。" };
@@ -641,11 +676,47 @@
     return probe.match === true ? "match" : "mismatch";
   }
 
+  function renderFingerprintCost(report) {
+    const box = $("fp-cost");
+    clear(box);
+    box.hidden = false;
+    box.append(element("h4", "", report.synthetic ? "离线演示 · 未调用模型 API" : "本次采样开销"));
+    const cost = report.cost || {};
+    const usage = cost.usage || {};
+    const requestCount = cost.request_count ?? (report.collection || {}).requests;
+    const countLabel = numeric(requestCount) === null ? "未记录" : number(requestCount);
+    const requestedLabel = numeric(cost.requested_output_tokens) === null ? "未记录" : number(cost.requested_output_tokens);
+    const actualLabel = numeric(usage.total_tokens) === null ? "未知" : number(usage.total_tokens);
+    const fields = usage.reported_fields || {};
+    const totalReported = usage.complete || (numeric(requestCount) !== null && requestCount > 0 && fields.total_tokens === requestCount && numeric(usage.total_tokens) !== null);
+    const summary = element("div", "cost-values");
+    [[report.synthetic ? "模拟请求" : "实际请求", countLabel], ["已分配输出配额", requestedLabel], [totalReported ? "服务端报告总用量" : "已报告用量小计", actualLabel]].forEach(([label, value]) => {
+      const item = element("div");
+      item.append(element("span", "", label), element("strong", "", value));
+      summary.append(item);
+    });
+    box.append(summary);
+    if (report.synthetic) box.append(element("p", "", "请求与配额数字用于演示采样流程；没有真实 token 消耗。"));
+    else if (usage.complete) box.append(element("p", "", `服务端已报告用量：输入 ${numeric(usage.prompt_tokens) === null ? "未知" : number(usage.prompt_tokens)}，输出 ${numeric(usage.completion_tokens) === null ? "未知" : number(usage.completion_tokens)} tokens。输出配额是请求上限，和实际用量分别记录；费用以账单为准。`));
+    else {
+      const coverage = [["输入", "prompt_tokens"], ["输出", "completion_tokens"], ["总计", "total_tokens"]]
+        .filter(([, field]) => numeric(fields[field]) !== null)
+        .map(([label, field]) => `${label} ${number(fields[field])}/${countLabel}`);
+      const introduction = numeric(usage.reported_requests) !== null ? `${number(usage.reported_requests)} 次请求提供了至少一项用量。` : "这份记录的用量字段尚不完整。";
+      const conclusion = totalReported ? "总用量由服务端报告，输入或输出分项仍有缺失；费用以账单为准。" : "实际总用量未知，已报告小计不能代表完整开销。";
+      box.append(element("p", "", `${introduction}${coverage.length ? `字段覆盖（响应数）：${coverage.join("，")}。` : ""}${conclusion}`));
+    }
+    const stopCode = (report.collection || {}).stop_code;
+    const stopLabels = { budget_max_requests: "已达到请求次数预算，保留已取得的回答。", budget_max_output_tokens: "剩余输出配额不足以发送下一次请求，保留已取得的回答。" };
+    if (stopLabels[stopCode]) box.append(element("p", "budget-stop", stopLabels[stopCode]));
+  }
+
   function renderFingerprintReport(run, entry) {
     const report = entry.report || {};
     const fingerprint = report.fingerprint || {};
     const reference = fingerprint.reference || {};
     const summary = fingerprint.summary || {};
+    const screening = report.profile === "screening";
     const display = fingerprintDisplay(report);
     state.fingerprintReport = { run, entry };
     state.fingerprintRows = Array.isArray(fingerprint.probes) ? fingerprint.probes : [];
@@ -653,15 +724,16 @@
     state.recordRequest += 1;
     $("fp-banner").className = `result-banner ${display.kind}`;
     $("fp-banner").querySelector(".result-symbol").textContent = display.symbol;
-    $("fp-scope").textContent = report.synthetic ? "合成样本 · 离线演示" : "KBF / 参考指纹比较";
+    $("fp-scope").textContent = `${report.synthetic ? "合成样本 · " : ""}${screening ? "低成本初筛 / 描述性比较" : "完整参考比较 / KBF"}`;
     $("fp-headline").textContent = display.title;
-    $("fp-explanation").textContent = fingerprint.verdict_explanation || display.explanation;
+    $("fp-explanation").textContent = screening ? display.explanation : fingerprint.verdict_explanation || display.explanation;
     $("fp-metrics").replaceChildren(
       fingerprintMetric("可解析覆盖率", percent(summary.coverage), `${number(summary.answered)} / ${number(summary.total)} 题取得可用答案`),
-      fingerprintMetric("答案一致", number(summary.matches), "与参考包的答案一致"),
+      fingerprintMetric("回答一致", number(summary.matches), "与参考包记录的回答一致"),
       fingerprintMetric("答案不一致", number(summary.mismatches), "仅统计可解析的答案"),
-      fingerprintMetric("统计检验 · p 值", probability(summary.p_value), summary.p_value === 0 ? "计算返回 0，展开设置查看原值" : `显著性阈值 ${textValue((fingerprint.settings || {}).alpha, "0.05")}`),
+      screening ? fingerprintMetric("本次观察范围", `${number(summary.total)} 题`, "固定少量探针，尚未校准鉴别能力") : report.status === "insufficient_evidence" ? fingerprintMetric("统计判断", "本次不作判断", "存在缺失或未满足完整比较条件") : fingerprintMetric("统计检验 · p 值", probability(summary.p_value), summary.p_value === 0 ? "计算返回 0，展开设置查看原值" : `显著性阈值 ${textValue((fingerprint.settings || {}).alpha, "0.05")}`),
     );
+    renderFingerprintCost(report);
     const context = $("fp-reference-info");
     clear(context);
     context.append(element("strong", "", reference.label || reference.model || "参考指纹"));
@@ -701,15 +773,19 @@
     renderFingerprintRows();
     const method = $("fp-method");
     clear(method);
-    method.append(element("p", "", "比较待测答案与参考知识边界，使用参考包的自测误差校准单侧二项检验。未拒绝原假设不等于证明模型相同。"));
+    method.append(element("p", "", screening ? "调用前固定选择跨领域完整批次，逐题描述与参考回答的一致和差异。该小样本方法尚未校准鉴别能力，不计算显著性或身份概率。" : "使用整个参考包，沿用 KBF 的单侧二项检验及参考自测误差上界。实际误报率与检出能力尚待独立校准；未检出差异仍不能证明模型相同。"));
     const metadata = element("dl", "study-dl");
     addDefinition(metadata, "参考包", reference.id || reference.label);
     addDefinition(metadata, "模型 / 提供方", `${textValue(reference.model)} / ${textValue(reference.provider)}`);
     addDefinition(metadata, "参考采集日期", reference.generated_at);
     addDefinition(metadata, "参考自测日期", reference.calibrated_at);
-    addDefinition(metadata, "自测错误率", percent(summary.reference_error_rate));
-    addDefinition(metadata, "检验使用的误差上界", percent(summary.p0));
-    addDefinition(metadata, "p 值（计算原值）", summary.p_value);
+    if (!screening) {
+      addDefinition(metadata, "自测错误率", percent(summary.reference_error_rate));
+      addDefinition(metadata, "检验使用的误差上界", percent(summary.p0));
+      addDefinition(metadata, "p 值（计算原值）", summary.p_value);
+    }
+    addDefinition(metadata, "检查深度", screening ? "低成本初筛" : "完整参考比较");
+    if (fingerprint.selection) addDefinition(metadata, "采样选择", JSON.stringify(fingerprint.selection));
     addDefinition(metadata, "参考包 SHA-256", reference.sha256);
     method.append(metadata);
     if (reference.source_url) method.append(sourceLink(reference.source_url, "查看上游参考文件 ↗"));
@@ -1435,7 +1511,8 @@
       if (fingerprintReport) {
         const fingerprint = fingerprintReport.report.fingerprint;
         const variant = { match: "接近参考", different: "明显偏离", incomplete: "采样不完整" }[fingerprint.demo_variant];
-        title = `${(fingerprint.reference || {}).label || "参考指纹"}${variant ? ` · ${variant}` : ""}`;
+        const profileLabel = fingerprintReport.report.profile === "screening" ? "低成本初筛" : "完整参考比较";
+        title = `${(fingerprint.reference || {}).label || "参考指纹"} · ${profileLabel}${variant ? ` · ${variant}` : ""}`;
       }
       if (studyReport) {
         const study = studyReport.report.study;
@@ -1655,10 +1732,11 @@
     $("panel-live").scrollIntoView({ behavior: "smooth", block: "start" });
     $("reference-base").focus({ preventScroll: true });
   });
-  ["fingerprint-base", "fingerprint-model", "fingerprint-key", "fingerprint-timeout"].forEach((id) => {
+  ["fingerprint-base", "fingerprint-model", "fingerprint-key", "fingerprint-timeout", "fingerprint-budget-requests", "fingerprint-budget-output"].forEach((id) => {
     $(id).addEventListener("input", invalidateFingerprintPlan);
     $(id).addEventListener("change", invalidateFingerprintPlan);
   });
+  document.querySelectorAll('input[name="fingerprint-profile"]').forEach((input) => input.addEventListener("change", changeFingerprintProfile));
   $("toggle-key").addEventListener("click", () => {
     const visible = $("fingerprint-key").type === "password";
     $("fingerprint-key").type = visible ? "text" : "password";
@@ -1676,7 +1754,7 @@
   $("panel-fingerprint_demo").addEventListener("submit", async (event) => {
     event.preventDefault();
     if (state.submitting || hasRunningTask() || !selectedPack()) return;
-    await submitRun({ mode: "fingerprint_demo", reference_pack: selectedPack().id, variant: document.querySelector('input[name="fingerprint-variant"]:checked').value });
+    await submitRun({ mode: "fingerprint_demo", reference_pack: selectedPack().id, profile: $("fingerprint-demo-profile").value, variant: document.querySelector('input[name="fingerprint-variant"]:checked').value });
   });
   $("fingerprint-file").addEventListener("change", (event) => {
     const file = event.target.files[0];

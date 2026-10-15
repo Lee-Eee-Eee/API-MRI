@@ -75,14 +75,18 @@ def validate_job(payload: Any, *, library_dir: Path | None = None) -> dict:
             raise ValueError("请选择库中已有的参考包；暂不支持的版本需要另建参考。")
         clean["reference_pack"] = pack_id
         if mode == "fingerprint":
-            clean.update({key: payload[key] for key in ("candidate", "timeout") if key in payload})
-            plan_fingerprint({key: clean[key] for key in ("reference_pack", "candidate", "timeout") if key in clean}, library_dir=library_dir)
+            clean.update({key: payload[key] for key in ("candidate", "timeout", "profile", "budget") if key in payload})
+            plan_fingerprint({key: clean[key] for key in ("reference_pack", "candidate", "timeout", "profile", "budget") if key in clean}, library_dir=library_dir)
             clean["study"] = validate_study(payload.get("study"))
         elif mode == "fingerprint_demo":
             variant = payload.get("variant", "different")
             if variant not in {"match", "different", "incomplete"}:
                 raise ValueError("请选择已有指纹演示情境。")
             clean["variant"] = variant
+            profile = payload.get("profile", "screening")
+            if profile not in {"screening", "full"}:
+                raise ValueError("请选择低成本初筛或完整参考比较。")
+            clean["profile"] = profile
         else:
             value = payload.get("evidence_jsonl")
             if not isinstance(value, str) or not value.strip() or len(value.encode("utf-8")) > 4 * 1024 * 1024:
@@ -171,7 +175,7 @@ class JobManager:
                 row["reports"] = []
                 for entry in job.get("reports", []):
                     report = entry["report"]
-                    summary = {key: copy.deepcopy(report[key]) for key in ("kind", "status", "synthetic", "study") if key in report}
+                    summary = {key: copy.deepcopy(report[key]) for key in ("kind", "status", "synthetic", "study", "profile", "cost") if key in report}
                     if report.get("lab"):
                         summary["lab"] = {"scenario": copy.deepcopy(report["lab"].get("scenario", {}))}
                     if report.get("fingerprint"):
@@ -230,13 +234,13 @@ class JobManager:
                 from .fingerprint import run_fingerprint, demo_fingerprint, replay_fingerprint
 
                 if payload["mode"] == "fingerprint":
-                    data = {key: payload[key] for key in ("reference_pack", "candidate", "timeout") if key in payload}
+                    data = {key: payload[key] for key in ("reference_pack", "candidate", "timeout", "profile", "budget") if key in payload}
                     study = redact_study(payload.get("study", {}), data)
                     result = run_fingerprint(data, out, progress=progress, cancelled=event.is_set, library_dir=self.library_dir)
                 elif payload["mode"] == "fingerprint_demo":
                     progress({"completed": 0, "total": 1, "phase": "analyzing", "message": "生成本地指纹示例并计算"})
                     study = {}
-                    result = demo_fingerprint(payload["reference_pack"], out, variant=payload["variant"], library_dir=self.library_dir)
+                    result = demo_fingerprint(payload["reference_pack"], out, variant=payload["variant"], profile=payload["profile"], library_dir=self.library_dir)
                 else:
                     progress({"completed": 0, "total": 1, "phase": "analyzing", "message": "从原始记录重新解析指纹"})
                     study = payload.get("study", {})
@@ -290,12 +294,18 @@ class JobManager:
                     result = write_report(result, out, reference=reference, candidate=candidate)
                     reports.append({"name": "comparison", "report": attach_study(result, payload.get("study", {}), out)})
             cancelled = event.is_set() or any(item["report"].get("collection", {}).get("cancelled") for item in reports)
-            failed = any(item["report"].get("collection", {}).get("failure") for item in reports)
+            budget_stops = {"budget_max_requests", "budget_max_output_tokens"}
+            budget_stopped = any(item["report"].get("collection", {}).get("stop_code") in budget_stops for item in reports)
+            failed = any(item["report"].get("collection", {}).get("failure")
+                         and item["report"].get("collection", {}).get("stop_code") not in budget_stops for item in reports)
             job_progress = self.get(identifier)["progress"]
             if failed:
                 job_progress.update(phase="failed", message="采集中断，已保存部分证据与报告")
             elif not cancelled:
-                job_progress.update(completed=job_progress["total"], phase="completed", message="结果已保存")
+                if budget_stopped:
+                    job_progress.update(phase="completed", message="已按预算停止，部分回答与用量记录已保存")
+                else:
+                    job_progress.update(completed=job_progress["total"], phase="completed", message="结果已保存")
             else:
                 job_progress.update(phase="cancelled", message="已停止，已完成的记录保留在本地")
             self._update(identifier, status="failed" if failed else "cancelled" if cancelled else "completed", reports=reports, progress=job_progress)
@@ -534,11 +544,11 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
             if payload.get("mode") == "fingerprint":
                 from .fingerprint import plan_fingerprint
                 cleaned = validate_job(payload, library_dir=library_path)
-                return plan_fingerprint({key: cleaned[key] for key in ("reference_pack", "candidate", "timeout") if key in cleaned}, library_dir=library_path)
+                return plan_fingerprint({key: cleaned[key] for key in ("reference_pack", "candidate", "timeout", "profile", "budget") if key in cleaned}, library_dir=library_path)
             cleaned = validate_job({**payload, "mode": "live"})
             return plan_pair({key: value for key, value in cleaned.items() if key not in {"mode", "study"}})
         except (ValueError, TypeError):
-            raise HTTPException(422, "请检查参考包、服务地址、模型名和采样参数；地址应填写Base URL。") from None
+            raise HTTPException(422, "请检查参考包、Base URL、模型名和预算；请求数与输出配额须填写正整数。") from None
 
     @app.post("/api/runs", status_code=202)
     def start(payload: dict):
