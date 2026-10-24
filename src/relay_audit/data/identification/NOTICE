@@ -1,0 +1,47 @@
+API-MRI shared short-answer identification reference
+
+Derived from Tomáš Bruckner (2026), Single-token output distributions as
+behavioral fingerprints of large language models, main-02 collection.
+Data DOI: https://doi.org/10.5281/zenodo.21278557
+Data license: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+Published archive MD5: f2ce3fba3081f73e9908179fb2f061b6
+
+Prompt/configuration source:
+https://doi.org/10.5281/zenodo.21278793
+Published archive MD5: d81de3b8ef5c0bca74fd7c2bdbb41a6b
+Zenodo API record checked 2026-10-24: license id mit-license.
+Our Python normalizer ports text rules from stats/01-normalize.js; no upstream
+code is executed. Color canonicalization is omitted because cells compare only
+within the same language. Source prompt text is retained exactly.
+
+API-MRI changes, 2026-10-24:
+Retain paper-1 tasks, temperature 1 and valid author-normalized responses.
+Split repetitions by rep modulo 3 into reference/calibration/test. Aggregate
+reference answers as counts; enroll 132 of 165 author-labelled services.
+Hold out 16 whole model labels for unknown calibration and 17 for unknown test.
+Derive adaptive candidate rankings and conservative distance/rank-gap gates.
+Author-provided model labels and pooled provider provenance are preserved;
+this derivative does not independently authenticate original model identities.
+
+Rebuild with relay_audit.identification_build and the two pinned public ZIPs.
+The small JSON contains reference counts and prompts, not API credentials or
+user prompts. Full response archives are not distributed in this package.
+
+MIT License (configuration/text normalization source)
+Copyright (c) 2026 Tomáš Bruckner
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

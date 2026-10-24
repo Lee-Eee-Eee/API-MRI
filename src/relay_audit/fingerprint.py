@@ -332,11 +332,13 @@ def _discovery_ok(row: dict) -> bool:
 def _call(client: httpx.Client, config: dict, key: str, body: dict, secrets: tuple[str, ...],
           cancelled: Callable | None = None) -> dict:
     started = time.monotonic()
-    status, raw, error = None, None, None
+    status, raw, error, response_headers = None, None, None, {}
     try:
-        with client.stream("POST", config["candidate"]["api_base"], headers={"Authorization": f"Bearer {key}"},
+        with client.stream("POST", config["candidate"]["api_base"], headers={"Authorization": f"Bearer {key}", **config.get("_headers", {})},
                            json=body) as response:
             status = response.status_code
+            response_headers = {name: response.headers[name][:200] for name in
+                                ("x-api2d-cache", "x-cache", "cf-cache-status") if name in response.headers}
             chunks, size = [], 0
             for chunk in response.iter_bytes():
                 # httpx read timeouts are idle timeouts. Check the whole request
@@ -369,7 +371,7 @@ def _call(client: httpx.Client, config: dict, key: str, body: dict, secrets: tup
         error = "network_error"
     except (ValueError, RecursionError):
         error = "response_size_limit"
-    return _clean({"http_status": status, "raw_response": raw, "error": error,
+    return _clean({"http_status": status, "raw_response": raw, "error": error, "response_headers": response_headers,
                    "elapsed_seconds": round(time.monotonic() - started, 6)}, secrets)
 
 

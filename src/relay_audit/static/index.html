@@ -35,15 +35,16 @@
     <main id="main" tabindex="-1">
       <header class="topbar"><span>研究工作台 <span class="topbar-separator">/</span> API 聚合与中转</span><a href="https://github.com/Lee-Eee-Eee/API-MRI/blob/main/docs/user-guide.md" target="_blank" rel="noopener noreferrer">使用指南 <span aria-hidden="true">↗</span></a></header>
       <section class="hero" aria-labelledby="page-title">
-        <div><div class="eyebrow">API-MRI / 模型服务核验</div><h1 id="page-title">模型响应检查工作台</h1><p>先用少量请求，看看回答与参考有哪些不同。<br>控制采样开销，保留可以复核的原始证据。</p></div>
-        <div class="hero-caption"><span class="hero-index">01—03</span><span>选择参考<br>采集回答<br>复核证据</span></div>
+        <div><div class="eyebrow">API-MRI / 模型服务核验</div><h1 id="page-title">模型响应检查工作台</h1><p>从一个 API 缩小模型候选，再检查具体差异。<br>按回答选择下一题，用预算约束采样。</p></div>
+        <div class="hero-caption"><span class="hero-index">01—03</span><span>设定预算<br>缩小候选<br>复核记录</span></div>
       </section>
 
       <div id="connection-error" class="notice error" role="alert" hidden></div>
       <section id="new-audit" class="work-section" aria-labelledby="new-audit-title">
         <div class="section-heading"><div><span class="step-number">01</span><h2 id="new-audit-title">新建检测</h2></div><button type="button" id="toggle-advanced" class="text-button" aria-expanded="false" aria-controls="advanced-modes">研究工具 <span aria-hidden="true">＋</span></button></div>
         <div class="mode-tabs primary-tabs" role="tablist" aria-label="指纹检测方式">
-          <button type="button" id="tab-fingerprint" role="tab" aria-controls="panel-fingerprint" aria-selected="true" tabindex="0" class="mode-tab selected" data-mode="fingerprint"><strong>单 API 检测</strong><small>使用内置参考库</small></button>
+          <button type="button" id="tab-identify" role="tab" aria-controls="panel-identify" aria-selected="true" tabindex="0" class="mode-tab selected" data-mode="identify"><strong>模型候选识别</strong><small>一个 API · 多候选排序</small></button>
+          <button type="button" id="tab-fingerprint" role="tab" aria-controls="panel-fingerprint" aria-selected="false" tabindex="-1" class="mode-tab" data-mode="fingerprint"><strong>指定模型对照</strong><small>核对一个参考版本</small></button>
           <button type="button" id="tab-fingerprint_demo" role="tab" aria-controls="panel-fingerprint_demo" aria-selected="false" tabindex="-1" class="mode-tab" data-mode="fingerprint_demo"><strong>离线体验</strong><small>无需密钥</small></button>
           <button type="button" id="tab-fingerprint_offline" role="tab" aria-controls="panel-fingerprint_offline" aria-selected="false" tabindex="-1" class="mode-tab" data-mode="fingerprint_offline"><strong>指纹记录复算</strong><small>导入已有证据</small></button>
         </div>
@@ -54,14 +55,34 @@
           <button type="button" id="tab-offline" role="tab" aria-controls="panel-offline" aria-selected="false" tabindex="-1" class="mode-tab" data-mode="offline"><span class="mode-icon" aria-hidden="true">↥</span><span><strong>已有记录复算</strong><small>上传 JSONL · 无需再次调用</small></span><span class="mode-check" aria-hidden="true">✓</span></button>
         </div></div>
 
-        <section id="reference-library" class="reference-library" aria-labelledby="reference-library-title">
+        <section id="reference-library" class="reference-library" aria-labelledby="reference-library-title" hidden>
           <div class="reference-select"><span class="field-index">A / 参考</span><label id="reference-library-title" for="reference-pack">选择匹配的参考指纹</label><div class="reference-filters"><div><label class="sr-only" for="reference-search">搜索参考模型</label><input id="reference-search" type="search" placeholder="搜索模型，如 GPT、DeepSeek…" autocomplete="off" maxlength="200"></div><div><label class="sr-only" for="reference-provider">筛选参考提供方</label><select id="reference-provider"><option value="">全部提供方</option></select></div></div><select id="reference-pack" disabled aria-describedby="reference-match-note"><option>正在读取参考库…</option></select><p id="reference-match-note" class="field-note">正在读取参考库…</p><p class="reference-fallback">没有对应版本？<button id="open-pair-comparison" class="text-button" type="button">使用双端点检测 ↗</button></p></div>
           <div id="reference-card" class="reference-card" aria-live="polite"><p class="subtle">正在读取参考信息…</p></div>
           <div id="reference-cache-warning" class="notice reference-cache-warning" role="status" aria-live="polite" hidden><p id="reference-cache-warning-message"></p><details><summary>查看缓存文件问题</summary><ul id="reference-cache-warning-list"></ul></details></div>
           <div class="reference-update"><div class="reference-update-heading"><div><strong>参考库更新</strong><p>从 KBF 公开目录获取参考数据，检查后保存在本机；不会发送模型请求。</p></div><div class="reference-update-actions"><button id="update-reference-library" class="button quiet" type="button" disabled><span aria-hidden="true">↻</span>抓取参考库更新</button><button id="cancel-reference-update" class="text-button" type="button" hidden>取消更新</button></div></div><div id="reference-update-status" class="reference-update-status" role="status" aria-live="polite"><span id="reference-update-message">公开参考覆盖会随模型版本变化。</span><span id="reference-update-time">尚未检查更新</span></div><div id="reference-update-progress" class="reference-update-progress" role="progressbar" aria-label="参考库更新进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><span></span></div><div id="reference-update-error" class="notice error" role="alert" hidden></div><details id="reference-update-details" class="reference-update-details" hidden><summary id="reference-update-summary">查看更新详情</summary><div id="reference-update-detail-content"></div></details></div>
         </section>
 
-        <form id="panel-fingerprint" role="tabpanel" aria-labelledby="tab-fingerprint" class="panel mode-panel fingerprint-form">
+        <section id="panel-identify" role="tabpanel" aria-labelledby="tab-identify" class="panel mode-panel identify-panel">
+          <div class="panel-heading"><span class="field-index">单端点 / CANDIDATE IDENTIFICATION</span><h3>这组回答更接近哪些模型</h3><p>在同一套短答案探针下，对公开参考中的模型排序。后续题目按候选分歧选择；达到预算或停止条件后保存记录。</p></div>
+          <div id="identify-bank" class="identify-bank" aria-live="polite">正在读取共享探针参考…</div>
+          <form id="identify-form">
+            <div class="identify-columns"><div>
+              <label for="identify-base">Base URL</label><input id="identify-base" type="url" placeholder="https://your-provider.example/v1" required spellcheck="false">
+              <label for="identify-model">接口中的模型名</label><input id="identify-model" type="text" placeholder="填写服务商提供的调用别名" required maxlength="200" spellcheck="false">
+              <label for="identify-key">API Key</label><input id="identify-key" type="password" required minlength="8" maxlength="4096" autocomplete="off" spellcheck="false"><p class="field-note">仅用于本次连接，提交后清空。</p>
+            </div><div>
+              <label for="identify-budget">最多请求次数</label><input id="identify-budget" type="number" min="12" max="32" step="4" value="32" required>
+              <p class="field-note">每次输出上限为16 tokens；输入和可能产生的推理用量另计。失败请求也占预算。</p>
+              <label for="identify-candidates">候选范围</label><select id="identify-candidates"><option value="all">全部参考模型</option></select>
+              <details class="connection-options"><summary>采样设置</summary><label for="identify-timeout">单次超时（秒）</label><input id="identify-timeout" type="number" min="5" max="120" value="30"><label class="identify-check"><input id="identify-no-cache" type="checkbox">发送 API2D 的整段回答缓存绕过标头</label><p>仅在服务文档支持该标头时启用。探针正文保持原样；缓存命中、推理输出及截断会写入停止原因。</p></details>
+            </div></div>
+            <div id="identify-plan" class="identify-plan" hidden aria-live="polite"></div>
+            <div class="action-row"><p id="identify-plan-note" class="subtle">先查看计划，不发送模型请求。</p><div class="action-buttons"><button id="prepare-identify" class="button quiet" type="button" disabled>查看采样计划</button><button id="start-identify" class="button primary" type="submit" disabled>开始候选识别 →</button></div></div>
+          </form>
+          <div class="identify-offline"><div><h4>离线流程演示</h4><p>从参考分布生成合成回答，体验排序和导出；无需密钥。独立测试结果见方法文档。</p><label for="identify-demo-model" class="sr-only">选择合成演示的模型标签</label><select id="identify-demo-model"></select><button id="start-identify-demo" class="button quiet" type="button" disabled>生成合成演示</button></div><div><h4>已有记录复算</h4><p>读取本工具导出的识别JSONL，用同一参考库重新计算。</p><label for="identify-file" class="sr-only">识别记录JSONL</label><input id="identify-file" type="file" accept=".jsonl,.ndjson"><button id="start-identify-replay" class="button quiet" type="button" disabled>复算识别记录</button></div></div>
+        </section>
+
+        <form id="panel-fingerprint" role="tabpanel" aria-labelledby="tab-fingerprint" class="panel mode-panel fingerprint-form" hidden>
           <fieldset class="sampling-profile"><legend>选择检查深度</legend><div class="profile-options"><label><input type="radio" name="fingerprint-profile" value="screening" checked><span><strong>低成本初筛 <em>默认</em></strong><small>最多 3 批跨领域探针，记录回答差异；模型身份仍待核实。</small></span></label><label><input type="radio" name="fingerprint-profile" value="full"><span><strong>完整参考比较</strong><small>发送整个参考包，沿用 KBF 统计检验；实际误报率仍待校准。</small></span></label></div></fieldset>
           <div class="sampling-budget"><div><label for="fingerprint-budget-requests">请求次数上限</label><input id="fingerprint-budget-requests" type="number" min="1" max="1000" step="1" value="4" inputmode="numeric"><small>包含参数适配与重试。</small></div><div><label for="fingerprint-budget-output">输出配额总上限 <span>tokens</span></label><input id="fingerprint-budget-output" type="number" min="1" max="250000" step="1" value="4096" inputmode="numeric"><small>按每次请求的输出上限累计。</small></div><p id="fingerprint-budget-help">默认最多 4 次请求、4,096 输出配额。到达任一上限就停止；输入与服务端额外计量仍需查看账单。</p></div>
           <div class="fingerprint-layout"><div class="endpoint-fields"><span class="field-index">B / 待测 API</span><h3>连接待测服务</h3><div class="field-row"><div><label for="fingerprint-base">API 地址 <span>Base URL</span></label><input id="fingerprint-base" type="url" autocomplete="off" placeholder="https://api.example.com/v1" required spellcheck="false"></div><div><label for="fingerprint-model">请求中的模型名称</label><input id="fingerprint-model" type="text" autocomplete="off" placeholder="该服务使用的模型 ID" required maxlength="200" spellcheck="false"></div></div><label for="fingerprint-key">API 密钥</label><div class="key-field"><input id="fingerprint-key" type="password" autocomplete="new-password" placeholder="粘贴待测服务的 API Key" required minlength="8" maxlength="4096" spellcheck="false"><button id="toggle-key" class="text-button" type="button" aria-pressed="false" aria-label="显示 API 密钥">显示</button></div><p class="field-note">密钥仅用于本次请求，不保存在浏览器或运行记录中。</p><details class="connection-options"><summary>连接设置</summary><label for="fingerprint-timeout">单次请求超时（秒）</label><input id="fingerprint-timeout" type="number" min="5" max="300" step="1" value="90" required><p>使用 Chat Completions 兼容接口。模型别名应与所选参考版本对应。</p></details></div><aside class="run-outline"><span class="field-index">C / 采样计划</span><h3>先确认，这次要看什么</h3><p>初筛适合小成本观察；需要深入复核时，再选择完整参考比较。</p><ol><li>调用前固定题目与预算</li><li>采集待测 API 的回答</li><li>保存差异与实际用量</li></ol><p class="subtle">客观题的回答模式可以提供线索，单次答对或答错都不能鉴定模型身份。</p></aside></div>
@@ -139,6 +160,16 @@
       <section id="results" class="work-section" aria-labelledby="results-title" hidden>
         <div class="section-heading"><div><span class="step-number">02</span><h2 id="results-title">检测结果</h2></div><span id="result-date" class="section-hint"></span></div>
         <div id="report-tabs" class="report-tabs" role="tablist" aria-label="选择报告" hidden></div>
+        <article id="identify-report" class="panel result-panel" hidden>
+          <div id="identify-banner" class="result-banner screening"><div class="result-symbol" aria-hidden="true">≋</div><div><span class="eyebrow" id="identify-scope">模型候选排序</span><h3 id="identify-headline"></h3><p id="identify-explanation"></p></div></div>
+          <div id="identify-metrics" class="identify-metrics"></div>
+          <p id="identify-usage" class="subtle"></p>
+          <div class="table-header"><div><h3>候选与距离</h3><p>距离越小，所采回答越接近该参考分布。距离值与候选间差距均不表示身份概率。</p></div></div>
+          <div class="table-scroll"><table class="results-table identify-table"><thead><tr><th scope="col">排序</th><th scope="col">模型参考标签</th><th scope="col">家族</th><th scope="col">距离</th></tr></thead><tbody id="identify-ranking"></tbody></table></div>
+          <button type="button" id="identify-more" class="text-button" aria-expanded="false" aria-controls="identify-ranking">展开前20个候选</button>
+          <div class="identify-details"><h4>家族层面的候选</h4><p id="identify-families"></p><h4>为什么停止</h4><p id="identify-stop"></p><details class="method-details"><summary>参考范围、校准与采样开销</summary><pre id="identify-method"></pre></details></div>
+          <div class="export-row"><div><strong>保存结果和原始回答</strong><p>JSONL可离线复算；报告保留参考日期、预算和停止原因。</p></div><div class="export-buttons" id="identify-exports"></div></div>
+        </article>
         <article id="fingerprint-report" class="panel result-panel" hidden>
           <div id="fp-banner" class="result-banner"><span class="result-symbol" aria-hidden="true">≈</span><div><span class="eyebrow" id="fp-scope">参考指纹比较</span><h3 id="fp-headline"></h3><p id="fp-explanation"></p></div></div>
           <div id="fp-metrics" class="metric-grid"></div>
@@ -168,8 +199,8 @@
 
       <section id="history" class="work-section" aria-labelledby="history-title"><div class="section-heading"><div><span class="step-number">◷</span><h2 id="history-title">历史结果</h2></div><button class="text-button" id="refresh-history" type="button">刷新列表</button></div><div class="panel history-panel"><div id="history-empty" class="empty-state"><span aria-hidden="true">◷</span><div><strong>第一次检测，从这里开始积累</strong><p>运行演示后，记录会出现在这里，随时可以重新打开。</p></div></div><div id="history-list" class="history-list"></div></div></section>
 
-      <section id="reading-guide" class="work-section" aria-labelledby="reading-guide-title"><div class="section-heading"><div><span class="step-number">03</span><h2 id="reading-guide-title">如何读懂这份证据</h2></div></div><div class="guide-grid"><article><span class="guide-number">01</span><h3>参考来自哪里</h3><p>参考包记录模型版本、采集时间与提供方。选择与你要核验的承诺对应的版本，来源信息保留在报告中。</p></article><article><span class="guide-number">02</span><h3>差异出现在哪里</h3><p>先看可解析回答的覆盖率，再看哪些领域、哪些题出现偏离。点开原始响应，检查格式和截断是否影响了解析。</p></article><article><span class="guide-number">03</span><h3>这次能得出什么</h3><p>初筛记录少量回答差异，完整比较再提供统计结果。两种方式都需要结合版本、推理配置和服务承诺解释。</p></article></div></section>
-      <footer class="page-footer"><span>第 11 小组 · 大模型服务供应链研究</span><span>KBF · Inspect AI · Model Equality Testing</span></footer>
+      <section id="reading-guide" class="work-section" aria-labelledby="reading-guide-title"><div class="section-heading"><div><span class="step-number">03</span><h2 id="reading-guide-title">如何读懂这份证据</h2></div></div><div class="guide-grid"><article><span class="guide-number">01</span><h3>参考来自哪里</h3><p>参考包记录模型版本、采集时间与提供方。选择与你要核验的承诺对应的版本，来源信息保留在报告中。</p></article><article><span class="guide-number">02</span><h3>差异出现在哪里</h3><p>先看可解析回答的覆盖率，再看哪些领域、哪些题出现偏离。点开原始响应，检查格式和截断是否影响了解析。</p></article><article><span class="guide-number">03</span><h3>这次能得出什么</h3><p>候选识别给出相近标签，KBF对照列出回答差异。版本更新、提示、推理配置和路由都可能改变回答；逐次记录用于定位变化。</p></article></div></section>
+      <footer class="page-footer"><span>第 11 小组 · 大模型服务供应链研究</span><span>One Token Is Enough · KBF · Inspect AI · MET</span></footer>
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "api-mri"
-version = "0.5.0"
-description = "Single-API fingerprint checks and reproducible service-consistency research"
+version = "0.6.0"
+description = "Budgeted single-API model candidate identification and service-consistency research"
 requires-python = ">=3.10"
 dependencies = [
   "inspect-ai==0.3.278",
@@ -32,7 +32,7 @@ relay-audit = "relay_audit.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-relay_audit = ["static/*.html", "static/*.css", "static/*.js", "data/reference_packs/*.json", "data/reference_packs/NOTICE", "vendor/kbf/LICENSE", "vendor/kbf/NOTICE", "vendor/kbf/UPSTREAM.json"]
+relay_audit = ["static/*.html", "static/*.css", "static/*.js", "data/reference_packs/*.json", "data/reference_packs/NOTICE", "data/identification/*.json", "data/identification/NOTICE", "vendor/kbf/LICENSE", "vendor/kbf/NOTICE", "vendor/kbf/UPSTREAM.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

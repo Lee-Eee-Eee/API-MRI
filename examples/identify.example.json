@@ -1,0 +1,10 @@
+{
+  "candidate": {
+    "api_base": "https://api.example.com/v1",
+    "model": "your-model-alias",
+    "api_key_env": "API_MRI_KEY"
+  },
+  "budget": {"max_requests": 32, "max_output_tokens": 512},
+  "timeout": 30,
+  "api2d_no_cache": false
+}

@@ -37,6 +37,17 @@ def build_parser() -> argparse.ArgumentParser:
     refs_audit.add_argument("--out", type=Path, required=True)
     refs_update = commands.add_parser("references-update", help="从KBF公开目录抓取并检查参考包，不调用模型API")
     refs_update.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
+    identify_plan = commands.add_parser("identify-plan", help="检查共享短探针候选识别计划，不调用API")
+    identify_plan.add_argument("--config", type=Path, required=True)
+    identify_run = commands.add_parser("identify", help="采集一个API的短答案并返回库内模型候选")
+    identify_run.add_argument("--config", type=Path, required=True)
+    identify_run.add_argument("--out", type=Path, required=True)
+    identify_demo = commands.add_parser("identify-demo", help="本地候选识别流程示例，不调用API")
+    identify_demo.add_argument("--model", default=None)
+    identify_demo.add_argument("--out", type=Path, required=True)
+    identify_replay = commands.add_parser("identify-replay", help="离线复算候选排名，不调用API")
+    identify_replay.add_argument("--records", type=Path, required=True)
+    identify_replay.add_argument("--out", type=Path, required=True)
     fp_plan = commands.add_parser("fingerprint-plan", help="检查单API指纹计划与调用上限，不调用API")
     fp_plan.add_argument("--config", type=Path, required=True)
     fp_run = commands.add_parser("fingerprint", help="用内置参考包检测一个API")
@@ -108,7 +119,28 @@ def main(argv: list[str] | None = None) -> int:
         from .study import attach_study, redact_study, validate_study
 
         study = validate_study(json.loads(args.study.read_text(encoding="utf-8"))) if getattr(args, "study", None) else {}
-        if args.command == "references":
+        if args.command in {"identify-plan", "identify", "identify-demo", "identify-replay"}:
+            from .identification import plan_identification, run_identification, demo_identification, replay_identification
+            if args.command in {"identify-plan", "identify"}:
+                payload = json.loads(args.config.read_text(encoding="utf-8"))
+                if not isinstance(payload, dict) or not isinstance(payload.get("candidate"), dict):
+                    raise ValueError("识别配置需要candidate对象。")
+                if "api_key" in payload["candidate"]:
+                    raise ValueError("CLI配置使用api_key_env环境变量名称，移除明文api_key。")
+                if args.command == "identify-plan":
+                    print(json.dumps(plan_identification(payload), ensure_ascii=False, indent=2))
+                    return 0
+                result = run_identification(payload, args.out)
+            elif args.command == "identify-demo":
+                result = demo_identification(args.out, model_id=args.model)
+            else:
+                result = replay_identification(args.records, args.out)
+            print({"candidate_shortlist": "已得到库内候选；距离不是身份概率。", "unknown_or_changed": "库外模型或服务行为变化。",
+                   "insufficient_evidence": "识别证据不足。"}[result["status"]])
+            print(f"报告：{args.out / 'report.md'}")
+            if result.get("collection", {}).get("failure"):
+                return 1
+        elif args.command == "references":
             from .fingerprint import list_reference_packs
             print(json.dumps(list_reference_packs(args.library_dir), ensure_ascii=False, indent=2))
         elif args.command == "reference-audit":

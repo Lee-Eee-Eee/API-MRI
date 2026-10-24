@@ -15,7 +15,10 @@
     referenceUpdateRequest: false,
     referenceUpdatePollFailed: false,
     referenceUpdateCancelling: false,
-    mode: "fingerprint",
+    mode: "identify",
+    identificationBank: null,
+    identificationPlan: null,
+    identificationRevision: 0,
     fingerprintPlan: null,
     planRevision: 0,
     planning: false,
@@ -36,10 +39,10 @@
     toastTimer: null,
   };
   const terminalStatuses = new Set(["completed", "cancelled", "failed"]);
-  const modeLabels = { fingerprint: "单 API 指纹检测", fingerprint_demo: "指纹离线体验", fingerprint_offline: "指纹记录复算", demo: "统计演示", lab: "机制实验台", live: "双端点检测", offline: "已有记录复算" };
+  const modeLabels = { identify: "模型候选识别", identify_demo: "候选识别合成演示", identify_offline: "候选识别复算", fingerprint: "单 API 指纹检测", fingerprint_demo: "指纹离线体验", fingerprint_offline: "指纹记录复算", demo: "统计演示", lab: "机制实验台", live: "双端点检测", offline: "已有记录复算" };
   const statusLabels = { queued: "排队中", running: "运行中", completed: "已完成", cancelled: "已取消", failed: "运行失败" };
   const phaseLabels = { queued: "等待开始", preparing: "准备测试题目", collecting: "正在采集回答", sampling: "正在采集回答", comparing: "正在比较回答分布", analyzing: "正在分析记录", analysis: "正在分析记录", completed: "分析完成", cancelled: "本次运行已取消", failed: "本次运行未完成" };
-  const reportLabels = { fingerprint: "参考指纹报告", honest: "相同来源对照", substituted: "已知变化对照", comparison: "服务比较报告" };
+  const reportLabels = { identification: "模型候选报告", fingerprint: "参考指纹报告", honest: "相同来源对照", substituted: "已知变化对照", comparison: "服务比较报告" };
   const legacyProbeNames = { color_blue: "颜色指令 · 蓝色", color_green: "颜色指令 · 绿色", color_amber: "颜色指令 · 琥珀色" };
   const domainNames = {
     chemistry_bp: "化学 · 沸点", chemistry_mp: "化学 · 熔点", physics: "物理 · 材料性质",
@@ -921,7 +924,7 @@
       }
     });
     $("reference-library").hidden = !mode.startsWith("fingerprint");
-    if (!mode.startsWith("fingerprint")) {
+    if (!mode.startsWith("fingerprint") && mode !== "identify") {
       $("advanced-modes").hidden = false;
       $("toggle-advanced").setAttribute("aria-expanded", "true");
     }
@@ -965,6 +968,10 @@
   function updateButtons() {
     const libraryBusy = referenceUpdateRunning() || state.referenceUpdateRequest;
     const busy = !state.token || state.submitting || hasRunningTask() || libraryBusy;
+    $("prepare-identify").disabled = busy || state.planning || !state.identificationBank;
+    $("start-identify").disabled = busy || state.planning || !state.identificationPlan;
+    $("start-identify-demo").disabled = busy || !state.identificationBank;
+    $("start-identify-replay").disabled = busy || !$("identify-file").files.length;
     $("start-demo").disabled = busy;
     $("start-lab").disabled = busy || !state.scenarios.length;
     $("start-offline").disabled = busy;
@@ -1140,6 +1147,102 @@
     }
   }
 
+  function renderIdentificationBank() {
+    const bank = state.identificationBank;
+    const container = $("identify-bank");
+    clear(container);
+    if (!bank) { container.textContent = "本机尚未安装共享探针参考。"; return; }
+    const date = bank.collected_at || {};
+    const first = typeof date === "string" ? date : date.first;
+    container.append(element("strong", "", `${number(bank.model_count)} 个候选标签 · ${number(bank.cell_count)} 个任务与语言单元`),
+      element("p", "", `公开参考采于 ${String(first || "未知日期").slice(0, 10)}。模型标签沿用数据作者记录；新版本、未收录模型和不同部署可表现为库外或排序混淆。`));
+    const candidates = $("identify-candidates"), demos = $("identify-demo-model");
+    candidates.replaceChildren(new Option("全部参考模型", "all"));
+    demos.replaceChildren();
+    const families = [...new Set((bank.models || []).map(m => m.family))].sort();
+    families.forEach(family => {
+      const count = bank.models.filter(m => m.family === family).length;
+      if (count >= 2) candidates.append(new Option(`${family} · ${count} 个候选`, family));
+    });
+    (bank.models || []).forEach(model => demos.append(new Option(model.label || model.model, model.model)));
+  }
+
+  function identificationPayload() {
+    const count = Number($("identify-budget").value);
+    const payload = {mode: "identify", candidate: {api_base: $("identify-base").value.trim(), model: $("identify-model").value.trim()}, timeout: Number($("identify-timeout").value),
+      budget: {max_requests: count, max_output_tokens: count * 16}, api2d_no_cache: $("identify-no-cache").checked};
+    const key = $("identify-key").value.trim();
+    if (key) payload.candidate.api_key = key;
+    const family = $("identify-candidates").value;
+    if (family !== "all") payload.candidate_models = (state.identificationBank.models || []).filter(m => m.family === family).map(m => m.model);
+    return payload;
+  }
+
+  function invalidateIdentificationPlan() {
+    state.identificationRevision += 1;
+    state.identificationPlan = null;
+    $("identify-plan").hidden = true;
+    $("identify-plan-note").textContent = "先查看计划，不发送模型请求。";
+    updateButtons();
+  }
+
+  async function prepareIdentification() {
+    if (state.planning || state.submitting || hasRunningTask()) return;
+    const payload = identificationPayload();
+    if (!payload.candidate.api_base || !payload.candidate.model) return showError("先填写 Base URL 和接口模型名，再查看计划。");
+    const revision = ++state.identificationRevision;
+    state.planning = true; updateButtons(); showError("");
+    try {
+      const result = await api("/api/plan", {method: "POST", body: JSON.stringify(payload)});
+      if (revision !== state.identificationRevision) return;
+      state.identificationPlan = result;
+      const container = $("identify-plan"); clear(container);
+      container.append(element("strong", "", `最多 ${number(result.budget.max_requests)} 次请求 · ${number(result.budget.max_output_tokens)} 输出配额 · ${number(result.candidate_count)} 个候选`),
+        element("p", "", `每单元采 ${number(result.protocol.samples_per_cell)} 次，最多完成 ${number(result.max_completed_cells)} 单元。已采回答同时比较全部所选候选；不逐个模型另行提问。`),
+        element("p", "", "优先发送候选回答分歧较大、输入较短的探针。模型标签只用于向服务发起调用，不参与候选打分。"));
+      (result.notes || []).forEach(note => container.append(element("p", "subtle", note)));
+      container.hidden = false;
+      $("identify-plan-note").textContent = "计划已核对。开始后会调用你填写的端点。";
+    } catch(error) { showError(error.message); }
+    finally {state.planning = false; updateButtons();}
+  }
+
+  function renderIdentificationReport(run, entry) {
+    const report = entry.report || {}, coverage = report.coverage || {}, cost = report.cost || {};
+    const labels = {candidate_shortlist: "已得到模型候选", unknown_or_changed: "库外模型或服务行为变化", insufficient_evidence: "本次证据不足以形成候选结论"};
+    $("identify-headline").textContent = labels[report.status] || "候选识别记录";
+    $("identify-scope").textContent = report.synthetic ? "合成回答 · 流程演示" : "单端点 · 共享探针参考";
+    $("identify-explanation").textContent = report.synthetic ? "这组回答从参考分布生成，用来展示流程；准确率另以独立留出的公开回答评估。" :
+      (report.status === "candidate_shortlist" ? "下表列出与本轮回答最接近的参考标签。当前结果保留身份拒判，候选顺序用于后续复核。" :
+      report.status === "unknown_or_changed" ? "当前回答没有通过本轮参考库的接受条件。保留最近候选，供检查版本、配置和路由变化。" : "查看停止原因和有效单元数；原始记录已保存，可在本机复算。");
+    const metrics = $("identify-metrics"); clear(metrics);
+    [["比较候选", coverage.candidate_count], ["完成单元", coverage.completed_cells], [report.synthetic ? "合成请求" : "发送请求", cost.request_count], ["请求输出配额", cost.requested_output_tokens]].forEach(([label, value]) => {
+      const item = element("div"); item.append(element("span", "", label), element("strong", "", number(value))); metrics.append(item);
+    });
+    const usage = cost.usage || {};
+    $("identify-usage").textContent = report.synthetic ? "此为合成演示，实际模型请求为 0，不产生模型调用费用。" :
+      `供应商已报用量：输入 ${textValue(usage.prompt_tokens, "未知")}，输出 ${textValue(usage.completion_tokens, "未知")}，其中推理 ${textValue(usage.reasoning_tokens, "未知")} tokens。${usage.complete ? "输入、输出及总量均已返回。" : "存在用量缺项；已报小计不等于完整账单。"}`;
+    const body = $("identify-ranking"); clear(body);
+    body.classList.remove("expanded");
+    $("identify-more").hidden = (report.ranking || []).length <= 5;
+    $("identify-more").setAttribute("aria-expanded", "false");
+    $("identify-more").textContent = `展开前${(report.ranking || []).length}个候选`;
+    (report.ranking || []).forEach(row => {
+      const tr = element("tr");
+      [row.rank, row.label || row.model, row.family, typeof row.distance === "number" ? row.distance.toFixed(4) : "—"].forEach(value => tr.append(element("td", "", value)));
+      body.append(tr);
+    });
+    if (!(report.ranking || []).length) {const tr = element("tr"), td = element("td", "", "尚无可比较的完整单元。"); td.colSpan = 4; tr.append(td); body.append(tr);}
+    $("identify-families").textContent = (report.family_ranking || []).slice(0, 6).map(row => `${row.family} · ${typeof row.distance === "number" ? row.distance.toFixed(4) : "—"}`).join("；") || "尚无家族候选。";
+    const stopLabels = {budget_exhausted: "已达到本次预算；剩余额度不足以完成下一个单元", demo_budget_exhausted: "合成演示已完成设定预算", budget_max_requests: "已达到请求次数预算", budget_max_output_tokens: "已达到请求输出配额", cancelled: "用户取消", response_cache_hit: "发现整段回答缓存", reasoning_returned: "端点返回推理内容，与参考协议不匹配", no_discriminating_shared_probe: "剩余共享探针没有可用于区分候选的分歧", no_informative_cells: "剩余探针没有可用分歧", no_more_cells: "可用共享探针已用尽", protocol_incompatible: "端点不支持参考采样协议", invalid: "回答格式不符合固定探针协议，已保留当前记录", empty: "端点返回空回答", refusal: "端点拒绝回答探针", truncated: "回答被截断", http_error: "端点返回HTTP错误", request_error: "连接或请求失败", completed: "计划已完成"};
+    $("identify-stop").textContent = stopLabels[report.stop_reason] || textValue(report.stop_reason);
+    $("identify-method").textContent = JSON.stringify({reference: report.bank, calibration: report.calibration, coverage: report.coverage, cost: report.cost, notes: report.notes}, null, 2);
+    const exports = $("identify-exports"); clear(exports);
+    [["json", "JSON报告"], ["md", "Markdown报告"], ["jsonl", "原始回答JSONL"]].forEach(([format, label]) => {
+      const a = element("a", "button quiet", label); a.href = `/api/runs/${encodeURIComponent(run.id)}/download/${encodeURIComponent(entry.name)}/${format}`; a.download = ""; exports.append(a);
+    });
+  }
+
   function livePayload() {
     const current = plan();
     return {
@@ -1167,6 +1270,10 @@
       if (payload.mode === "live") {
         $("reference-key").value = "";
         $("candidate-key").value = "";
+      }
+      if (payload.mode === "identify") {
+        $("identify-key").value = "";
+        invalidateIdentificationPlan();
       }
       if (payload.mode === "fingerprint") {
         $("fingerprint-key").value = "";
@@ -1347,6 +1454,13 @@
 
   function renderReport(run, entry) {
     const report = entry.report || {};
+    const identification = report.kind === "identification";
+    $("identify-report").hidden = !identification;
+    if (identification) {
+      $("fingerprint-report").hidden = true;
+      $("pair-report").hidden = true;
+      return renderIdentificationReport(run, entry);
+    }
     const fingerprint = report.kind === "fingerprint" || Boolean(report.fingerprint);
     $("fingerprint-report").hidden = !fingerprint;
     $("pair-report").hidden = fingerprint;
@@ -1576,6 +1690,8 @@
     try {
       const bootstrap = await api("/api/bootstrap");
       state.token = bootstrap.session_token;
+      state.identificationBank = bootstrap.identification_bank || null;
+      renderIdentificationBank();
       state.probes = Array.isArray(bootstrap.probes) ? bootstrap.probes : [];
       state.scenarios = Array.isArray(bootstrap.scenarios) ? bootstrap.scenarios : [];
       state.referencePacks = Array.isArray(bootstrap.reference_packs) ? bootstrap.reference_packs : [];
@@ -1601,6 +1717,7 @@
       alert.append(retry);
       alert.hidden = false;
     }
+    setMode(state.mode);
     updateButtons();
   }
 
@@ -1624,6 +1741,33 @@
     link.addEventListener("click", () => {
       document.querySelectorAll(".nav-link").forEach((entry) => entry.classList.toggle("active", entry === link));
     });
+  });
+
+  $("prepare-identify").addEventListener("click", prepareIdentification);
+  $("identify-more").addEventListener("click", () => {
+    const expanded = $("identify-ranking").classList.toggle("expanded");
+    $("identify-more").setAttribute("aria-expanded", String(expanded));
+    $("identify-more").textContent = expanded ? "收起至前5个候选" : `展开前${$("identify-ranking").children.length}个候选`;
+  });
+  ["identify-base", "identify-model", "identify-key", "identify-budget", "identify-candidates", "identify-timeout", "identify-no-cache"].forEach(id => {
+    $(id).addEventListener("input", invalidateIdentificationPlan);
+    $(id).addEventListener("change", invalidateIdentificationPlan);
+  });
+  $("identify-file").addEventListener("change", updateButtons);
+  $("identify-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!state.identificationPlan || state.submitting || hasRunningTask() || !event.currentTarget.reportValidity()) return;
+    await submitRun(identificationPayload(), true);
+  });
+  $("start-identify-demo").addEventListener("click", () => {
+    const count = Number($("identify-budget").value);
+    submitRun({mode: "identify_demo", model_id: $("identify-demo-model").value, budget: {max_requests: count, max_output_tokens: count * 16}});
+  });
+  $("start-identify-replay").addEventListener("click", async () => {
+    const file = $("identify-file").files[0];
+    if (!file || file.size > 4 * 1024 * 1024) return showError("请选择不超过4 MB的识别记录JSONL。");
+    try {await submitRun({mode: "identify_offline", evidence_jsonl: await file.text()});}
+    catch(error) {showError(error.message);}
   });
 
   $("start-demo").addEventListener("click", () => submitRun({ mode: "demo", repeats: 12, permutations: 199 }));
