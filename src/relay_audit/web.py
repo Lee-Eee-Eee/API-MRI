@@ -67,11 +67,25 @@ def validate_job(payload: Any, *, library_dir: Path | None = None) -> dict:
     mode = payload.get("mode")
     settings = _analysis_settings(payload)
     clean = {"mode": mode, **settings.model_dump()}
+    if mode in {"service", "service_demo", "service_offline"}:
+        from .service_quality import parse_service_records, plan_service_quality
+
+        if mode == "service":
+            config = {key: payload[key] for key in ("candidate", "checks", "samples", "max_tokens", "timeout", "budget", "token_parameter", "stream_usage") if key in payload}
+            plan_service_quality(config)
+            clean["service_config"] = config
+        elif mode == "service_demo":
+            checks = payload.get("checks", ["stream", "tools"])
+            plan_service_quality({"candidate": {"api_base": "https://synthetic.example/v1", "model": "synthetic-service"}, "checks": checks})
+            clean["service_checks"] = checks
+        elif mode == "service_offline":
+            clean["service_records"] = parse_service_records(payload.get("evidence_jsonl"))
+        return clean
     if mode in {"identify", "identify_demo", "identify_offline"}:
         from .identification import load_identification_bank, parse_identification_records, plan_identification
 
         if mode == "identify":
-            config = {key: payload[key] for key in ("candidate", "candidate_models", "budget", "timeout", "api2d_no_cache") if key in payload}
+            config = {key: payload[key] for key in ("candidate", "candidate_models", "budget", "timeout", "api2d_no_cache", "stop_policy") if key in payload}
             plan_identification(config)
             clean["identification_config"] = config
         elif mode == "identify_demo":
@@ -199,6 +213,11 @@ class JobManager:
                         summary["lab"] = {"scenario": copy.deepcopy(report["lab"].get("scenario", {}))}
                     if report.get("fingerprint"):
                         summary["fingerprint"] = {key: copy.deepcopy(report["fingerprint"][key]) for key in ("reference", "summary", "demo_variant") if key in report["fingerprint"]}
+                    if report.get("kind") == "service_quality":
+                        summary["candidate"] = copy.deepcopy(report.get("candidate", {}))
+                        summary["checks"] = copy.deepcopy(report.get("checks", []))
+                    if report.get("kind") == "identification":
+                        summary["ranking"] = copy.deepcopy(report.get("ranking", [])[:1])
                     row["reports"].append({"name": entry["name"], "report": summary})
                 rows.append(row)
             return rows
@@ -249,7 +268,19 @@ class JobManager:
             if event.is_set():
                 self._update(identifier, status="cancelled")
                 return
-            if payload["mode"] in {"identify", "identify_demo", "identify_offline"}:
+            if payload["mode"] in {"service", "service_demo", "service_offline"}:
+                from .service_quality import run_service_quality, demo_service_quality, replay_service_quality
+
+                if payload["mode"] == "service":
+                    result = run_service_quality(payload["service_config"], out, progress=progress, cancelled=event.is_set)
+                elif payload["mode"] == "service_demo":
+                    progress({"completed": 0, "total": 1, "phase": "analyzing", "message": "生成合成流式记录与工具调用"})
+                    result = demo_service_quality(out, checks=payload["service_checks"])
+                else:
+                    progress({"completed": 0, "total": 1, "phase": "analyzing", "message": "复算流式时间线和工具记录"})
+                    result = replay_service_quality(payload["service_records"], out)
+                reports.append({"name": "service", "report": result})
+            elif payload["mode"] in {"identify", "identify_demo", "identify_offline"}:
                 from .identification import run_identification, demo_identification, replay_identification
 
                 if payload["mode"] == "identify":
@@ -357,6 +388,8 @@ class JobManager:
             names["jsonl"] = "fingerprint_records.jsonl"
         if job["mode"].startswith("identify"):
             names["jsonl"] = "identification_records.jsonl"
+        if job["mode"].startswith("service"):
+            names["jsonl"] = "service_records.jsonl"
         filename = names.get(format_name)
         if filename is None:
             raise KeyError(format_name)
@@ -375,6 +408,12 @@ class JobManager:
         if report_name not in {item["name"] for item in job.get("reports", [])}:
             raise KeyError(report_name)
         directory = self.root / identifier / "evidence"
+        if job["mode"].startswith("service"):
+            path = (directory / "service_records.jsonl").resolve()
+            if not path.is_relative_to(self.root):
+                raise KeyError("service_records.jsonl")
+            rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()] if path.exists() else []
+            return {"service": rows}
         if job["mode"].startswith("identify"):
             path = (directory / "identification_records.jsonl").resolve()
             if not path.is_relative_to(self.root):
@@ -544,7 +583,7 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
         return {"version": __version__, "session_token": session_token, "probes": list_probes(),
                 "scenarios": list_scenarios(), "reference_packs": list_reference_packs(library_path),
                 "identification_bank": identification_bank,
-                "capabilities": {"modes": ["identify", "identify_demo", "identify_offline", "fingerprint", "fingerprint_demo", "fingerprint_offline", "demo", "lab", "live", "offline"], "protocol": "Chat Completions", "local_only": True}}
+                "capabilities": {"modes": ["service", "service_demo", "service_offline", "identify", "identify_demo", "identify_offline", "fingerprint", "fingerprint_demo", "fingerprint_offline", "demo", "lab", "live", "offline"], "protocol": "Chat Completions", "local_only": True}}
 
     @app.get("/api/runs")
     def runs():
@@ -587,6 +626,10 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
         from .workflows import plan_pair
 
         try:
+            if payload.get("mode") == "service":
+                from .service_quality import plan_service_quality
+                cleaned = validate_job(payload)
+                return plan_service_quality(cleaned["service_config"])
             if payload.get("mode") == "identify":
                 from .identification import plan_identification
                 cleaned = validate_job(payload)

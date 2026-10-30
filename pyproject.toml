@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "api-mri"
-version = "0.6.0"
-description = "Budgeted single-API model candidate identification and service-consistency research"
+version = "0.7.0"
+description = "Budgeted API service diagnostics, tool calling checks and model fingerprint evidence"
 requires-python = ">=3.10"
 dependencies = [
   "inspect-ai==0.3.278",

@@ -1,0 +1,14 @@
+{
+  "candidate": {
+    "api_base": "https://api.example.com/v1",
+    "model": "your-model-alias",
+    "api_key_env": "API_MRI_KEY"
+  },
+  "checks": ["stream", "tools"],
+  "samples": 2,
+  "max_tokens": 128,
+  "token_parameter": "max_tokens",
+  "stream_usage": true,
+  "timeout": 30,
+  "budget": {"max_requests": 6, "max_output_tokens": 768}
+}

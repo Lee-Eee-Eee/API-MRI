@@ -28,8 +28,18 @@ def _analyze(reference: Path, candidate: Path, out: Path, args: argparse.Namespa
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="API服务一致性研究工具；输出有限行为证据。")
+    parser = argparse.ArgumentParser(description="API-MRI：连接、流式速度、工具调用与模型指纹。")
     commands = parser.add_subparsers(dest="command", required=True)
+    service_plan = commands.add_parser("service-plan", help="预览连接、流式响应和工具检查计划，不调用API")
+    service_plan.add_argument("--config", type=Path, required=True)
+    service_run = commands.add_parser("service", help="按预算测量单端点服务并保存记录")
+    service_run.add_argument("--config", type=Path, required=True)
+    service_run.add_argument("--out", type=Path, required=True)
+    service_demo = commands.add_parser("service-demo", help="本地合成流式与工具示例，不调用模型API")
+    service_demo.add_argument("--out", type=Path, required=True)
+    service_replay = commands.add_parser("service-replay", help="从已有JSONL复算服务检查，不调用API")
+    service_replay.add_argument("--records", type=Path, required=True)
+    service_replay.add_argument("--out", type=Path, required=True)
     refs = commands.add_parser("references", help="列出内置与本机参考包，不调用模型API")
     refs.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
     refs_audit = commands.add_parser("reference-audit", help="离线盘点参考证据与调用计划，不调用模型API")
@@ -119,7 +129,27 @@ def main(argv: list[str] | None = None) -> int:
         from .study import attach_study, redact_study, validate_study
 
         study = validate_study(json.loads(args.study.read_text(encoding="utf-8"))) if getattr(args, "study", None) else {}
-        if args.command in {"identify-plan", "identify", "identify-demo", "identify-replay"}:
+        if args.command in {"service-plan", "service", "service-demo", "service-replay"}:
+            from .service_quality import plan_service_quality, run_service_quality, demo_service_quality, replay_service_quality
+            if args.command in {"service-plan", "service"}:
+                payload = json.loads(args.config.read_text(encoding="utf-8"))
+                if not isinstance(payload, dict) or not isinstance(payload.get("candidate"), dict):
+                    raise ValueError("服务检查配置需要candidate对象。")
+                if "api_key" in payload["candidate"]:
+                    raise ValueError("CLI配置使用api_key_env环境变量名称，移除明文api_key。")
+                if args.command == "service-plan":
+                    print(json.dumps(plan_service_quality(payload), ensure_ascii=False, indent=2))
+                    return 0
+                result = run_service_quality(payload, args.out)
+            elif args.command == "service-demo":
+                result = demo_service_quality(args.out)
+            else:
+                result = replay_service_quality(args.records, args.out)
+            print({"completed": "服务检查完成。", "partial": "已保存部分检查结果。", "cancelled": "检查已停止。"}.get(result["status"], result["status"]))
+            print(f"报告：{args.out / 'report.md'}")
+            if result.get("collection", {}).get("failure"):
+                return 1
+        elif args.command in {"identify-plan", "identify", "identify-demo", "identify-replay"}:
             from .identification import plan_identification, run_identification, demo_identification, replay_identification
             if args.command in {"identify-plan", "identify"}:
                 payload = json.loads(args.config.read_text(encoding="utf-8"))

@@ -1,0 +1,1532 @@
+{
+  "schema": "api-mri-identification-stress/1",
+  "computed_at": "2026-10-30T18:37:50.467538+00:00",
+  "bank_sha256": "527841315238802c073dafd96cf0d39db3d78708fa25c0a359c6c7cee840ffa6",
+  "model_api_calls": 0,
+  "policy_evaluation_status": "exploratory_historical_holdout_reanalysis",
+  "source": {
+    "paper": "https://arxiv.org/abs/2607.10252v1",
+    "data": "https://doi.org/10.5281/zenodo.21278557",
+    "configuration": "https://doi.org/10.5281/zenodo.21278793",
+    "author": "Tomáš Bruckner, 2026",
+    "data_license": "CC-BY-4.0",
+    "configuration_license": "MIT",
+    "data_md5": "f2ce3fba3081f73e9908179fb2f061b6",
+    "configuration_md5": "d81de3b8ef5c0bca74fd7c2bdbb41a6b",
+    "model_labels": "author-provided, not independently authenticated"
+  },
+  "development": {
+    "policies": {
+      "fixed": {
+        "known_eligible": 131,
+        "known_accepted": 63,
+        "known_top1_correct": 101,
+        "known_top3_correct": 114,
+        "known_correct_accepted": 63,
+        "known_wrong_accepted": 0,
+        "known_early_stopped": 0,
+        "known_incomplete": 1,
+        "unknown_eligible": 16,
+        "unknown_accepted": 0,
+        "mean_known_requests": 32.0,
+        "mean_known_requested_output_cap": 512.0,
+        "mean_known_requests_saved_vs_32": 0.0,
+        "mean_known_input_prompt_utf8_bytes": 6155.786259541985,
+        "input_cost_measure": "UTF-8 prompt bytes, not billed tokenizer units",
+        "known_top1_accuracy": 0.7709923664122137,
+        "known_top3_accuracy": 0.8702290076335878,
+        "accuracy_among_accepted": 1.0
+      },
+      "stable_shortlist": {
+        "known_eligible": 131,
+        "known_accepted": 72,
+        "known_top1_correct": 101,
+        "known_top3_correct": 114,
+        "known_correct_accepted": 70,
+        "known_wrong_accepted": 2,
+        "known_early_stopped": 66,
+        "known_incomplete": 1,
+        "unknown_eligible": 16,
+        "unknown_accepted": 0,
+        "mean_known_requests": 28.48854961832061,
+        "mean_known_requested_output_cap": 455.8167938931298,
+        "mean_known_requests_saved_vs_32": 3.5114503816793894,
+        "mean_known_input_prompt_utf8_bytes": 5393.587786259542,
+        "input_cost_measure": "UTF-8 prompt bytes, not billed tokenizer units",
+        "known_top1_accuracy": 0.7709923664122137,
+        "known_top3_accuracy": 0.8702290076335878,
+        "accuracy_among_accepted": 0.9722222222222222
+      }
+    },
+    "common_evaluation_horizon": 32,
+    "incomplete_handling": "Only labels completing all eight stages are included in paired savings and accuracy; incomplete labels listed separately.",
+    "policy_rule": "stable_shortlist: earliest six complete cells; same leader and passing fixed-horizon gates at two consecutive stages; otherwise use full budget",
+    "metric_scope": "Historical same-collection holdout reanalysis; not a fresh blind or live test."
+  },
+  "historical_holdout": {
+    "policies": {
+      "fixed": {
+        "known_eligible": 131,
+        "known_accepted": 64,
+        "known_top1_correct": 103,
+        "known_top3_correct": 121,
+        "known_correct_accepted": 63,
+        "known_wrong_accepted": 1,
+        "known_early_stopped": 0,
+        "known_incomplete": 1,
+        "unknown_eligible": 17,
+        "unknown_accepted": 0,
+        "mean_known_requests": 32.0,
+        "mean_known_requested_output_cap": 512.0,
+        "mean_known_requests_saved_vs_32": 0.0,
+        "mean_known_input_prompt_utf8_bytes": 6182.8091603053435,
+        "input_cost_measure": "UTF-8 prompt bytes, not billed tokenizer units",
+        "known_top1_accuracy": 0.7862595419847328,
+        "known_top3_accuracy": 0.9236641221374046,
+        "accuracy_among_accepted": 0.984375
+      },
+      "stable_shortlist": {
+        "known_eligible": 131,
+        "known_accepted": 71,
+        "known_top1_correct": 103,
+        "known_top3_correct": 121,
+        "known_correct_accepted": 69,
+        "known_wrong_accepted": 2,
+        "known_early_stopped": 59,
+        "known_incomplete": 1,
+        "unknown_eligible": 17,
+        "unknown_accepted": 0,
+        "mean_known_requests": 28.885496183206108,
+        "mean_known_requested_output_cap": 462.1679389312977,
+        "mean_known_requests_saved_vs_32": 3.114503816793893,
+        "mean_known_input_prompt_utf8_bytes": 5482.687022900764,
+        "input_cost_measure": "UTF-8 prompt bytes, not billed tokenizer units",
+        "known_top1_accuracy": 0.7862595419847328,
+        "known_top3_accuracy": 0.9236641221374046,
+        "accuracy_among_accepted": 0.971830985915493
+      }
+    },
+    "common_evaluation_horizon": 32,
+    "incomplete_handling": "Only labels completing all eight stages are included in paired savings and accuracy; incomplete labels listed separately.",
+    "policy_rule": "stable_shortlist: earliest six complete cells; same leader and passing fixed-horizon gates at two consecutive stages; otherwise use full budget",
+    "metric_scope": "Historical same-collection holdout reanalysis; not a fresh blind or live test."
+  },
+  "source_strata": {
+    "enrolled_labels": 132,
+    "labels_with_multiple_author_providers": 64,
+    "labels_with_multiple_dates": 132,
+    "minimum_samples_per_group_cell": 10,
+    "comparison_sample_size_per_side": 5,
+    "minimum_shared_cells": 8,
+    "selection": "All eligible pairs; date held fixed across providers, provider held fixed across dates.",
+    "cross_provider": {
+      "eligible_pairs": 0,
+      "eligible_labels": 0,
+      "model_balanced_between_jsd": {
+        "count": 0,
+        "mean": null,
+        "median": null,
+        "min": null,
+        "max": null
+      },
+      "model_balanced_within_jsd": {
+        "count": 0,
+        "mean": null,
+        "median": null,
+        "min": null,
+        "max": null
+      },
+      "model_balanced_excess_jsd": {
+        "count": 0,
+        "mean": null,
+        "median": null,
+        "min": null,
+        "max": null
+      },
+      "pairs": []
+    },
+    "cross_date": {
+      "eligible_pairs": 68,
+      "eligible_labels": 68,
+      "model_balanced_between_jsd": {
+        "count": 68,
+        "mean": 0.21856244738906064,
+        "median": 0.1751504685137582,
+        "min": 0.0,
+        "max": 0.6451196161422458
+      },
+      "model_balanced_within_jsd": {
+        "count": 68,
+        "mean": 0.22109496912636037,
+        "median": 0.17247388647654266,
+        "min": 0.0,
+        "max": 0.6934202941942532
+      },
+      "model_balanced_excess_jsd": {
+        "count": 68,
+        "mean": -0.002532521737299732,
+        "median": 0.00459651670597426,
+        "min": -0.16700452328914692,
+        "max": 0.06826421753565459
+      },
+      "pairs": [
+        {
+          "model": "ai21/jamba-large-1.7",
+          "left_provider": "AI21",
+          "right_provider": "AI21",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 12,
+          "between_jsd": 0.2685477297363016,
+          "within_jsd": 0.3464104251282208,
+          "excess_jsd": -0.0778626953919192
+        },
+        {
+          "model": "amazon/nova-2-lite-v1",
+          "left_provider": "Amazon Bedrock",
+          "right_provider": "Amazon Bedrock",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.18454178554845113,
+          "within_jsd": 0.1716962747235501,
+          "excess_jsd": 0.01284551082490104
+        },
+        {
+          "model": "amazon/nova-premier-v1",
+          "left_provider": "Amazon Bedrock",
+          "right_provider": "Amazon Bedrock",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 14,
+          "between_jsd": 0.30382127155336913,
+          "within_jsd": 0.33838311442253394,
+          "excess_jsd": -0.034561842869164805
+        },
+        {
+          "model": "anthropic/claude-3-haiku",
+          "left_provider": "Amazon Bedrock",
+          "right_provider": "Amazon Bedrock",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.6213750864386858,
+          "within_jsd": 0.6015238503511452,
+          "excess_jsd": 0.01985123608754058
+        },
+        {
+          "model": "anthropic/claude-haiku-4.5",
+          "left_provider": "Amazon Bedrock",
+          "right_provider": "Amazon Bedrock",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 9,
+          "between_jsd": 0.1948400728143316,
+          "within_jsd": 0.1626172729220721,
+          "excess_jsd": 0.03222279989225951
+        },
+        {
+          "model": "anthropic/claude-opus-4",
+          "left_provider": "Google",
+          "right_provider": "Google",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 15,
+          "between_jsd": 0.14614533310256336,
+          "within_jsd": 0.19365472039908144,
+          "excess_jsd": -0.047509387296518074
+        },
+        {
+          "model": "anthropic/claude-opus-4.1",
+          "left_provider": "Amazon Bedrock",
+          "right_provider": "Amazon Bedrock",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 30,
+          "between_jsd": 0.1342974566127233,
+          "within_jsd": 0.12788113453970143,
+          "excess_jsd": 0.006416322073021868
+        },
+        {
+          "model": "anthropic/claude-opus-4.5",
+          "left_provider": "Amazon Bedrock",
+          "right_provider": "Amazon Bedrock",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 20,
+          "between_jsd": 0.11133785774161305,
+          "within_jsd": 0.07474033373898784,
+          "excess_jsd": 0.03659752400262521
+        },
+        {
+          "model": "anthropic/claude-opus-4.6",
+          "left_provider": "Anthropic",
+          "right_provider": "Anthropic",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 24,
+          "between_jsd": 0.07354853972323651,
+          "within_jsd": 0.03931719227978999,
+          "excess_jsd": 0.03423134744344652
+        },
+        {
+          "model": "anthropic/claude-opus-4.8",
+          "left_provider": "Anthropic",
+          "right_provider": "Anthropic",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 19,
+          "between_jsd": 0.08741585230851921,
+          "within_jsd": 0.06665908533675063,
+          "excess_jsd": 0.020756766971768578
+        },
+        {
+          "model": "anthropic/claude-sonnet-4",
+          "left_provider": "Amazon Bedrock",
+          "right_provider": "Amazon Bedrock",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 13,
+          "between_jsd": 0.10004958938063516,
+          "within_jsd": 0.10300911931277791,
+          "excess_jsd": -0.0029595299321427543
+        },
+        {
+          "model": "anthropic/claude-sonnet-4.5",
+          "left_provider": "Amazon Bedrock",
+          "right_provider": "Amazon Bedrock",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.06774471448506376,
+          "within_jsd": 0.06178921837924229,
+          "excess_jsd": 0.005955496105821474
+        },
+        {
+          "model": "anthropic/claude-sonnet-4.6",
+          "left_provider": "Anthropic",
+          "right_provider": "Anthropic",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 13,
+          "between_jsd": 0.05838047638434444,
+          "within_jsd": 0.07567778465732057,
+          "excess_jsd": -0.017297308272976132
+        },
+        {
+          "model": "baidu/ernie-4.5-vl-424b-a47b",
+          "left_provider": "Novita",
+          "right_provider": "Novita",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 10,
+          "between_jsd": 0.04980449991346125,
+          "within_jsd": 0.0981773601169986,
+          "excess_jsd": -0.04837286020353734
+        },
+        {
+          "model": "bytedance-seed/seed-1.6",
+          "left_provider": "Seed",
+          "right_provider": "Seed",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 10,
+          "between_jsd": 0.031034030477602413,
+          "within_jsd": 0.03835202963619469,
+          "excess_jsd": -0.007317999158592277
+        },
+        {
+          "model": "bytedance-seed/seed-1.6-flash",
+          "left_provider": "Seed",
+          "right_provider": "Seed",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 9,
+          "between_jsd": 0.21806464427348726,
+          "within_jsd": 0.16992180195730228,
+          "excess_jsd": 0.048142842316184986
+        },
+        {
+          "model": "bytedance-seed/seed-2.0-lite",
+          "left_provider": "Seed",
+          "right_provider": "Seed",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 12,
+          "between_jsd": 0.1447567459742443,
+          "within_jsd": 0.10087312524241311,
+          "excess_jsd": 0.04388362073183118
+        },
+        {
+          "model": "cohere/command-a",
+          "left_provider": "Cohere",
+          "right_provider": "Cohere",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 10,
+          "between_jsd": 0.33977077492869295,
+          "within_jsd": 0.2996698822063327,
+          "excess_jsd": 0.040100892722360226
+        },
+        {
+          "model": "cohere/command-r-08-2024",
+          "left_provider": "Cohere",
+          "right_provider": "Cohere",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 12,
+          "between_jsd": 0.4794286703318443,
+          "within_jsd": 0.5905465474168378,
+          "excess_jsd": -0.11111787708499349
+        },
+        {
+          "model": "cohere/command-r-plus-08-2024",
+          "left_provider": "Cohere",
+          "right_provider": "Cohere",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 8,
+          "between_jsd": 0.6295565997075034,
+          "within_jsd": 0.691450622030768,
+          "excess_jsd": -0.061894022323264575
+        },
+        {
+          "model": "google/gemini-2.5-flash",
+          "left_provider": "Google",
+          "right_provider": "Google",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 14,
+          "between_jsd": 0.5007133247864991,
+          "within_jsd": 0.43945818071231774,
+          "excess_jsd": 0.06125514407418137
+        },
+        {
+          "model": "google/gemma-2-27b-it",
+          "left_provider": "NextBit",
+          "right_provider": "NextBit",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 9,
+          "between_jsd": 0.23200649468040277,
+          "within_jsd": 0.21831541997645748,
+          "excess_jsd": 0.013691074703945288
+        },
+        {
+          "model": "google/gemma-3-12b-it",
+          "left_provider": "DeepInfra",
+          "right_provider": "DeepInfra",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 12,
+          "between_jsd": 0.13217528760485314,
+          "within_jsd": 0.17325149822953526,
+          "excess_jsd": -0.041076210624682113
+        },
+        {
+          "model": "google/gemma-3-4b-it",
+          "left_provider": "DeepInfra",
+          "right_provider": "DeepInfra",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.17400982649325572,
+          "within_jsd": 0.1556378084024993,
+          "excess_jsd": 0.01837201809075642
+        },
+        {
+          "model": "ibm-granite/granite-4.0-h-micro",
+          "left_provider": "Cloudflare",
+          "right_provider": "Cloudflare",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 9,
+          "between_jsd": 0.0,
+          "within_jsd": 0.0,
+          "excess_jsd": 0.0
+        },
+        {
+          "model": "ibm-granite/granite-4.1-8b",
+          "left_provider": "WandB",
+          "right_provider": "WandB",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 9,
+          "between_jsd": 0.17981909454684714,
+          "within_jsd": 0.15861661360263996,
+          "excess_jsd": 0.02120248094420718
+        },
+        {
+          "model": "liquid/lfm-2-24b-a2b",
+          "left_provider": "Together",
+          "right_provider": "Together",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 12,
+          "between_jsd": 0.17145065028982862,
+          "within_jsd": 0.21156897057357438,
+          "excess_jsd": -0.04011832028374576
+        },
+        {
+          "model": "meta-llama/llama-3-8b-instruct",
+          "left_provider": "Together",
+          "right_provider": "Together",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 8,
+          "between_jsd": 0.632699025184323,
+          "within_jsd": 0.581651893940328,
+          "excess_jsd": 0.05104713124399496
+        },
+        {
+          "model": "meta-llama/llama-3.2-11b-vision-instruct",
+          "left_provider": "DeepInfra",
+          "right_provider": "DeepInfra",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 12,
+          "between_jsd": 0.5937092708153043,
+          "within_jsd": 0.5637744914609943,
+          "excess_jsd": 0.029934779354309993
+        },
+        {
+          "model": "meta-llama/llama-3.2-1b-instruct",
+          "left_provider": "Cloudflare",
+          "right_provider": "Cloudflare",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 15,
+          "between_jsd": 0.026387706800223888,
+          "within_jsd": 0.01734422839290038,
+          "excess_jsd": 0.009043478407323509
+        },
+        {
+          "model": "minimax/minimax-01",
+          "left_provider": "Minimax",
+          "right_provider": "Minimax",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.3106155098019339,
+          "within_jsd": 0.35389485635960843,
+          "excess_jsd": -0.043279346557674514
+        },
+        {
+          "model": "mistralai/mistral-large",
+          "left_provider": "Mistral",
+          "right_provider": "Mistral",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 8,
+          "between_jsd": 0.025,
+          "within_jsd": 0.03879253809700302,
+          "excess_jsd": -0.013792538097003017
+        },
+        {
+          "model": "mistralai/mistral-large-2407",
+          "left_provider": "Mistral",
+          "right_provider": "Mistral",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 14,
+          "between_jsd": 0.04695770024842451,
+          "within_jsd": 0.056946026970316935,
+          "excess_jsd": -0.009988326721892427
+        },
+        {
+          "model": "mistralai/mistral-large-2512",
+          "left_provider": "Mistral",
+          "right_provider": "Mistral",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 9,
+          "between_jsd": 0.07637416050121172,
+          "within_jsd": 0.09614560060547626,
+          "excess_jsd": -0.019771440104264543
+        },
+        {
+          "model": "mistralai/mistral-medium-3",
+          "left_provider": "Mistral",
+          "right_provider": "Mistral",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.19556985496508308,
+          "within_jsd": 0.14269381832535105,
+          "excess_jsd": 0.05287603663973203
+        },
+        {
+          "model": "mistralai/mistral-medium-3-5",
+          "left_provider": "Mistral",
+          "right_provider": "Mistral",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 15,
+          "between_jsd": 0.17455812339477494,
+          "within_jsd": 0.17798020727462363,
+          "excess_jsd": -0.0034220838798486863
+        },
+        {
+          "model": "mistralai/mistral-medium-3.1",
+          "left_provider": "Mistral",
+          "right_provider": "Mistral",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 8,
+          "between_jsd": 0.03136433085635969,
+          "within_jsd": 0.020255914902300023,
+          "excess_jsd": 0.011108415954059665
+        },
+        {
+          "model": "mistralai/mistral-small-24b-instruct-2501",
+          "left_provider": "DeepInfra",
+          "right_provider": "DeepInfra",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 8,
+          "between_jsd": 0.4869327305297902,
+          "within_jsd": 0.5445145282537247,
+          "excess_jsd": -0.057581797723934514
+        },
+        {
+          "model": "mistralai/mixtral-8x22b-instruct",
+          "left_provider": "Mistral",
+          "right_provider": "Mistral",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.42524139034234404,
+          "within_jsd": 0.35697717280668945,
+          "excess_jsd": 0.06826421753565459
+        },
+        {
+          "model": "mistralai/voxtral-small-24b-2507",
+          "left_provider": "Mistral",
+          "right_provider": "Mistral",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 12,
+          "between_jsd": 0.3432271340572217,
+          "within_jsd": 0.30045770694684504,
+          "excess_jsd": 0.04276942711037668
+        },
+        {
+          "model": "nousresearch/hermes-3-llama-3.1-405b",
+          "left_provider": "DeepInfra",
+          "right_provider": "DeepInfra",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 12,
+          "between_jsd": 0.27125825373729323,
+          "within_jsd": 0.24974157281483977,
+          "excess_jsd": 0.021516680922453457
+        },
+        {
+          "model": "nousresearch/hermes-4-70b",
+          "left_provider": "Nebius",
+          "right_provider": "Nebius",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 9,
+          "between_jsd": 0.6451196161422458,
+          "within_jsd": 0.6934202941942532,
+          "excess_jsd": -0.04830067805200744
+        },
+        {
+          "model": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+          "left_provider": "DeepInfra",
+          "right_provider": "DeepInfra",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 12,
+          "between_jsd": 0.0,
+          "within_jsd": 0.0,
+          "excess_jsd": 0.0
+        },
+        {
+          "model": "openai/gpt-3.5-turbo",
+          "left_provider": "OpenAI",
+          "right_provider": "OpenAI",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 14,
+          "between_jsd": 0.300783461343352,
+          "within_jsd": 0.35781918397752543,
+          "excess_jsd": -0.05703572263417345
+        },
+        {
+          "model": "openai/gpt-3.5-turbo-0613",
+          "left_provider": "Azure",
+          "right_provider": "Azure",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 16,
+          "between_jsd": 0.1527454916301896,
+          "within_jsd": 0.17102661138952288,
+          "excess_jsd": -0.018281119759333275
+        },
+        {
+          "model": "openai/gpt-4.1",
+          "left_provider": "OpenAI",
+          "right_provider": "OpenAI",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.15753605033584453,
+          "within_jsd": 0.263839786462721,
+          "excess_jsd": -0.10630373612687646
+        },
+        {
+          "model": "openai/gpt-4.1-mini",
+          "left_provider": "OpenAI",
+          "right_provider": "OpenAI",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.11580795519236325,
+          "within_jsd": 0.14253427749347491,
+          "excess_jsd": -0.02672632230111166
+        },
+        {
+          "model": "openai/gpt-4.1-nano",
+          "left_provider": "OpenAI",
+          "right_provider": "OpenAI",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 9,
+          "between_jsd": 0.32695652271549003,
+          "within_jsd": 0.2683703975868353,
+          "excess_jsd": 0.05858612512865474
+        },
+        {
+          "model": "openai/gpt-5-chat",
+          "left_provider": "OpenAI",
+          "right_provider": "OpenAI",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 15,
+          "between_jsd": 0.15402268698506827,
+          "within_jsd": 0.10385752808145057,
+          "excess_jsd": 0.050165158903617696
+        },
+        {
+          "model": "openai/gpt-5.1",
+          "left_provider": "OpenAI",
+          "right_provider": "OpenAI",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 14,
+          "between_jsd": 0.24559606749597135,
+          "within_jsd": 0.24131355890882283,
+          "excess_jsd": 0.004282508587148515
+        },
+        {
+          "model": "openai/gpt-5.4",
+          "left_provider": "OpenAI",
+          "right_provider": "OpenAI",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.19592530966788077,
+          "within_jsd": 0.222915366015099,
+          "excess_jsd": -0.02699005634721824
+        },
+        {
+          "model": "openai/gpt-5.4-mini",
+          "left_provider": "OpenAI",
+          "right_provider": "OpenAI",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 13,
+          "between_jsd": 0.08196170793887379,
+          "within_jsd": 0.0640067444758029,
+          "excess_jsd": 0.01795496346307089
+        },
+        {
+          "model": "openai/gpt-5.4-nano",
+          "left_provider": "OpenAI",
+          "right_provider": "OpenAI",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.1757428136327415,
+          "within_jsd": 0.13924928857991617,
+          "excess_jsd": 0.036493525052825326
+        },
+        {
+          "model": "openai/gpt-5.5",
+          "left_provider": "OpenAI",
+          "right_provider": "OpenAI",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 24,
+          "between_jsd": 0.22706615833401642,
+          "within_jsd": 0.2406965614201115,
+          "excess_jsd": -0.013630403086095089
+        },
+        {
+          "model": "perceptron/perceptron-mk1",
+          "left_provider": "Perceptron",
+          "right_provider": "Perceptron",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 9,
+          "between_jsd": 0.44813892349548073,
+          "within_jsd": 0.434641008928567,
+          "excess_jsd": 0.013497914566913738
+        },
+        {
+          "model": "qwen/qwen-2.5-72b-instruct",
+          "left_provider": "DeepInfra",
+          "right_provider": "DeepInfra",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 26,
+          "between_jsd": 0.279636261762858,
+          "within_jsd": 0.2711558142968802,
+          "excess_jsd": 0.008480447465977814
+        },
+        {
+          "model": "qwen/qwen-plus",
+          "left_provider": "Alibaba",
+          "right_provider": "Alibaba",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 15,
+          "between_jsd": 0.0,
+          "within_jsd": 0.0,
+          "excess_jsd": 0.0
+        },
+        {
+          "model": "qwen/qwen3-max",
+          "left_provider": "Alibaba",
+          "right_provider": "Alibaba",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 8,
+          "between_jsd": 0.06951797627815944,
+          "within_jsd": 0.012138397431437967,
+          "excess_jsd": 0.05737957884672147
+        },
+        {
+          "model": "qwen/qwen3-max-thinking",
+          "left_provider": "Alibaba",
+          "right_provider": "Alibaba",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.009821049649600011,
+          "within_jsd": 0.0049105248248000055,
+          "excess_jsd": 0.0049105248248000055
+        },
+        {
+          "model": "qwen/qwen3-vl-32b-instruct",
+          "left_provider": "Alibaba",
+          "right_provider": "Alibaba",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 15,
+          "between_jsd": 0.007202103076373341,
+          "within_jsd": 0.007202103076373341,
+          "excess_jsd": 0.0
+        },
+        {
+          "model": "qwen/qwen3.5-plus-02-15",
+          "left_provider": "Alibaba",
+          "right_provider": "Alibaba",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 9,
+          "between_jsd": 0.15401149458424865,
+          "within_jsd": 0.23854872828085133,
+          "excess_jsd": -0.08453723369660268
+        },
+        {
+          "model": "qwen/qwen3.6-flash",
+          "left_provider": "Alibaba",
+          "right_provider": "Alibaba",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 8,
+          "between_jsd": 0.19750336324725312,
+          "within_jsd": 0.36450788653640004,
+          "excess_jsd": -0.16700452328914692
+        },
+        {
+          "model": "qwen/qwen3.7-max",
+          "left_provider": "Alibaba",
+          "right_provider": "Alibaba",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 12,
+          "between_jsd": 0.09743392802277766,
+          "within_jsd": 0.10355623291932088,
+          "excess_jsd": -0.006122304896543224
+        },
+        {
+          "model": "qwen/qwen3.7-plus",
+          "left_provider": "Alibaba",
+          "right_provider": "Alibaba",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.11002522283583707,
+          "within_jsd": 0.14184626163501052,
+          "excess_jsd": -0.031821038799173446
+        },
+        {
+          "model": "rekaai/reka-edge",
+          "left_provider": "Reka",
+          "right_provider": "Reka",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 11,
+          "between_jsd": 0.529558127619505,
+          "within_jsd": 0.5492794750178568,
+          "excess_jsd": -0.01972134739835174
+        },
+        {
+          "model": "tencent/hunyuan-a13b-instruct",
+          "left_provider": "SiliconFlow",
+          "right_provider": "SiliconFlow",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 10,
+          "between_jsd": 0.30125697019072784,
+          "within_jsd": 0.2683065178618131,
+          "excess_jsd": 0.03295045232891475
+        },
+        {
+          "model": "x-ai/grok-4.20",
+          "left_provider": "xAI",
+          "right_provider": "xAI",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 16,
+          "between_jsd": 0.31862781244591326,
+          "within_jsd": 0.2923363060937449,
+          "excess_jsd": 0.02629150635216837
+        },
+        {
+          "model": "x-ai/grok-4.3",
+          "left_provider": "xAI",
+          "right_provider": "xAI",
+          "left_date": "2026-07-07",
+          "right_date": "2026-07-08",
+          "shared_cells": 15,
+          "between_jsd": 0.28571774676070366,
+          "within_jsd": 0.2266091016578672,
+          "excess_jsd": 0.05910864510283645
+        }
+      ]
+    },
+    "interpretation": "Provider and date labels come from the author. Matched JSD exposes distribution variation; these are not endpoint-independent identity accuracy or causal provider effects. Missing strata remain ineligible."
+  },
+  "mixture_stress": {
+    "eligible_pairs": 66,
+    "nearest_is_constituent": 49,
+    "gate_passed": 9,
+    "gate_passed_nonconstituent": 0,
+    "pairing": "Sorted enrolled labels, nonoverlapping adjacent pairs; no selection by outcomes.",
+    "mixture": "Two held-out valid answers from each label per intact cell, 50:50; not a real gateway experiment.",
+    "requests_per_pair": 32,
+    "model_api_calls": 0,
+    "pairs": [
+      {
+        "left": "ai21/jamba-large-1.7",
+        "right": "amazon/nova-2-lite-v1",
+        "nearest": "amazon/nova-2-lite-v1",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.44896,
+        "gap": 0.04158099999999998
+      },
+      {
+        "left": "amazon/nova-premier-v1",
+        "right": "anthropic/claude-3-haiku",
+        "nearest": "amazon/nova-premier-v1",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.643354,
+        "gap": 0.04773700000000003
+      },
+      {
+        "left": "anthropic/claude-haiku-4.5",
+        "right": "anthropic/claude-opus-4",
+        "nearest": "anthropic/claude-opus-4.1",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.36673,
+        "gap": 0.03915200000000002
+      },
+      {
+        "left": "anthropic/claude-opus-4.1",
+        "right": "anthropic/claude-opus-4.5",
+        "nearest": "anthropic/claude-opus-4",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.259729,
+        "gap": 0.02651500000000001
+      },
+      {
+        "left": "anthropic/claude-opus-4.6",
+        "right": "anthropic/claude-opus-4.8",
+        "nearest": "anthropic/claude-opus-4.8",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.346523,
+        "gap": 0.007627999999999968
+      },
+      {
+        "left": "anthropic/claude-sonnet-4",
+        "right": "anthropic/claude-sonnet-4.5",
+        "nearest": "anthropic/claude-sonnet-4",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.315338,
+        "gap": 0.04444199999999998
+      },
+      {
+        "left": "anthropic/claude-sonnet-4.6",
+        "right": "anthropic/claude-sonnet-5",
+        "nearest": "anthropic/claude-sonnet-4.6",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.293884,
+        "gap": 0.005427000000000015
+      },
+      {
+        "left": "baidu/ernie-4.5-vl-424b-a47b",
+        "right": "bytedance-seed/seed-1.6",
+        "nearest": "baidu/ernie-4.5-vl-424b-a47b",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.324954,
+        "gap": 0.05115399999999998
+      },
+      {
+        "left": "bytedance-seed/seed-1.6-flash",
+        "right": "bytedance-seed/seed-2.0-lite",
+        "nearest": "bytedance-seed/seed-1.6-flash",
+        "nearest_is_constituent": true,
+        "gate_passed": true,
+        "distance": 0.5024,
+        "gap": 0.1422110000000001
+      },
+      {
+        "left": "bytedance-seed/seed-2.0-mini",
+        "right": "cohere/command-a",
+        "nearest": "qwen/qwen3.5-plus-02-15",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.532035,
+        "gap": 0.01593499999999992
+      },
+      {
+        "left": "cohere/command-r-08-2024",
+        "right": "cohere/command-r-plus-08-2024",
+        "nearest": "perceptron/perceptron-mk1",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.812087,
+        "gap": 0.033857999999999944
+      },
+      {
+        "left": "deepseek/deepseek-chat",
+        "right": "deepseek/deepseek-chat-v3-0324",
+        "nearest": "deepseek/deepseek-chat-v3-0324",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.266268,
+        "gap": 0.04647600000000002
+      },
+      {
+        "left": "deepseek/deepseek-chat-v3.1",
+        "right": "deepseek/deepseek-v3.1-terminus",
+        "nearest": "deepseek/deepseek-v3.1-terminus",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.561503,
+        "gap": 0.0020250000000000545
+      },
+      {
+        "left": "deepseek/deepseek-v3.2",
+        "right": "deepseek/deepseek-v3.2-exp",
+        "nearest": "deepseek/deepseek-v3.2",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.637811,
+        "gap": 0.011206999999999967
+      },
+      {
+        "left": "deepseek/deepseek-v4-flash",
+        "right": "deepseek/deepseek-v4-pro",
+        "nearest": "qwen/qwen3-vl-30b-a3b-instruct",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.646297,
+        "gap": 0.00012899999999993472
+      },
+      {
+        "left": "google/gemini-2.5-flash",
+        "right": "google/gemini-3.1-flash-lite",
+        "nearest": "google/gemini-3.1-flash-lite",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.538957,
+        "gap": 0.035314999999999985
+      },
+      {
+        "left": "google/gemma-2-27b-it",
+        "right": "google/gemma-3-12b-it",
+        "nearest": "google/gemma-3-12b-it",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.417407,
+        "gap": 0.034055
+      },
+      {
+        "left": "google/gemma-3-27b-it",
+        "right": "google/gemma-3-4b-it",
+        "nearest": "google/gemma-3-27b-it",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.305876,
+        "gap": 0.081625
+      },
+      {
+        "left": "google/gemma-3n-e4b-it",
+        "right": "google/gemma-4-26b-a4b-it",
+        "nearest": "google/gemma-4-26b-a4b-it",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.347638,
+        "gap": 0.06570300000000001
+      },
+      {
+        "left": "google/gemma-4-31b-it",
+        "right": "ibm-granite/granite-4.0-h-micro",
+        "nearest": "ibm-granite/granite-4.0-h-micro",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.329119,
+        "gap": 0.062164
+      },
+      {
+        "left": "ibm-granite/granite-4.1-8b",
+        "right": "inclusionai/ling-2.6-1t",
+        "nearest": "inclusionai/ling-2.6-1t",
+        "nearest_is_constituent": true,
+        "gate_passed": true,
+        "distance": 0.369812,
+        "gap": 0.14463300000000007
+      },
+      {
+        "left": "liquid/lfm-2-24b-a2b",
+        "right": "meta-llama/llama-3-8b-instruct",
+        "nearest": "liquid/lfm-2-24b-a2b",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.659662,
+        "gap": 0.087445
+      },
+      {
+        "left": "meta-llama/llama-3.1-70b-instruct",
+        "right": "meta-llama/llama-3.2-11b-vision-instruct",
+        "nearest": "meta-llama/llama-3.2-1b-instruct",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.857509,
+        "gap": 0.0006070000000000242
+      },
+      {
+        "left": "meta-llama/llama-3.2-1b-instruct",
+        "right": "meta-llama/llama-3.2-3b-instruct",
+        "nearest": "meta-llama/llama-3.2-1b-instruct",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.311278,
+        "gap": 0.089258
+      },
+      {
+        "left": "meta-llama/llama-3.3-70b-instruct",
+        "right": "meta-llama/llama-4-maverick",
+        "nearest": "meta-llama/llama-4-maverick",
+        "nearest_is_constituent": true,
+        "gate_passed": true,
+        "distance": 0.394414,
+        "gap": 0.17243500000000006
+      },
+      {
+        "left": "microsoft/wizardlm-2-8x22b",
+        "right": "minimax/minimax-01",
+        "nearest": "qwen/qwen-2.5-72b-instruct",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.58921,
+        "gap": 0.010514999999999941
+      },
+      {
+        "left": "mistralai/ministral-14b-2512",
+        "right": "mistralai/ministral-3b-2512",
+        "nearest": "mistralai/mistral-medium-3-5",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.72947,
+        "gap": 0.01630100000000001
+      },
+      {
+        "left": "mistralai/ministral-8b-2512",
+        "right": "mistralai/mistral-large",
+        "nearest": "mistralai/mistral-large-2512",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.315443,
+        "gap": 0.005126000000000019
+      },
+      {
+        "left": "mistralai/mistral-large-2407",
+        "right": "mistralai/mistral-large-2512",
+        "nearest": "mistralai/mistral-large-2512",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.118393,
+        "gap": 0.03150900000000001
+      },
+      {
+        "left": "mistralai/mistral-medium-3",
+        "right": "mistralai/mistral-medium-3-5",
+        "nearest": "mistralai/mistral-medium-3",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.360179,
+        "gap": 0.033163
+      },
+      {
+        "left": "mistralai/mistral-medium-3.1",
+        "right": "mistralai/mistral-nemo",
+        "nearest": "mistralai/mistral-medium-3.1",
+        "nearest_is_constituent": true,
+        "gate_passed": true,
+        "distance": 0.469945,
+        "gap": 0.11877500000000002
+      },
+      {
+        "left": "mistralai/mistral-small-24b-instruct-2501",
+        "right": "mistralai/mistral-small-3.2-24b-instruct",
+        "nearest": "google/gemma-3-4b-it",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.693884,
+        "gap": 0.005742000000000025
+      },
+      {
+        "left": "mistralai/mixtral-8x22b-instruct",
+        "right": "mistralai/voxtral-small-24b-2507",
+        "nearest": "mistralai/voxtral-small-24b-2507",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.464847,
+        "gap": 0.10553499999999993
+      },
+      {
+        "left": "moonshotai/kimi-k2-0905",
+        "right": "moonshotai/kimi-k2.6",
+        "nearest": "moonshotai/kimi-k2.6",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.638988,
+        "gap": 0.03366800000000003
+      },
+      {
+        "left": "nousresearch/hermes-3-llama-3.1-405b",
+        "right": "nousresearch/hermes-3-llama-3.1-70b",
+        "nearest": "nousresearch/hermes-3-llama-3.1-405b",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.530378,
+        "gap": 0.07842399999999994
+      },
+      {
+        "left": "nousresearch/hermes-4-405b",
+        "right": "nousresearch/hermes-4-70b",
+        "nearest": "nousresearch/hermes-4-405b",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.621887,
+        "gap": 0.029993000000000047
+      },
+      {
+        "left": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+        "right": "nvidia/nemotron-3-nano-30b-a3b",
+        "nearest": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+        "nearest_is_constituent": true,
+        "gate_passed": true,
+        "distance": 0.311278,
+        "gap": 0.23517800000000005
+      },
+      {
+        "left": "nvidia/nemotron-3-ultra-550b-a55b",
+        "right": "openai/gpt-3.5-turbo",
+        "nearest": "openai/gpt-3.5-turbo",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.504048,
+        "gap": 0.030131999999999937
+      },
+      {
+        "left": "openai/gpt-3.5-turbo-0613",
+        "right": "openai/gpt-4",
+        "nearest": "openai/gpt-4o-2024-05-13",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.376645,
+        "gap": 0.036495
+      },
+      {
+        "left": "openai/gpt-4.1",
+        "right": "openai/gpt-4.1-mini",
+        "nearest": "openai/gpt-4.1-mini",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.467205,
+        "gap": 0.013780000000000014
+      },
+      {
+        "left": "openai/gpt-4.1-nano",
+        "right": "openai/gpt-4o",
+        "nearest": "openai/gpt-4o-2024-05-13",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.518611,
+        "gap": 0.01300099999999993
+      },
+      {
+        "left": "openai/gpt-4o-2024-05-13",
+        "right": "openai/gpt-4o-2024-08-06",
+        "nearest": "openai/gpt-4o-2024-05-13",
+        "nearest_is_constituent": true,
+        "gate_passed": true,
+        "distance": 0.338418,
+        "gap": 0.152414
+      },
+      {
+        "left": "openai/gpt-4o-mini-2024-07-18",
+        "right": "openai/gpt-5-chat",
+        "nearest": "openai/gpt-4o-mini-2024-07-18",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.447156,
+        "gap": 0.10073500000000002
+      },
+      {
+        "left": "openai/gpt-5.1",
+        "right": "openai/gpt-5.4",
+        "nearest": "openai/gpt-5.4",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.285689,
+        "gap": 0.00512199999999996
+      },
+      {
+        "left": "openai/gpt-5.4-mini",
+        "right": "openai/gpt-5.4-nano",
+        "nearest": "openai/gpt-5.4-nano",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.434862,
+        "gap": 0.014069999999999971
+      },
+      {
+        "left": "openai/gpt-5.5",
+        "right": "perceptron/perceptron-mk1",
+        "nearest": "openai/gpt-5.5",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.674852,
+        "gap": 0.007403999999999966
+      },
+      {
+        "left": "qwen/qwen-2.5-72b-instruct",
+        "right": "qwen/qwen-plus",
+        "nearest": "qwen/qwen-plus",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.302058,
+        "gap": 0.08824300000000002
+      },
+      {
+        "left": "qwen/qwen2.5-vl-72b-instruct",
+        "right": "qwen/qwen3-235b-a22b-2507",
+        "nearest": "writer/palmyra-x5",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.598155,
+        "gap": 0.025441999999999965
+      },
+      {
+        "left": "qwen/qwen3-30b-a3b-instruct-2507",
+        "right": "qwen/qwen3-8b",
+        "nearest": "qwen/qwen3-8b",
+        "nearest_is_constituent": true,
+        "gate_passed": true,
+        "distance": 0.289609,
+        "gap": 0.21279899999999996
+      },
+      {
+        "left": "qwen/qwen3-max",
+        "right": "qwen/qwen3-max-thinking",
+        "nearest": "qwen/qwen3-max-thinking",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.011967,
+        "gap": 0.009872999999999998
+      },
+      {
+        "left": "qwen/qwen3-next-80b-a3b-instruct",
+        "right": "qwen/qwen3-vl-30b-a3b-instruct",
+        "nearest": "qwen/qwen3-vl-30b-a3b-instruct",
+        "nearest_is_constituent": true,
+        "gate_passed": true,
+        "distance": 0.289746,
+        "gap": 0.1385
+      },
+      {
+        "left": "qwen/qwen3-vl-32b-instruct",
+        "right": "qwen/qwen3-vl-8b-instruct",
+        "nearest": "qwen/qwen3-vl-32b-instruct",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.250699,
+        "gap": 0.06162899999999999
+      },
+      {
+        "left": "qwen/qwen3.5-122b-a10b",
+        "right": "qwen/qwen3.5-27b",
+        "nearest": "qwen/qwen3.5-27b",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.338846,
+        "gap": 0.07708600000000004
+      },
+      {
+        "left": "qwen/qwen3.5-35b-a3b",
+        "right": "qwen/qwen3.5-397b-a17b",
+        "nearest": "qwen/qwen3.5-35b-a3b",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.516597,
+        "gap": 0.001346999999999987
+      },
+      {
+        "left": "qwen/qwen3.5-9b",
+        "right": "qwen/qwen3.5-plus-02-15",
+        "nearest": "qwen/qwen3.5-397b-a17b",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.341869,
+        "gap": 0.11053200000000002
+      },
+      {
+        "left": "qwen/qwen3.6-27b",
+        "right": "qwen/qwen3.6-flash",
+        "nearest": "qwen/qwen3.5-27b",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.546704,
+        "gap": 0.015079000000000065
+      },
+      {
+        "left": "qwen/qwen3.6-plus",
+        "right": "qwen/qwen3.7-max",
+        "nearest": "qwen/qwen3.7-max",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.367102,
+        "gap": 0.04667300000000002
+      },
+      {
+        "left": "qwen/qwen3.7-plus",
+        "right": "rekaai/reka-edge",
+        "nearest": "qwen/qwen3.7-plus",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.558875,
+        "gap": 0.016367999999999938
+      },
+      {
+        "left": "tencent/hunyuan-a13b-instruct",
+        "right": "upstage/solar-pro-3",
+        "nearest": "tencent/hunyuan-a13b-instruct",
+        "nearest_is_constituent": true,
+        "gate_passed": true,
+        "distance": 0.587821,
+        "gap": 0.12777499999999997
+      },
+      {
+        "left": "writer/palmyra-x5",
+        "right": "x-ai/grok-4.20",
+        "nearest": "writer/palmyra-x5",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.468149,
+        "gap": 0.0005700000000000149
+      },
+      {
+        "left": "x-ai/grok-4.3",
+        "right": "xiaomi/mimo-v2.5-pro",
+        "nearest": "xiaomi/mimo-v2.5-pro",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.461843,
+        "gap": 0.021940000000000015
+      },
+      {
+        "left": "z-ai/glm-4.5-air",
+        "right": "z-ai/glm-4.5v",
+        "nearest": "z-ai/glm-4.5v",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.324199,
+        "gap": 0.052043000000000006
+      },
+      {
+        "left": "z-ai/glm-4.6",
+        "right": "z-ai/glm-4.6v",
+        "nearest": "z-ai/glm-4.5v",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.350072,
+        "gap": 0.006286999999999987
+      },
+      {
+        "left": "z-ai/glm-4.7",
+        "right": "z-ai/glm-4.7-flash",
+        "nearest": "z-ai/glm-4.7",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.464581,
+        "gap": 0.032401999999999986
+      },
+      {
+        "left": "z-ai/glm-5",
+        "right": "z-ai/glm-5-turbo",
+        "nearest": "z-ai/glm-4.7",
+        "nearest_is_constituent": false,
+        "gate_passed": false,
+        "distance": 0.479355,
+        "gap": 0.004424000000000039
+      },
+      {
+        "left": "z-ai/glm-5.1",
+        "right": "z-ai/glm-5.2",
+        "nearest": "z-ai/glm-5.1",
+        "nearest_is_constituent": true,
+        "gate_passed": false,
+        "distance": 0.32576,
+        "gap": 0.028272999999999993
+      }
+    ],
+    "interpretation": "A single nearest label or passing gate cannot establish a single upstream model, nor identify a routing mixture."
+  }
+}

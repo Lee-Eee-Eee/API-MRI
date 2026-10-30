@@ -217,3 +217,124 @@ def test_local_http_protocol_cache_stop_and_secret_redaction(small_bank, tmp_pat
     assert result["cost"]["usage"]["prompt_tokens"] == 50
     for file in (tmp_path / "http").iterdir():
         assert key not in file.read_text(encoding="utf-8")
+
+
+def extend_bank(bank, cells=8):
+    """A perfectly separated, fully calibrated fixture, not an accuracy result."""
+    template = dict(bank["cells"][0])
+    bank["cells"] = [{**template, "id": f"extended-{i}", "user": f"Number {i}?"} for i in range(cells)]
+    for i, model in enumerate(bank["models"]):
+        model["counts"] = {c["id"]: {str(i + 1): 10} for c in bank["cells"]}
+        model["providers"] = [f"author-provider-{i}"]
+    bank["calibration"]["open_set_gates"] = {str(n): {"max_distance": .1, "min_gap": .1} for n in range(3, 9)}
+    return bank
+
+
+def rehash(rows):
+    from relay_audit.records import content_hash
+    previous = None
+    for i, row in enumerate(rows):
+        row.update(sequence=i, previous_hash=previous)
+        row["record_hash"] = content_hash({k: v for k, v in row.items() if k != "record_hash"})
+        previous = row["record_hash"]
+    return "\n".join(map(json.dumps, rows))
+
+
+def test_evidence_explains_each_probe_without_new_sampling(small_bank, monkeypatch, tmp_path):
+    calls = []
+    def call(*a):
+        calls.append(1)
+        return reply()
+    monkeypatch.setattr(ident.fp, "_call", call)
+    result = ident.run_identification(payload(budget={"max_requests": 12}), tmp_path / "evidence")
+    assert len(calls) == 12
+    evidence = result["evidence"]
+    assert evidence["analysis_api_requests"] == 0
+    assert len(evidence["per_probe"]) == len(evidence["trajectory"]) == 3
+    assert evidence["per_probe"][0]["observed_counts"] == {"1": 4}
+    assert evidence["per_probe"][0]["reference_comparison"][0]["reference_counts"] == {"1": 10}
+    assert evidence["per_probe"][0]["leader_margin"] == 1
+    assert evidence["leave_one_probe_out"]["same_leader_count"] == 3
+    assert evidence["leave_one_probe_out"]["same_leader_fraction"] == 1
+    assert "概率" in evidence["leave_one_probe_out"]["interpretation"]
+
+
+def test_probe_sensitivity_exposes_a_fragile_leader(small_bank):
+    models = small_bank["models"][:2]
+    observed = {c["id"]: Counter({"1": 4}) for c in small_bank["cells"][:3]}
+    # Two equal cells carry no separating information; one cell decides the rank.
+    for c in small_bank["cells"][:2]:
+        models[0]["counts"][c["id"]] = {"1": 5, "2": 5}
+        models[1]["counts"][c["id"]] = {"1": 5, "2": 5}
+    models[0]["model"], models[1]["model"] = "z/winner", "a/runner"
+    result = ident.identification_evidence(small_bank, models, observed)
+    assert result["leave_one_probe_out"]["same_leader_count"] == 2
+    assert result["leave_one_probe_out"]["trials"][-1]["first"] == "a/runner"
+
+
+def test_stable_policy_saves_requests_and_replays_exactly(small_bank, monkeypatch, tmp_path):
+    extend_bank(small_bank)
+    monkeypatch.setattr(ident.fp, "_call", lambda *a: reply())
+    result = ident.run_identification(payload(stop_policy="stable_shortlist"), tmp_path / "stable")
+    assert result["cost"]["request_count"] == 24
+    assert result["stopping"]["unused_request_budget"] == 8
+    assert result["stopping"]["unused_output_token_cap"] == 128
+    assert result["stopping"]["sequential_experimental"] is True
+    assert result["identity_decision"] == "abstained"
+    assert result["stop_reason"] == "stable_shortlist"
+    assert result["evidence"]["provenance"][0]["providers"] == ["author-provider-0"]
+    replay = ident.replay_identification(tmp_path / "stable/identification_records.jsonl", tmp_path / "replay")
+    assert replay["stopping"] == result["stopping"]
+    assert replay["evidence"] == result["evidence"]
+
+
+def test_fixed_remains_default_and_uses_full_budget(small_bank, monkeypatch, tmp_path):
+    extend_bank(small_bank)
+    monkeypatch.setattr(ident.fp, "_call", lambda *a: reply())
+    plan = ident.plan_identification(payload())
+    assert plan["stop_policy"] == "fixed"
+    assert "stop_policy" not in plan["config"]  # old hashed manifests preserved
+    result = ident.run_identification(payload(), tmp_path / "fixed")
+    assert result["cost"]["request_count"] == 32
+    assert result["stopping"]["early_stopped"] is False
+
+
+def test_stable_policy_cannot_borrow_gates_for_subset(small_bank, monkeypatch, tmp_path):
+    extend_bank(small_bank)
+    monkeypatch.setattr(ident.fp, "_call", lambda *a: reply())
+    result = ident.run_identification(payload(stop_policy="stable_shortlist", candidate_models=["maker/model-0", "maker/model-1"]), tmp_path / "subset-stable")
+    assert result["cost"]["request_count"] == 32
+    assert result["stopping"]["early_stopped"] is False
+    assert all(r["fixed_horizon_gate_passed"] is None for r in result["evidence"]["trajectory"])
+
+
+@pytest.mark.parametrize("policy", [False, None, 1, "until_pass", [], {}])
+def test_stop_policy_validation(small_bank, policy):
+    with pytest.raises(ValueError, match="stop_policy"):
+        ident.plan_identification(payload(stop_policy=policy))
+
+
+def test_replay_rejects_forged_early_stop_and_extra_sampling(small_bank, monkeypatch, tmp_path):
+    extend_bank(small_bank)
+    monkeypatch.setattr(ident.fp, "_call", lambda *a: reply())
+    ident.run_identification(payload(stop_policy="stable_shortlist"), tmp_path / "stable-forge")
+    path = tmp_path / "stable-forge/identification_records.jsonl"
+    rows = [json.loads(s) for s in path.read_text(encoding="utf-8").splitlines()]
+    finish = rows.pop()
+    rows.append(dict(rows[-1]))  # a rehashed extra row still violates stopping
+    rows.append(finish)
+    with pytest.raises(ValueError):
+        ident.parse_identification_records(rehash(rows))
+    early = rows[:21] + [finish]  # five complete cells cannot trigger the policy
+    with pytest.raises(ValueError):
+        ident.parse_identification_records(rehash(early))
+
+
+def test_stage_agreement_is_not_enough_without_both_gates():
+    stages = [{"completed_cells": 5, "first": "one", "fixed_horizon_gate_passed": False},
+              {"completed_cells": 6, "first": "one", "fixed_horizon_gate_passed": True}]
+    assert ident.should_stop_stable(stages) is False
+    stages[0]["fixed_horizon_gate_passed"] = True
+    assert ident.should_stop_stable(stages) is True
+    stages[0]["first"] = "two"
+    assert ident.should_stop_stable(stages) is False

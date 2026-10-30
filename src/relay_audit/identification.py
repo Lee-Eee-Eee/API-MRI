@@ -31,6 +31,7 @@ DEFAULT_BUDGET = {"max_requests": 32, "max_output_tokens": 512}
 BLOCK = 4
 TOKEN_CAP = 16
 MIN_CELLS = 3
+STOP_POLICIES = {"fixed", "stable_shortlist"}
 COIN = {"en": {"heads": "h", "tails": "t"}, "ru": {"орёл": "h", "орел": "h", "решка": "t"},
         "zh": {"正面": "h", "正": "h", "反面": "t", "反": "t"}, "ar": {"صورة": "h", "كتابة": "t"}}
 _PUNCT = re.compile(r'''[«»"“”„'’‘`().,!?。！？、：:;؛؟\[\]{}*_#-]+''')
@@ -107,7 +108,7 @@ def load_identification_bank() -> dict:
 
 
 def _config(payload: dict) -> tuple[dict, str | None, str | None]:
-    allowed = {"candidate", "candidate_models", "budget", "timeout", "api2d_no_cache"}
+    allowed = {"candidate", "candidate_models", "budget", "timeout", "api2d_no_cache", "stop_policy"}
     if not isinstance(payload, dict) or set(payload) - allowed:
         raise ValueError("识别配置包含不支持的字段。")
     candidate = payload.get("candidate")
@@ -154,8 +155,15 @@ def _config(payload: dict) -> tuple[dict, str | None, str | None]:
     bypass = payload.get("api2d_no_cache", False)
     if type(bypass) is not bool:
         raise ValueError("api2d_no_cache须为布尔值。")
-    return {"candidate": {"api_base": base, "model": model.strip()}, "timeout": timeout, "budget": budget,
-            "candidate_models": sorted(chosen), "api2d_no_cache": bypass}, key, env
+    policy = payload.get("stop_policy", "fixed")
+    if not isinstance(policy, str) or policy not in STOP_POLICIES:
+        raise ValueError("stop_policy须为fixed或stable_shortlist。")
+    config = {"candidate": {"api_base": base, "model": model.strip()}, "timeout": timeout, "budget": budget,
+              "candidate_models": sorted(chosen), "api2d_no_cache": bypass}
+    # Omitted policy is kept omitted so v0.6 hashed manifests still replay exactly.
+    if "stop_policy" in payload:
+        config["stop_policy"] = policy
+    return config, key, env
 
 
 def _models(bank: dict, model_ids: list[str]) -> list[dict]:
@@ -214,6 +222,80 @@ def _bank_summary(bank: dict) -> dict:
     return {k: bank[k] for k in ("id", "source", "collected_at", "built_on", "reference_split", "normalization")}
 
 
+def _stage(bank: dict, models: list[dict], observed: dict[str, Counter]) -> dict:
+    """A descriptive stage.  Fixed-horizon gates are never confidence values."""
+    ranking = rank_candidates(bank, models, observed)
+    completed = sum(sum(v.values()) >= BLOCK for v in observed.values())
+    gate = (bank.get("calibration", {}).get("open_set_gates", {}).get(str(completed))
+            if len(models) == len(bank["models"]) else None)
+    gap = ranking[1]["distance"] - ranking[0]["distance"] if len(ranking) > 1 else None
+    return {"completed_cells": completed, "requests": completed * BLOCK,
+            "first": ranking[0]["model"] if ranking else None,
+            "top3": [r["model"] for r in ranking[:3]],
+            "distance": ranking[0]["distance"] if ranking else None, "gap": gap,
+            "fixed_horizon_gate_passed": (bool(ranking and gap is not None
+                and ranking[0]["distance"] <= gate["max_distance"] and gap >= gate["min_gap"])
+                if gate else None)}
+
+
+def should_stop_stable(stages: list[dict]) -> bool:
+    """Fixed economy policy: two agreeing gates, earliest 24 requests.
+
+    Its operating characteristics must be evaluated as a sequential policy,
+    separately from each fixed-budget gate.  This stops a shortlist, not identity.
+    """
+    return (len(stages) >= 2 and stages[-1]["completed_cells"] >= 6
+            and stages[-1]["completed_cells"] == stages[-2]["completed_cells"] + 1
+            and stages[-1]["first"] == stages[-2]["first"]
+            and all(s.get("fixed_horizon_gate_passed") is True for s in stages[-2:]))
+
+
+def identification_evidence(bank: dict, models: list[dict], observed: dict[str, Counter],
+                            cell_order: list[str] | None = None) -> dict:
+    """Explain a ranking using the existing answers; no additional sampling.
+
+    Leaving out a probe holds the collected probe set fixed.  The resulting
+    stability is a sensitivity analysis, not another independent accuracy test.
+    """
+    complete = {c: v for c, v in observed.items() if sum(v.values()) >= BLOCK}
+    order = [c for c in (cell_order or list(observed)) if c in complete]
+    # A recorded request order can repeat each cell four times.
+    order = list(dict.fromkeys(order))
+    by_cell, by_model = {c["id"]: c for c in bank["cells"]}, {m["model"]: m for m in models}
+    ranking = rank_candidates(bank, models, complete)
+    heads = ranking[:3]
+    leader = ranking[0]["model"] if ranking else None
+    probes, stages, running = [], [], {}
+    for cell_id in order:
+        cell = by_cell[cell_id]
+        running[cell_id] = complete[cell_id]
+        stages.append(_stage(bank, models, running))
+        distances = [{"model": row["model"], "label": row["label"],
+                      "distance": round(jsd(complete[cell_id], by_model[row["model"]]["counts"][cell_id]), 6),
+                      "reference_counts": by_model[row["model"]]["counts"][cell_id]}
+                     for row in heads]
+        probes.append({"cell_id": cell_id, "task_id": cell.get("task_id"), "lang": cell["lang"],
+                       "prompt": cell["user"], "observed_counts": dict(complete[cell_id]),
+                       "reference_comparison": distances,
+                       "leader_margin": round(distances[1]["distance"] - distances[0]["distance"], 6)
+                           if len(distances) > 1 else None})
+    leave_out = []
+    if len(complete) >= 3:
+        for omitted in order:
+            reduced = rank_candidates(bank, models, {c: v for c, v in complete.items() if c != omitted})
+            leave_out.append({"omitted_cell": omitted, "first": reduced[0]["model"] if reduced else None,
+                              "top3": [r["model"] for r in reduced[:3]],
+                              "same_leader": bool(reduced and reduced[0]["model"] == leader)})
+    return {"per_probe": probes, "trajectory": stages,
+            "leave_one_probe_out": {"trials": leave_out, "evaluated": len(leave_out),
+                "same_leader_count": sum(r["same_leader"] for r in leave_out),
+                "same_leader_fraction": (sum(r["same_leader"] for r in leave_out) / len(leave_out)) if leave_out else None,
+                "interpretation": "删除一个已采探针后重排；保持采样题序固定，不是身份概率或独立验证。"},
+            "provenance": [{"model": row["model"], "providers": by_model[row["model"]].get("providers", []),
+                            "provider_labels_source": "author_record"} for row in heads],
+            "analysis_api_requests": 0}
+
+
 def plan_identification(payload: dict) -> dict:
     config, key, _ = _config(payload)
     bank = load_identification_bank()
@@ -228,6 +310,10 @@ def plan_identification(payload: dict) -> dict:
         "protocol": {"temperature": 1, "max_tokens": TOKEN_CAP, "reasoning": {"enabled": False},
                      "samples_per_cell": BLOCK, "retries": 0},
         "selection_method": "shared_prompt_pairwise_jsd_per_utf8_cost_v1",
+        "stop_policy": config.get("stop_policy", "fixed"),
+        "validation": {"reference_labels": "author_provided", "reference_provider_split": "pooled",
+            "fixed_budget_evaluation": "same_collection_disjoint_repetitions",
+            "stable_stop_earliest_requests": 24, "live_accuracy_evaluated": False},
         "config": config, "notes": ["候选距离为JSD原值，数值较小表示本轮回答分布更接近；它不是身份概率。",
             "统一参考采于2026年7月；未收录或已更新模型可能靠近某个旧标签。",
             "每4次有效回答完成一个单元；整段回答缓存或隐藏推理会停止采样。",
@@ -314,6 +400,8 @@ def _report(bank: dict, config: dict, records: list[dict]) -> dict:
         family = families.setdefault(row["family"], {"family": row["family"], "distance": row["distance"], "models": []})
         family["models"].append(row["model"])
     cost = _identification_cost(requests, records[0].get("synthetic", False))
+    evidence = identification_evidence(bank, _models(bank, config["candidate_models"]), observed,
+                                       [r["cell_id"] for r in requests])
     return {"schema": SCHEMA, "kind": "identification", "synthetic": records[0].get("synthetic", False),
         "status": status, "identity_decision": "abstained", "probability": None,
         "bank": _bank_summary(bank), "candidate": config["candidate"], "budget": config["budget"],
@@ -326,6 +414,20 @@ def _report(bank: dict, config: dict, records: list[dict]) -> dict:
                         "inside_distance_envelope": envelope, "open_set_gate_passed": gate, "scope": "same_collection_offline_only",
                         "interpretation": "距离包络来自同轮公开采集的独立重复；现网准确率尚未测量。"},
         "cost": cost, "stop_reason": stop, "records_file": "identification_records.jsonl",
+        "evidence": evidence,
+        "validation": {"reference_labels": "author_provided", "reference_provider_split": "pooled",
+            "fixed_budget_evaluation": "same_collection_disjoint_repetitions",
+            "stop_policy_evaluation": ("exploratory_historical_holdout_reanalysis"
+                                      if config.get("stop_policy") == "stable_shortlist" else "fixed_horizon"),
+            "live_accuracy_evaluated": False,
+            "source_stratum_audit": "docs/identification-stress.json"},
+        "stopping": {"policy": config.get("stop_policy", "fixed"),
+            "early_stopped": stop == "stable_shortlist",
+            "sequential_experimental": config.get("stop_policy", "fixed") == "stable_shortlist",
+            "fixed_horizon_metrics_apply_to_policy": (config.get("stop_policy", "fixed") == "fixed"
+                and len(config["candidate_models"]) == len(bank["models"]) and MIN_CELLS <= completed <= 8),
+            "unused_request_budget": max(0, config["budget"]["max_requests"] - len(requests)),
+            "unused_output_token_cap": max(0, config["budget"]["max_output_tokens"] - len(requests) * TOKEN_CAP)},
         "collection": {"state": finish.get("state", "partial"), "failure": finish.get("failure")},
         "notes": ["候选排名预测与库中哪些服务标签更接近；当前版本保留身份拒判，距离不换算为概率。",
                   "家族按作者family_guess合并，展示各家族最接近的标签距离；不代表模型谱系证明。",
@@ -341,6 +443,17 @@ def markdown_identification_report(report: dict) -> str:
     lines += [f"| {r['label']} | {r['family']} | {r['distance']:.6f} |" for r in report["ranking"][:10]]
     lines += ["", *report["notes"], "", f"参考采集：{report['bank']['collected_at']}；[原始公开数据]({report['bank']['source']['data']})。", "",
         f"发送请求：{report['cost']['real_requests']}；累计申请输出配额：{report['cost']['requested_output_tokens']}；实际输入/输出见report.json中的供应商用量。", ""]
+    evidence = report.get("evidence", {})
+    stability = evidence.get("leave_one_probe_out", {})
+    if stability.get("evaluated"):
+        lines += ["", f"逐一删除一个已采探针后，首位保持{stability['same_leader_count']}/{stability['evaluated']}次。这是本次排名对探针的敏感性分析。", ""]
+    if evidence.get("per_probe"):
+        lines += ["| 探针 | 语言 | 首位对第二位的距离优势 |", "| --- | --- | ---: |"]
+        lines += [f"| {r['task_id']} | {r['lang']} | {r['leader_margin']:.6f} |"
+                  for r in evidence["per_probe"] if r["leader_margin"] is not None]
+        lines += [""]
+    if report.get("stopping", {}).get("early_stopped"):
+        lines += [f"连续两阶段保持同一候选并通过对应门槛，已提前结束；未使用{report['stopping']['unused_request_budget']}次请求预算。顺序停止性能见单独验证。", ""]
     return "\n".join(lines)
 
 
@@ -366,7 +479,7 @@ def run_identification(payload: dict, out: Path, progress=None, cancelled=None) 
         "bank_sha256": hashlib.sha256(BANK_PATH.read_bytes()).hexdigest(), "config": config,
         "synthetic": False, "created_at": datetime.now(timezone.utc).isoformat()})
     fp._write_json(output / "sampling_plan.json", plan_identification(payload))
-    observed, stop, failure = {}, "budget_exhausted", None
+    observed, stop, failure, stages = {}, "budget_exhausted", None, []
     with httpx.Client(timeout=config["timeout"], follow_redirects=False, trust_env=False) as client:
         while True:
             cell = select_next_cell(bank, models, observed)
@@ -406,6 +519,10 @@ def run_identification(payload: dict, out: Path, progress=None, cancelled=None) 
                 observed[cell["id"]] = counts
             if len(counts) == 0 or sum(counts.values()) < BLOCK or failure or stop == "cancelled":
                 break
+            stages.append(_stage(bank, models, observed))
+            if config.get("stop_policy") == "stable_shortlist" and should_stop_stable(stages):
+                stop = "stable_shortlist"
+                break
     fp._append(path, records, {"type": "finish", "state": "cancelled" if stop == "cancelled" else "partial" if failure else "complete",
                               "stop_reason": stop, "failure": failure})
     report = _report(bank, config, records)
@@ -429,8 +546,9 @@ def parse_identification_records(text: str) -> list[dict]:
         cells = {c["id"]: c for c in _common_cells(load_identification_bank(), _models(load_identification_bank(), config["candidate_models"]))}
         previous = None
         count = 0
-        observed, current_cell, current_count = {}, None, 0
+        observed, current_cell, current_count, stages = {}, None, 0, []
         terminal = False
+        stable_stop = False
         for i, row in enumerate(records):
             if (row["sequence"] != i or row["previous_hash"] != previous
                     or row["record_hash"] != content_hash({k: v for k, v in row.items() if k != "record_hash"})):
@@ -459,11 +577,20 @@ def parse_identification_records(text: str) -> list[dict]:
                 if status == "valid":
                     observed[current_cell][value] += 1
                     current_count += 1
+                    if current_count == BLOCK:
+                        stages.append(_stage(load_identification_bank(), _models(load_identification_bank(), config["candidate_models"]), observed))
+                        if config.get("stop_policy") == "stable_shortlist" and should_stop_stable(stages):
+                            terminal, stable_stop = True, True
                 else:
                     terminal = True
             elif i not in {0, len(records) - 1}:
                 raise ValueError
         if records[-1]["type"] != "finish" or count > config["budget"]["max_requests"] or count * TOKEN_CAP > config["budget"]["max_output_tokens"]:
+            raise ValueError
+        finish = records[-1]
+        if stable_stop != (finish.get("stop_reason") == "stable_shortlist"):
+            raise ValueError
+        if stable_stop and (finish.get("state") != "complete" or finish.get("failure") is not None):
             raise ValueError
         return records
     except (KeyError, TypeError, IndexError, ValueError, AttributeError, RecursionError):
