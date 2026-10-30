@@ -182,10 +182,36 @@ def _copy_notices(bundle: Path) -> list[dict]:
                     tcl_files.append(target.relative_to(bundle).as_posix())
     if not tcl_files:
         raise RuntimeError("Tcl/Tk license files were not found; do not publish without them")
+    # Some CPython Windows layouts retain Tk's notice but omit Tcl's own
+    # license. Keep the official pinned Tcl notice alongside the runtime's
+    # existing notices; record the actual patchlevel rather than inferring it
+    # from the license source tag.
+    import tkinter
+    tcl_patchlevel = tkinter.Tcl().eval("info patchlevel")
+    if not tcl_patchlevel.startswith("8.6."):
+        raise RuntimeError("Review the bundled Tcl notice for this runtime version before publishing")
+    tcl_notice_source = ROOT / "scripts" / "licenses"
+    tcl_upstream = json.loads((tcl_notice_source / "UPSTREAM.json").read_text(encoding="utf-8"))
+    tcl_license = tcl_notice_source / "Tcl-license.terms"
+    if digest(tcl_license) != tcl_upstream["sha256"]:
+        raise RuntimeError("Pinned Tcl license hash does not match its upstream record")
+    tcl_target = notices / "Tcl-Tk" / "Tcl"
+    tcl_target.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(tcl_license, tcl_target / tcl_license.name)
+    tcl_upstream["runtime_patchlevel"] = tcl_patchlevel
+    tcl_upstream["runtime_matches_notice_source_version"] = tcl_patchlevel == tcl_upstream["version"]
+    (tcl_target / "UPSTREAM.json").write_text(
+        json.dumps(tcl_upstream, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    packages.append({"name": "Tcl", "version": tcl_patchlevel,
+                     "license_expression": "TCL", "home_page": "https://www.tcl-lang.org/",
+                     "project_urls": ["Source, " + tcl_upstream["upstream_repository"]],
+                     "license_files": [(tcl_target / tcl_license.name).relative_to(bundle).as_posix()],
+                     "notice_source_version": tcl_upstream["version"]})
     (notices / "README.txt").write_text(
         "License texts are copied unchanged from the installed distributions.\n"
         "build-manifest.json identifies versions and upstream project URLs.\n"
         "certifi and tqdm Python sources are retained under _internal.\n"
+        "Tcl's pinned upstream notice and actual runtime patchlevel are recorded under Tcl-Tk/Tcl.\n"
         "The bundle uses the CPU build of PyTorch; no model weights are included.\n",
         encoding="utf-8")
     return packages

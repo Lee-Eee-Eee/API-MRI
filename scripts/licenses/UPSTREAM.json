@@ -1,0 +1,13 @@
+{
+  "component": "Tcl",
+  "version": "8.6.12",
+  "upstream_repository": "https://github.com/tcltk/tcl",
+  "tag": "core-8-6-12",
+  "commit": "eea5dbac2620e113f750915cfb87561075082368",
+  "source": "https://raw.githubusercontent.com/tcltk/tcl/eea5dbac2620e113f750915cfb87561075082368/license.terms",
+  "license_file": "Tcl-license.terms",
+  "sha256": "c0a69a2bfd757361ec7e6143973b103c90409316b49e9c88db26ad6388e79f16",
+  "retrieved_on": "2026-10-31",
+  "verification": "GitHub official tcltk/tcl tag resolved to commit; license fetched from that commit. Local Tcl runtime reported 8.6.12.",
+  "runtime_version_policy": "Use this notice for a Tcl 8.6 build only after recording its actual runtime patchlevel. The pinned license source is 8.6.12; another runtime patchlevel is not asserted to be 8.6.12."
+}

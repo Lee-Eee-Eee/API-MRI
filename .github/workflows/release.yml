@@ -4,6 +4,12 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish a release after all tests and packaged checks pass'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -42,27 +48,18 @@ jobs:
         run: python -X utf8 -m pytest tests -q
       - name: Build portable bundle
         run: python -X utf8 scripts/build_portable.py --out build/portable-release
-      - name: CLI smoke test
+      - name: Test packaged executables without Python on PATH
         shell: pwsh
         run: |
           $bundle = Get-ChildItem build/portable-release/dist -Directory | Select-Object -First 1
-          & "$($bundle.FullName)/api-mri-cli.exe" --help
-          if ($LASTEXITCODE -ne 0) { throw 'Packaged CLI failed' }
-          & "$($bundle.FullName)/api-mri-cli.exe" service-demo --out build/portable-service-demo
-          if ($LASTEXITCODE -ne 0) { throw 'Packaged service demo failed' }
-          & "$($bundle.FullName)/api-mri-cli.exe" identify-demo --out build/portable-identify-demo
-          if ($LASTEXITCODE -ne 0) { throw 'Packaged identification demo failed' }
-          & "$($bundle.FullName)/api-mri-cli.exe" demo --out build/portable-met-demo --permutations 19
-          if ($LASTEXITCODE -ne 0) { throw 'Packaged MET demo failed' }
-      - name: Portable launcher smoke test
-        shell: pwsh
-        run: |
-          $bundle = Get-ChildItem build/portable-release/dist -Directory | Select-Object -First 1
-          $dataDir = Join-Path $env:RUNNER_TEMP 'API-MRI 中文 smoke/data'
-          $process = Start-Process -FilePath "$($bundle.FullName)/API-MRI.exe" -ArgumentList @('--smoke-test', '--data-dir', "`"$dataDir`"", '--port', '0') -PassThru -Wait -WindowStyle Hidden
-          if ($process.ExitCode -ne 0) { throw 'Portable launcher failed' }
-          $result = Get-Content (Join-Path $dataDir 'smoke-test.json') -Raw | ConvertFrom-Json
-          if ($result.status -ne 'passed' -or $result.real_model_calls -ne 0) { throw 'Portable readiness smoke failed' }
+          python -X utf8 scripts/check_portable.py --bundle "$($bundle.FullName)" --out "build/便携验收 packaged checks"
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged executable acceptance failed' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: API-MRI-portable-validation
+          path: build/便携验收 packaged checks/portable-check.json
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: API-MRI-windows-x64
@@ -71,18 +68,33 @@ jobs:
             build/portable-release/SHA256SUMS.txt
           if-no-files-found: error
       - name: Publish release assets
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish)
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          gh release view "$env:GITHUB_REF_NAME" --repo "$env:GITHUB_REPOSITORY" 2>$null
-          if ($LASTEXITCODE -ne 0) {
-            $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
-            $notes = "docs/release-$version.md"
-            if (-not (Test-Path -LiteralPath $notes)) { throw 'Authored release notes are required' }
-            gh release create "$env:GITHUB_REF_NAME" --repo "$env:GITHUB_REPOSITORY" --title "API-MRI $env:GITHUB_REF_NAME" --notes-file $notes
-            if ($LASTEXITCODE -ne 0) { throw 'Release creation failed' }
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $releaseTag = $env:GITHUB_REF_NAME
+          } else {
+            $releaseTag = "v$version"
           }
-          gh release upload "$env:GITHUB_REF_NAME" build/portable-release/*.zip build/portable-release/SHA256SUMS.txt --repo "$env:GITHUB_REPOSITORY"
+          $notes = "docs/release-$version.md"
+          if (-not (Test-Path -LiteralPath $notes)) { throw 'Authored release notes are required' }
+          $existingJson = gh release view "$releaseTag" --repo "$env:GITHUB_REPOSITORY" --json isDraft,targetCommitish,assets 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            $existing = $existingJson | ConvertFrom-Json
+            if (-not $existing.isDraft) { throw 'A published release already exists; its assets will not be replaced' }
+            if ($existing.targetCommitish -ne $env:GITHUB_SHA) { throw 'The existing draft targets a different commit; inspect it before retrying' }
+            $uploadNames = @((Get-ChildItem build/portable-release/*.zip).Name) + @('SHA256SUMS.txt')
+            foreach ($asset in $existing.assets) {
+              if ($asset.name -in $uploadNames) { throw "Draft already contains $($asset.name); existing assets will not be replaced" }
+            }
+          } else {
+            gh release create "$releaseTag" --repo "$env:GITHUB_REPOSITORY" --target "$env:GITHUB_SHA" --title "API-MRI $releaseTag" --notes-file $notes --draft
+            if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed' }
+          }
+          gh release upload "$releaseTag" build/portable-release/*.zip build/portable-release/SHA256SUMS.txt --repo "$env:GITHUB_REPOSITORY"
           if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed' }
+          gh release edit "$releaseTag" --repo "$env:GITHUB_REPOSITORY" --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { throw 'Assets uploaded, but publishing the draft failed' }

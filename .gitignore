@@ -12,3 +12,4 @@ config.local.json
 *.jsonl
 build/
 dist/
+/data/
