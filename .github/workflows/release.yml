@@ -22,16 +22,36 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install pinned CPython runtime
+        shell: pwsh
+        run: |
+          $runtime = Get-Content scripts/python-runtime.json -Raw | ConvertFrom-Json
+          $runtimeDir = Join-Path $env:RUNNER_TEMP "api-mri-python-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          if (Test-Path -LiteralPath $runtimeDir) { throw 'Runtime directory already exists' }
+          New-Item -ItemType Directory -Path $runtimeDir | Out-Null
+          $archive = Join-Path $runtimeDir 'python-runtime.tar.gz'
+          Invoke-WebRequest -Uri $runtime.archive.url -OutFile $archive
+          if ((Get-Item -LiteralPath $archive).Length -ne $runtime.archive.size_bytes) { throw 'Python runtime archive size mismatch' }
+          $archiveHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($archiveHash -ne $runtime.archive.sha256) { throw 'Python runtime archive SHA-256 mismatch' }
+          tar -xzf $archive -C $runtimeDir
+          if ($LASTEXITCODE -ne 0) { throw 'Python runtime extraction failed' }
+          $runtimePython = Join-Path $runtimeDir $runtime.executable
+          & $runtimePython -c "import platform,struct; assert platform.python_version() == '3.12.16'; assert struct.calcsize('P') == 8; print(platform.python_version(), platform.machine())"
+          if ($LASTEXITCODE -ne 0) { throw 'Python runtime version or architecture mismatch' }
+          & $runtimePython -m venv .build-venv
+          if ($LASTEXITCODE -ne 0) { throw 'Build environment creation failed' }
+          (Join-Path $env:GITHUB_WORKSPACE '.build-venv/Scripts') | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          'PYTHONUTF8=1' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          'PYTHONNOUSERSITE=1' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - uses: actions/cache@v4
         with:
-          python-version: '3.12'
-          cache: pip
-          cache-dependency-path: |
-            requirements-lock.txt
-            scripts/requirements-build.txt
+          path: '~\AppData\Local\pip\Cache'
+          key: ${{ runner.os }}-pip-cpython-3.12.16-${{ hashFiles('requirements-lock.txt', 'scripts/requirements-build.txt', 'scripts/python-runtime.json') }}
       - name: Install pinned CPU dependencies and project
         shell: pwsh
         run: |
+          python -c "import platform; assert platform.python_version() == '3.12.16'"
           python -m pip install -r requirements-lock.txt
           python -m pip install --no-deps -e '.[api,ui,dev]'
           python -m pip install -r scripts/requirements-build.txt

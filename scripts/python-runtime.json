@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "implementation": "CPython",
+  "version": "3.12.16",
+  "distribution": "Astral python-build-standalone",
+  "distribution_release": "20261026",
+  "target": "x86_64-pc-windows-msvc",
+  "flavor": "install_only",
+  "executable": "python/python.exe",
+  "archive": {
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-pc-windows-msvc-install_only.tar.gz",
+    "size_bytes": 47113364,
+    "sha256": "590dfcbe3a34c07301e6332e13e2188b98655cd072b08afa45a7998dc4c22bc5"
+  },
+  "sources": [
+    "https://www.python.org/downloads/release/python-31216/",
+    "https://github.com/astral-sh/python-build-standalone/releases/tag/20261026"
+  ],
+  "verified_on": "2026-10-31"
+}

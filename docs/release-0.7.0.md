@@ -1,6 +1,6 @@
 # API-MRI 0.7.0
 
-Windows x64 便携版：完整解压 `API-MRI-0.7.0-windows-x64.zip`，双击 `API-MRI.exe`。无需安装 Python；退出由启动窗口控制，报告保存在程序旁的 `data/`。命令行入口 `api-mri-cli.exe` 也随包提供。[使用指南](portable.md)
+Windows x64 便携版：完整解压 `API-MRI-0.7.0-windows-x64.zip`，双击 `API-MRI.exe`。无需安装 Python；退出由启动窗口控制，报告保存在程序旁的 `data/`。命令行入口 `api-mri-cli.exe` 也随包提供。[使用指南](https://github.com/Lee-Eee-Eee/API-MRI/blob/v0.7.0/docs/portable.md)
 
 - 增加连接与流式响应测量：首正文等待、完整耗时、响应间隔、错误，以及服务自报用量对应的全程输出速率。
 - 增加四项工具调用检查：指定工具、结果回填、自主选用、无需工具的回答。

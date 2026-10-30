@@ -13,3 +13,4 @@ config.local.json
 build/
 dist/
 /data/
+.build-venv/
