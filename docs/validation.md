@@ -114,3 +114,21 @@ JavaScript 语法及控件引用检查通过。构建的 wheel 包含更新器�
 原生日志与本机路径不进入公开仓库。运行README中的demo可重新生成合成证据，客户端时间/运行ID不要求与原记录相同。
 
 这些结果验证程序流程，不估计真实模型误报率或检出率。真实参考、许可、预算、校准与商业端点采样仍待完成。
+## API quality measurements
+
+Reports now separate three kinds of operational evidence from model-behavior
+evidence:
+
+- **Link health** is the observed request success rate. If the collector
+  records an HTTP status, the report also shows 2xx coverage; a missing status
+  is unknown rather than an assumed failure.
+- **Output throughput** is the median and P95 of provider-reported
+  `output_tokens / client_elapsed_seconds` for successful requests that contain
+  both measurements. It is not server-side inference speed or a billing total.
+- **Tool calls** are counted only when a collector explicitly records
+  `tool_call_count` or `tool_calls` in record metadata. Ordinary text is never
+  treated as proof of tool support; unmeasured remains visible as “not
+  measured”.
+
+These metrics describe the captured run and should be compared across matched
+settings. They do not prove provider internals or model identity.

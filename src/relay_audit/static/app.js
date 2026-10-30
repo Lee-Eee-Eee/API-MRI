@@ -1357,6 +1357,50 @@
       ),
     );
     root.append(strip);
+    const service = section(
+      root,
+      "服务记录",
+      "吞吐采用服务自报输出 token 除以客户端总耗时；工具次数来自记录中的工具字段。",
+    );
+    const serviceTable = table(
+      ["指标", "参考端点", "待测端点"],
+      ["", "num", "num"],
+    );
+    const seconds = (value) => ms(finite(value) ? value * 1000 : null);
+    const health = (role) =>
+      ({
+        healthy: "全部请求成功",
+        degraded: "部分请求失败",
+        unavailable: "没有成功请求",
+      })[role.link_health?.status] || "未记录";
+    const toolCalls = (role) =>
+      role.tool_calls?.status === "measured"
+        ? num(role.tool_calls.total)
+        : "未测量";
+    for (const [label, a, b] of [
+      ["连接状态", health(left), health(right)],
+      [
+        "响应耗时 · 中位数",
+        seconds(left.elapsed_seconds?.median),
+        seconds(right.elapsed_seconds?.median),
+      ],
+      [
+        "响应耗时 · P95",
+        seconds(left.elapsed_seconds?.p95),
+        seconds(right.elapsed_seconds?.p95),
+      ],
+      [
+        "输出吞吐 · token/s",
+        num(left.throughput?.output_tokens_per_second_median, 2),
+        num(right.throughput?.output_tokens_per_second_median, 2),
+      ],
+      ["工具调用次数", toolCalls(left), toolCalls(right)],
+    ]) {
+      const row = el("tr");
+      row.append(el("td", "", label), el("td", "num", a), el("td", "num", b));
+      serviceTable.body.append(row);
+    }
+    service.append(serviceTable.wrap);
     const s = section(root, "逐题比较");
     const tb = table(
       ["题目", "结果", "成功回答 · 参考 / 待测", ""],

@@ -146,6 +146,10 @@ def markdown_report(result: dict[str, Any]) -> str:
             ("耗时中位数 / P95（秒）", lambda row: f"{_number(row['elapsed_seconds']['median'])} / {_number(row['elapsed_seconds']['p95'])}"),
             ("有耗时记录", lambda row: str(row["elapsed_seconds"]["count"])),
             ("限定任务通过", _checks),
+            ("输出吞吐中位数（token/s）", lambda row: _number(row["throughput"]["output_tokens_per_second_median"])),
+            ("链接健康 / HTTP 2xx", lambda row: f"{row['link_health']['status']} / {_rate(row['link_health']['http_2xx_rate'])}"),
+            ("工具调用观测", lambda row: "未测量" if row["tool_calls"]["status"] != "measured" else
+             f"{row['tool_calls']['total']} 次（{row['tool_calls']['records']} 条）"),
         ]:
             lines.append(f"| {name} | {get(left)} | {get(right)} |")
         lines += ["", "请求成功表示接口正常返回；限定任务通过表示回答满足该题预设的答案或格式。耗时含网络、排队和服务处理时间。", "",

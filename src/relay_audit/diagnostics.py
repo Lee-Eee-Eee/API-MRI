@@ -78,6 +78,34 @@ def summarize_records(records: Sequence[AuditRecord]) -> dict[str, Any]:
     checks = [check_response(row) for row in records]
     evaluated = sum(value is not None for value in checks)
     passed = sum(value is True for value in checks)
+    throughput = sorted(
+        float(row.usage["output_tokens"]) / float(row.elapsed_seconds)
+        for row in records
+        if type(row.usage.get("output_tokens")) is int
+        and row.usage["output_tokens"] >= 0
+        and row.elapsed_seconds is not None
+        and math.isfinite(row.elapsed_seconds)
+        and row.elapsed_seconds > 0
+        and row.status == "success"
+    )
+    http_statuses = [
+        row.metadata.get("http_status")
+        for row in records
+        if type(row.metadata.get("http_status")) is int
+        and 100 <= row.metadata["http_status"] <= 599
+    ]
+    tool_calls = []
+    for row in records:
+        metadata = row.metadata
+        count = metadata.get("tool_call_count")
+        if type(count) is int and count >= 0:
+            tool_calls.append(count)
+            continue
+        calls = metadata.get("tool_calls")
+        if isinstance(calls, list):
+            tool_calls.append(len(calls))
+    measured_requests = len(http_statuses)
+    status_2xx = sum(200 <= value < 300 for value in http_statuses)
     return {
         "records": len(records), "successes": successes,
         "errors": sum(row.status == "error" for row in records),
@@ -91,6 +119,24 @@ def summarize_records(records: Sequence[AuditRecord]) -> dict[str, Any]:
         "reported_token_records": reported_token_records,
         "checks": {"evaluated": evaluated, "passed": passed,
                    "pass_rate": passed / evaluated if evaluated else None},
+        "throughput": {
+            "count": len(throughput),
+            "output_tokens_per_second_median": median(throughput) if throughput else None,
+            "output_tokens_per_second_p95": throughput[math.ceil(0.95 * len(throughput)) - 1] if throughput else None,
+        },
+        "link_health": {
+            "status": "healthy" if records and successes == len(records) else
+                      "degraded" if successes else "unavailable",
+            "success_rate": successes / len(records) if records else None,
+            "http_status_count": measured_requests,
+            "http_2xx_rate": status_2xx / measured_requests if measured_requests else None,
+        },
+        "tool_calls": {
+            "status": "measured" if tool_calls else "not_measured",
+            "records": len(tool_calls),
+            "total": sum(tool_calls) if tool_calls else None,
+            "nonzero_records": sum(value > 0 for value in tool_calls) if tool_calls else 0,
+        },
     }
 
 
@@ -115,5 +161,8 @@ def build_diagnostics(reference: Sequence[AuditRecord], candidate: Sequence[Audi
             "latency": "客户端观察的请求耗时，含网络与排队；汇总所有有耗时的成功或失败请求。P95采用最近秩法。",
             "usage": "token为来源自报计量；演示数据为人为设定值。仅累加实际报告的字段，缺失项保留null，另列已报告条数。",
             "checks": "通过率只描述指定答案或格式的限定任务；有有效检查规则的失败请求计为未通过。它不认证模型身份。",
+            "throughput": "输出吞吐仅使用成功请求中同时报告output_tokens和客户端耗时的记录；不是服务端推理速度或账单计量。",
+            "link_health": "链接健康基于本批记录的成功率；若记录含http_status则另列HTTP 2xx覆盖率。缺少状态码不代表接口不健康。",
+            "tool_calls": "工具调用只有在采集器明确写入tool_call_count或tool_calls时才统计；当前未测量时保持未知，不把普通文本当作工具能力。",
         },
     }
