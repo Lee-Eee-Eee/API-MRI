@@ -130,6 +130,7 @@ def test_demo_replay_and_cli_are_offline(small_bank, monkeypatch, tmp_path, caps
     assert result["synthetic"] is True
     assert result["cost"]["real_requests"] == 0
     assert result["ranking"][0]["model"] == "maker/model-1"
+    assert result["calibration"]["rank_stability"]["tested_cells"] >= 1
     assert main(["identify-replay", "--records", str(tmp_path / "demo" / "identification_records.jsonl"), "--out", str(tmp_path / "cli")]) == 0
     assert "概率" in capsys.readouterr().out
     rows = [json.loads(line) for line in (tmp_path / "demo" / "identification_records.jsonl").read_text(encoding="utf-8").splitlines()]

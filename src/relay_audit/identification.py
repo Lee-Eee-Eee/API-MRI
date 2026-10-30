@@ -278,6 +278,25 @@ def _identification_cost(requests: list[dict], synthetic: bool = False) -> dict:
     return cost
 
 
+def _rank_stability(bank: dict, models: list[dict], observed: dict[str, Counter]) -> dict:
+    """Measure whether the leading candidate survives leave-one-cell-out checks."""
+    cells = [cell for cell, counts in observed.items() if sum(counts.values()) >= BLOCK]
+    if len(cells) < 2:
+        return {"tested_cells": 0, "top_model": None, "top_model_rate": None, "top_models": []}
+    top_models = []
+    for excluded in cells:
+        reduced = {cell: counts for cell, counts in observed.items() if cell != excluded}
+        ranking = rank_candidates(bank, models, reduced)
+        if ranking:
+            top_models.append(ranking[0]["model"])
+    if not top_models:
+        return {"tested_cells": 0, "top_model": None, "top_model_rate": None, "top_models": []}
+    counts = Counter(top_models)
+    model, count = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0]
+    return {"tested_cells": len(top_models), "top_model": model,
+            "top_model_rate": count / len(top_models), "top_models": top_models}
+
+
 def _report(bank: dict, config: dict, records: list[dict]) -> dict:
     observed, invalid = {}, Counter()
     by_id = {c["id"]: c for c in bank["cells"]}
@@ -289,6 +308,7 @@ def _report(bank: dict, config: dict, records: list[dict]) -> dict:
         else:
             invalid[status] += 1
     ranking = rank_candidates(bank, _models(bank, config["candidate_models"]), observed)
+    rank_stability = _rank_stability(bank, _models(bank, config["candidate_models"]), observed)
     completed = sum(sum(c.values()) >= BLOCK for c in observed.values())
     finish = records[-1] if records[-1]["type"] == "finish" else {}
     stop = finish.get("stop_reason", "incomplete_records")
@@ -324,10 +344,12 @@ def _report(bank: dict, config: dict, records: list[dict]) -> dict:
                      "cells": {c: dict(v) for c, v in observed.items()}},
         "calibration": {**calibration, "applicable_gate": gate_config, "ranking_gap": gap,
                         "inside_distance_envelope": envelope, "open_set_gate_passed": gate, "scope": "same_collection_offline_only",
+                        "rank_stability": rank_stability,
                         "interpretation": "距离包络来自同轮公开采集的独立重复；现网准确率尚未测量。"},
         "cost": cost, "stop_reason": stop, "records_file": "identification_records.jsonl",
         "collection": {"state": finish.get("state", "partial"), "failure": finish.get("failure")},
         "notes": ["候选排名预测与库中哪些服务标签更接近；当前版本保留身份拒判，距离不换算为概率。",
+                  "排名稳定性采用逐个完整单元留出复算；单元数不足时保持未知，不能替代独立验证集。",
                   "家族按作者family_guess合并，展示各家族最接近的标签距离；不代表模型谱系证明。",
                   "未收录、更新、动态路由或服务配置变化都可能导致库外结果。",
                   "已完成回答同时比较全部候选；复算不再次发送模型请求。"]}

@@ -1483,6 +1483,8 @@
       renderMetric("任务通过率", percent((left.checks || {}).pass_rate), percent((right.checks || {}).pass_rate), "仅统计有可执行检查的题目"),
       renderMetric("响应耗时 · 中位数", duration((left.elapsed_seconds || {}).median), duration((right.elapsed_seconds || {}).median), report.synthetic ? "合成数据中的示例值" : "包含采集时的网络与服务等待"),
       renderMetric("成功回答数", number(left.successes), number(right.successes), `${number(left.errors)} / ${number(right.errors)} 次请求失败`),
+      renderMetric("输出吞吐 · token/s", number((left.throughput || {}).output_tokens_per_second_median), number((right.throughput || {}).output_tokens_per_second_median), "仅统计成功且同时报告用量与耗时的请求"),
+      renderMetric("工具调用", (left.tool_calls || {}).status === "measured" ? number((left.tool_calls || {}).total) : "未测量", (right.tool_calls || {}).status === "measured" ? number((right.tool_calls || {}).total) : "未测量", "没有工具证据时保持未知，不把文本回答当作工具调用"),
     );
     const coverage = report.coverage || {};
     $("tested-count").textContent = `${number(coverage.tested_prompts)} / ${number(coverage.family_size)} 题完成比较`;
@@ -1533,7 +1535,7 @@
     clear(methodSettings);
     [`重排 ${number(settings.permutations)} 次`, `每侧最低 ${number(settings.min_samples)} 个样本`, `显著性水平 ${numeric(settings.alpha) === null ? "—" : settings.alpha}`, `多题校正：Holm`, `随机种子 ${number(settings.seed)}`].forEach((label) => methodSettings.append(element("span", "", label)));
     const serviceDetails = element("p", "subtle");
-    serviceDetails.textContent = `P95 响应耗时 A / B：${duration((left.elapsed_seconds || {}).p95)} / ${duration((right.elapsed_seconds || {}).p95)}。${report.synthetic ? "以下为合成数据中的计量示例" : "服务端自报计量"}：输入 ${number((left.reported_tokens || {}).input_tokens)} / ${number((right.reported_tokens || {}).input_tokens)}，输出 ${number((left.reported_tokens || {}).output_tokens)} / ${number((right.reported_tokens || {}).output_tokens)} tokens。`;
+    serviceDetails.textContent = `P95 响应耗时 A / B：${duration((left.elapsed_seconds || {}).p95)} / ${duration((right.elapsed_seconds || {}).p95)}；链接健康：${textValue((left.link_health || {}).status)} / ${textValue((right.link_health || {}).status)}。${report.synthetic ? "以下为合成数据中的计量示例" : "服务端自报计量"}：输入 ${number((left.reported_tokens || {}).input_tokens)} / ${number((right.reported_tokens || {}).input_tokens)}，输出 ${number((left.reported_tokens || {}).output_tokens)} / ${number((right.reported_tokens || {}).output_tokens)} tokens。`;
     methodSettings.append(serviceDetails);
     const exports = $("export-buttons");
     clear(exports);

@@ -28,6 +28,21 @@ def test_missing_measurements_are_unknown_and_partial_usage_is_explicit():
     assert empty["success_rate"] is None
     assert empty["elapsed_seconds"] == {"count": 0, "median": None, "p95": None}
     assert all(value is None for value in empty["reported_tokens"].values())
+    assert empty["tool_calls"]["status"] == "not_measured"
+
+
+def test_diagnostics_report_throughput_link_health_and_tool_calls():
+    rows = [
+        record(usage={"output_tokens": 20}, elapsed_seconds=2,
+               metadata={"http_status": 200, "tool_call_count": 1}),
+        record(status="error", response=None, error="request failed",
+               metadata={"http_status": 503, "tool_calls": []}),
+    ]
+    summary = summarize_records(rows)
+    assert summary["throughput"]["output_tokens_per_second_median"] == 10
+    assert summary["link_health"]["status"] == "degraded"
+    assert summary["link_health"]["http_2xx_rate"] == 0.5
+    assert summary["tool_calls"] == {"status": "measured", "records": 2, "total": 1, "nonzero_records": 1}
 
 
 @pytest.mark.parametrize("kind,expected,response,wanted", [

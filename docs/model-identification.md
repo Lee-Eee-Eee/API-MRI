@@ -93,3 +93,9 @@ python -m relay_audit.identification_build --data-zip data.zip --code-zip code.z
 ```
 
 输入归档只作为数据读取，不执行归档中的代码；输出使用新路径。参考计数为 CC BY 4.0 派生数据，归一化规则据 MIT 代码独立移植，归属及许可见随包 [NOTICE](../src/relay_audit/data/identification/NOTICE)。
+### 排名稳定性与拒判
+
+识别报告会对每个已完成的探针单元执行一次 leave-one-cell-out 复算，
+并记录最高候选在这些复算中的出现比例。该比例用于发现“只靠单个题目
+支撑排名”的脆弱结果；单元不足时保持未知。它不是准确率、身份概率或
+独立验证集，最终仍受开放集门槛、采样完整性和参考库覆盖范围约束。
