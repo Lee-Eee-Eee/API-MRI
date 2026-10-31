@@ -18,3 +18,5 @@ dsh plugin --profile web add github:Lee-Eee-Eee/API-MRI#v0.8.0
 API-MRI 启动时用 `--embed-origin` 指定 DSH 的完整来源，再到侧栏连接。[插件使用指南](https://github.com/Lee-Eee-Eee/API-MRI/blob/v0.8.0/dsh-plugin/README.md) · [作品来源](https://github.com/Lee-Eee-Eee/API-MRI/blob/v0.8.0/docs/classic-examples.md)
 
 公开作品用于观察代码与画面表现。作品上的模型名来自原作者记录；身份评估仍使用指纹方法。Windows 程序未签名，下载可与 `SHA256SUMS.txt` 核对。
+
+验证：378项源码测试、11项插件测试、12组成品验收通过。[构建与验收记录](https://github.com/Lee-Eee-Eee/API-MRI/actions/runs/41179368921)。测试使用公开作品、合成响应及回环模拟服务，未调用付费模型。
