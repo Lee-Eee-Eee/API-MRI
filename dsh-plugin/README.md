@@ -59,7 +59,7 @@ API-MRI 使用其他端口时，修改页签的服务地址。支持 `http`、`h
 
 API key 在 API-MRI 工作台内填写。插件的 Node 入口不注册 HTTP 代理、不启动进程，也不读取 DSH 的账号、会话或密钥。插件只在 DSH 的浏览器存储中保存一个经过校验的服务地址。
 
-API-MRI 页面与 DSH 处于不同来源。双方握手只传 `type`、随机 `nonce` 和 API-MRI 的 `version`，父页面核对发送窗口、来源与 nonce 后显示连接状态。iframe 允许脚本、同源请求、表单与下载；不允许顶层跳转。API-MRI 默认拒绝被嵌入，只有启动时指定的 DSH 来源能打开它。
+API-MRI 页面与 DSH 处于不同来源。双方握手只传 `type`、随机 `nonce` 和 API-MRI 的 `version`，父页面核对发送窗口、来源与 nonce 后显示连接状态。工作台 iframe 允许脚本、同源请求、表单、下载及文档外链的新窗口，复制按钮获得 `clipboard-write` 权限；不授予剪贴板读取或顶层跳转权限。模型生成的 HTML 预览另有独立的 `allow-scripts` 沙箱，弹窗和剪贴板权限仍被禁用。API-MRI 默认拒绝被嵌入，只有启动时指定的 DSH 来源能打开它。
 
 ## 开发与打包
 

@@ -49,5 +49,12 @@
   "installationNotes": [
     "The initial isolated runtime disabled automatic peer installation. CLI startup required the upstream cordis-plugin-group peer; Web startup exposed additional required DSH peers.",
     "One standard isolated install with autoInstallPeers enabled completed the peer graph. Official plugin add, configuration composition and Web startup then succeeded."
-  ]
+  ],
+  "postHostPolicyChecks": {
+    "method": "rendered component props in Node vm",
+    "mainFrameExternalPopups": "pass",
+    "mainFrameClipboardWriteOnly": "pass",
+    "mainFrameTopNavigationDenied": "pass",
+    "modelHtmlPreviewPolicy": "unchanged"
+  }
 }

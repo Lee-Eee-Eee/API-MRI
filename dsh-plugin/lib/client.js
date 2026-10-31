@@ -204,7 +204,8 @@ function Workbench({ visible = true }) {
       h(LaunchHelp, { origin: hostOrigin, open: true }))
       : h('div', { className: 'api-mri-companion__frame-wrap' },
         h('iframe', { key: connection.id, ref: frame, className: 'api-mri-companion__frame', src: connection.origin,
-          title: 'API-MRI 工作台', sandbox: 'allow-scripts allow-same-origin allow-downloads allow-forms',
+          title: 'API-MRI 工作台', sandbox: 'allow-scripts allow-same-origin allow-downloads allow-forms allow-popups allow-popups-to-escape-sandbox',
+          allow: 'clipboard-write',
           referrerPolicy: 'no-referrer', onLoad: () => setLoadGeneration(value => value + 1) }),
         state === 'loading' && h('div', { className: 'api-mri-companion__pending', role: 'status', 'aria-live': 'polite' }, '正在连接 API-MRI…'),
         state === 'error' && h('div', { className: 'api-mri-companion__failure', role: 'alert' },

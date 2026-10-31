@@ -43,8 +43,28 @@ test('checked-in browser factory registers one disposable BetterSidebar tab', as
   assert.equal(typeof tab.component, 'function');
   assert.equal(tab.component({ visible: false }).props.visible, false);
   cleanup(); assert.equal(disposed, 1);
-  assert.ok(source.includes("sandbox: 'allow-scripts allow-same-origin allow-downloads allow-forms'"));
-  assert.ok(!source.includes('allow-top-navigation'));
+  let stateIndex = 0;
+  const states = ['http://127.0.0.1:8767', { origin: 'http://127.0.0.1:8767', id: 1 }, 'ready', '', 0, '0.8.0'];
+  React.useId = () => 'test-address';
+  React.useState = () => [states[stateIndex++], () => {}];
+  React.useRef = () => ({ current: null });
+  React.useEffect = () => {};
+  window.location = { origin: 'http://127.0.0.1:3088' };
+  const view = tab.component({ visible: true });
+  const tree = view.type(view.props);
+  function findFrame(node) {
+    if (!node || typeof node !== 'object') return null;
+    if (node.type === 'iframe') return node;
+    for (const child of node.children || []) { const found = findFrame(child); if (found) return found; }
+    return null;
+  }
+  const frame = findFrame(tree);
+  assert.ok(frame);
+  assert.deepEqual(frame.props.sandbox.split(' ').sort(), ['allow-downloads', 'allow-forms', 'allow-popups',
+    'allow-popups-to-escape-sandbox', 'allow-same-origin', 'allow-scripts'].sort());
+  assert.equal(frame.props.allow, 'clipboard-write');
+  assert.equal(frame.props.referrerPolicy, 'no-referrer');
+  assert.ok(!frame.props.sandbox.includes('allow-top-navigation'));
   assert.ok(!source.includes("postMessage({ type: 'api-mri:hello', nonce }, '*')"));
 });
 
