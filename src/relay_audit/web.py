@@ -659,7 +659,7 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
         try:
             example = next(item for item in list_showcase()["examples"] if item["id"] == example_id)
             asset = showcase_asset(example_id)
-            return {"example": example, "source": asset.read_text(encoding="utf-8")}
+            return {"example": example, "source": asset.read_bytes().decode("utf-8")}
         except (StopIteration, ValueError, OSError, KeyError):
             raise HTTPException(404, "该作品仅提供原始来源链接，或文件未收录。") from None
 

@@ -1,5 +1,6 @@
 """Classic examples, local framing, and isolated generated HTML previews."""
 import json
+import hashlib
 import threading
 import time
 
@@ -63,6 +64,9 @@ def test_catalog_and_only_authorized_asset_source_are_available(tmp_path):
         assert example.json()["example"] == assets[0]
         assert example.json()["source"] == showcase.showcase_asset(assets[0]["id"]).read_text(encoding="utf-8")
         assert example.headers["x-content-type-options"] == "nosniff"
+        for asset in assets:
+            source = client.get("/api/showcase/examples/" + asset["id"]).json()["source"]
+            assert hashlib.sha256(source.encode("utf-8")).hexdigest() == asset["sha256"]
         external = next(entry for entry in catalog["examples"] if not entry.get("asset"))
         assert client.get("/api/showcase/examples/" + external["id"]).status_code == 404
         assert client.get("/api/showcase/examples/not-a-real-example").status_code == 404

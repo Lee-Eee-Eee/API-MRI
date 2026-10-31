@@ -375,7 +375,7 @@ def demo_showcase(out, task_id=None):
     example = next((item for item in catalog["examples"] if item["task_id"] == task_id and item.get("asset")), None)
     if example is None:
         raise ValueError("该题没有可内置演示的授权作品，请查看来源链接。")
-    source = showcase_asset(example["id"]).read_text(encoding="utf-8-sig")
+    source = showcase_asset(example["id"]).read_bytes().decode("utf-8")
     model = example.get("model", "作者未记录型号")
     if not isinstance(model, str):
         raise ValueError("公开作品的模型标签无效。")
@@ -493,7 +493,7 @@ def replay_showcase(records, out):
     rows = parse_showcase_records(text)
     out = Path(out)
     out.mkdir(parents=True, exist_ok=False)
-    (out / "showcase_records.jsonl").write_text(text.rstrip() + "\n", encoding="utf-8")
+    (out / "showcase_records.jsonl").write_text(text.rstrip() + "\n", encoding="utf-8", newline="\n")
     plan = (_plan(rows[0]["config"], rows[0]["task"]) if rows[0]["origin"] == "api_trial" else
             {"kind": "showcase", "task": rows[0]["task"], "origin": "public_source_demo", "planned_requests": 0})
     (out / "sampling_plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

@@ -241,6 +241,61 @@ def test_public_demo_reuses_a_licensed_asset_without_calling_a_model(catalog, tm
     assert json.loads((tmp_path / "replay" / "sampling_plan.json").read_text())["planned_requests"] == 0
 
 
+@pytest.mark.parametrize("prefix", ["", "\ufeff"], ids=["crlf", "bom-crlf"])
+def test_public_demo_preserves_asset_bytes_including_crlf(catalog, tmp_path, prefix):
+    data, folder = catalog
+    source = prefix + '<svg xmlns="http://www.w3.org/2000/svg">\r\n<text>鹈鹕</text>\r\n</svg>\r\n'
+    raw = source.encode("utf-8")
+    (folder / "assets" / "pelican.svg").write_bytes(raw)
+    data["examples"][0]["sha256"] = hashlib.sha256(raw).hexdigest()
+    (folder / "catalog.json").write_text(json.dumps(data), encoding="utf-8")
+    result = showcase.demo_showcase(tmp_path / "demo", task_id="pelican-svg")
+    assert result["artifact"]["source"].encode("utf-8") == raw
+    assert result["artifact"]["sha256"] == data["examples"][0]["sha256"]
+    assert result["status"] == "completed"
+    records = tmp_path / "demo" / "showcase_records.jsonl"
+    rows = showcase.parse_showcase_records(records.read_text(encoding="utf-8"))
+    assert rows[1]["source"].encode("utf-8") == raw
+    assert showcase.replay_showcase(records, tmp_path / "replay") == result
+    assert records.read_bytes() == (tmp_path / "replay" / records.name).read_bytes()
+
+
+@pytest.mark.parametrize("example_id", [row["id"] for row in showcase.list_showcase()["examples"] if row.get("asset")])
+def test_every_packaged_example_preserves_source_hash_and_replay_bytes(example_id, tmp_path, monkeypatch):
+    data = deepcopy(showcase.list_showcase())
+    selected = next(row for row in data["examples"] if row["id"] == example_id)
+    raw = showcase.showcase_asset(example_id).read_bytes()
+    data["examples"] = [selected] + [row for row in data["examples"] if row["id"] != example_id]
+    monkeypatch.setattr(showcase, "list_showcase", lambda: data)
+    monkeypatch.setattr(httpx, "Client", lambda *a, **k: pytest.fail("public example used network"))
+    result = showcase.demo_showcase(tmp_path / "demo", task_id=selected["task_id"])
+    assert result["published_example"] == selected
+    assert result["artifact"]["source"].encode("utf-8") == raw
+    assert result["artifact"]["sha256"] == selected["sha256"] == hashlib.sha256(raw).hexdigest()
+    records = tmp_path / "demo" / "showcase_records.jsonl"
+    rows = showcase.parse_showcase_records(records.read_text(encoding="utf-8"))
+    assert rows[1]["source"].encode("utf-8") == raw
+    assert rows[1]["source_sha256"] == selected["sha256"]
+    assert showcase.replay_showcase(records, tmp_path / "replay") == result
+    replayed = tmp_path / "replay" / records.name
+    assert records.read_bytes() == replayed.read_bytes()
+    assert showcase.parse_showcase_records(replayed.read_text(encoding="utf-8")) == rows
+    assert result["cost"]["request_count"] == result["cost"]["real_requests"] == 0
+
+
+def test_source_cli_public_demo_and_replay_preserve_raw_evidence(tmp_path, monkeypatch):
+    from relay_audit.cli import main
+
+    monkeypatch.setattr(httpx, "Client", lambda *a, **k: pytest.fail("public example used network"))
+    source, replay = tmp_path / "cli-demo", tmp_path / "cli-replay"
+    assert main(["showcase-demo", "--task", "pelican-svg", "--out", str(source)]) == 0
+    records = source / "showcase_records.jsonl"
+    assert b"\r\n" not in records.read_bytes()
+    assert main(["showcase-replay", "--records", str(records), "--out", str(replay)]) == 0
+    assert records.read_bytes() == (replay / records.name).read_bytes()
+    assert (source / "report.json").read_bytes() == (replay / "report.json").read_bytes()
+
+
 def test_catalog_asset_requires_license_hash_and_safe_path(catalog):
     data, folder = catalog
     assert showcase.showcase_asset("published-pelican") == (folder / "assets" / "pelican.svg").resolve()
