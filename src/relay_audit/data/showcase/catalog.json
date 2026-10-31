@@ -1,0 +1,2197 @@
+{
+  "schema": "api-mri-showcase-catalog/1",
+  "title": "经典题与公开作品",
+  "collected_at": "2026-10-31",
+  "default_mode": "browse_without_api_calls",
+  "tasks": [
+    {
+      "id": "pelican-svg",
+      "title": "鹈鹕骑自行车",
+      "prompt": "Generate an SVG of a pelican riding a bicycle",
+      "format": "svg",
+      "prompt_relation": "original_short_prompt",
+      "sources": [
+        {
+          "url": "https://simonwillison.net/2024/Oct/25/pelicans-on-a-bicycle/",
+          "title": "Simon Willison：Pelicans on a bicycle",
+          "published_at": "2024-10-25",
+          "retrieved_at": "2026-10-31",
+          "author": "Simon Willison",
+          "role": "prompt_origin",
+          "license_status": "no_explicit_redistribution_license_located"
+        }
+      ],
+      "suggested_max_tokens": 4096,
+      "description": "用几何图形画出鸟、车与骑行动作。",
+      "inspect": [
+        "车轮与车架能否连接",
+        "脚是否接触踏板，身体是否坐在车座上",
+        "图形代码能否完整呈现"
+      ],
+      "identity_use": "qualitative_task_only"
+    },
+    {
+      "id": "octopus-organ-svg",
+      "title": "章鱼弹管风琴",
+      "prompt": "Generate an SVG of an octopus operating a pipe organ",
+      "format": "svg",
+      "prompt_relation": "original_short_prompt",
+      "sources": [
+        {
+          "url": "https://gally.net/temp/20251107pelican-alternatives/index.html",
+          "title": "Tom Gally：LLM SVG Generation Benchmark",
+          "published_at": "2025-11-07",
+          "retrieved_at": "2026-10-31",
+          "author": "Tom Gally",
+          "updated_at": "2025-12-12",
+          "license_status": "no_explicit_redistribution_license_located"
+        }
+      ],
+      "suggested_max_tokens": 4096,
+      "description": "观察多肢体与复杂乐器的空间关系。",
+      "inspect": [
+        "触手与琴键是否接触",
+        "管风琴的琴键和音管能否辨认",
+        "多条触手是否连接同一身体"
+      ],
+      "identity_use": "qualitative_task_only"
+    },
+    {
+      "id": "starfish-bulldozer-svg",
+      "title": "海星开推土机",
+      "prompt": "Generate an SVG of a starfish driving a bulldozer",
+      "format": "svg",
+      "prompt_relation": "original_short_prompt",
+      "sources": [
+        {
+          "url": "https://gally.net/temp/20251107pelican-alternatives/index.html",
+          "title": "Tom Gally：LLM SVG Generation Benchmark",
+          "published_at": "2025-11-07",
+          "retrieved_at": "2026-10-31",
+          "author": "Tom Gally",
+          "updated_at": "2025-12-12",
+          "license_status": "no_explicit_redistribution_license_located"
+        }
+      ],
+      "suggested_max_tokens": 4096,
+      "description": "看模型怎样让海星操纵工程机械。",
+      "inspect": [
+        "海星与驾驶位置是否对应",
+        "履带、铲斗与机身能否组成机器",
+        "对象是否被裁切或互相遮没"
+      ],
+      "identity_use": "qualitative_task_only"
+    },
+    {
+      "id": "analog-clock-html",
+      "title": "9:41 的钟",
+      "prompt": "Create self-contained HTML/CSS showing an analog clock at 09:41, with readable numerals and an animated second hand.",
+      "format": "html",
+      "prompt_relation": "adapted",
+      "adaptation": "按 AI World Clocks 的任务改写，固定为 09:41；没有沿用其完整提示或输出。",
+      "sources": [
+        {
+          "url": "https://clocks.brianmoore.com/",
+          "title": "Brian Moore：AI World Clocks",
+          "published_at": null,
+          "retrieved_at": "2026-10-31",
+          "author": "Brian Moore",
+          "license_status": "no_explicit_redistribution_license_located"
+        }
+      ],
+      "suggested_max_tokens": 2048,
+      "description": "时针应位于 9 与 10 之间，分针指向第 41 分钟。",
+      "inspect": [
+        "时针与分针的位置",
+        "中心点、刻度与指针比例",
+        "秒针是否转动，缩放后是否保持布局"
+      ],
+      "identity_use": "qualitative_task_only"
+    },
+    {
+      "id": "rotating-hexagon-html",
+      "title": "旋转六边形中的弹球",
+      "prompt": "Write HTML/CSS/JavaScript animating a gravity-driven ball bouncing inside a rotating hexagon, including friction and collisions with its moving walls.",
+      "format": "html",
+      "prompt_relation": "adapted",
+      "adaptation": "公开仓库使用 Python；此处改写为浏览器中的单文件 HTML，保留重力、摩擦与运动边界碰撞。",
+      "sources": [
+        {
+          "url": "https://github.com/lucrbvi/bouncing-ball-hexagon/tree/4532ab20e16b4320466cc75497c25affc8e54ea2",
+          "title": "Bouncing Ball in a Hexagon",
+          "published_at": null,
+          "retrieved_at": "2026-10-31",
+          "author": "Looobay / repository contributors",
+          "snapshot_at": "2025-05-18T11:28:58Z",
+          "license_status": "MIT",
+          "origin_note": "仓库明确说明不是此类题目的最初创作者。"
+        }
+      ],
+      "suggested_max_tokens": 4096,
+      "description": "运动边界会改变碰撞后的速度，持续看一段时间比截图更有用。",
+      "inspect": [
+        "球是否穿过边界或卡在角上",
+        "重力方向与墙面运动是否进入计算",
+        "不同画面刷新率下运动是否稳定"
+      ],
+      "identity_use": "qualitative_task_only"
+    },
+    {
+      "id": "animated-pelican-html",
+      "title": "会踩踏板的鹈鹕",
+      "prompt": "Create an HTML file with an animated 2D SVG of a pelican riding a bicycle.",
+      "format": "html",
+      "prompt_relation": "original_short_prompt",
+      "sources": [
+        {
+          "url": "https://github.com/kings0527/pelican-bicycle",
+          "title": "Animated SVG pelican：DeepSeek / pi 工作流",
+          "published_at": null,
+          "retrieved_at": "2026-10-31",
+          "author": "kings0527",
+          "license_status": "all_rights_reserved_explicitly_stated"
+        }
+      ],
+      "suggested_max_tokens": 4096,
+      "description": "让脚跟随踏板，观察整段动画中的连接关系。",
+      "inspect": [
+        "双脚是否持续贴住踏板",
+        "关节是否连续，轮子和曲柄是否协调",
+        "暂停动画或减少动态设置是否可用"
+      ],
+      "identity_use": "qualitative_task_only",
+      "source_workflow_note": "原作使用 pi Agent、多轮工具与复核；此处一键试作只发送一次请求。"
+    }
+  ],
+  "examples": [
+    {
+      "id": "simon-gpt-61-terra-high",
+      "task_id": "pelican-svg",
+      "model": "GPT-6.1 Terra",
+      "format": "svg",
+      "display": "external_link",
+      "license": null,
+      "license_status": "no_explicit_redistribution_license_located",
+      "source": {
+        "url": "https://static.simonwillison.net/static/2026/openai-pelicans-october-2026.html",
+        "published_at": null,
+        "retrieved_at": "2026-10-31",
+        "author": "Simon Willison"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://static.simonwillison.net/static/2026/openai-pelicans-october-2026.html",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "high"
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      },
+      "source_post": "https://simonwillison.net/2026/Oct/26/gpt-61-terra/",
+      "source_referenced_at": "2026-10-26",
+      "reported_usage": {
+        "input_tokens": 16,
+        "output_tokens": 2700
+      },
+      "notes": [
+        "原作者对照网格；本条链接定位 high 档，原作含其他档位。"
+      ]
+    },
+    {
+      "id": "simon-gpt-61-sol-high",
+      "task_id": "pelican-svg",
+      "model": "GPT-6.1 Sol",
+      "format": "svg",
+      "display": "external_link",
+      "license": null,
+      "license_status": "no_explicit_redistribution_license_located",
+      "source": {
+        "url": "https://static.simonwillison.net/static/2026/openai-pelicans-october-2026.html",
+        "published_at": null,
+        "retrieved_at": "2026-10-31",
+        "author": "Simon Willison"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://static.simonwillison.net/static/2026/openai-pelicans-october-2026.html",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "high"
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      },
+      "source_referenced_at": "2026-10-26",
+      "reported_usage": {
+        "input_tokens": 16,
+        "output_tokens": 3661
+      }
+    },
+    {
+      "id": "simon-gpt-6-astra-high",
+      "task_id": "pelican-svg",
+      "model": "GPT-6 Astra",
+      "format": "svg",
+      "display": "external_link",
+      "license": null,
+      "license_status": "no_explicit_redistribution_license_located",
+      "source": {
+        "url": "https://static.simonwillison.net/static/2026/openai-pelicans-october-2026.html",
+        "published_at": null,
+        "retrieved_at": "2026-10-31",
+        "author": "Simon Willison"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://static.simonwillison.net/static/2026/openai-pelicans-october-2026.html",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "high"
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      },
+      "source_referenced_at": "2026-10-26",
+      "reported_usage": {
+        "input_tokens": 16,
+        "output_tokens": 3671
+      }
+    },
+    {
+      "id": "simon-gpt-6-luna-high",
+      "task_id": "pelican-svg",
+      "model": "GPT-6 Luna",
+      "format": "svg",
+      "display": "external_link",
+      "license": null,
+      "license_status": "no_explicit_redistribution_license_located",
+      "source": {
+        "url": "https://static.simonwillison.net/static/2026/openai-pelicans-october-2026.html",
+        "published_at": null,
+        "retrieved_at": "2026-10-31",
+        "author": "Simon Willison"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://static.simonwillison.net/static/2026/openai-pelicans-october-2026.html",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "high"
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      },
+      "source_referenced_at": "2026-10-26",
+      "reported_usage": {
+        "input_tokens": 16,
+        "output_tokens": 4275
+      }
+    },
+    {
+      "id": "simon-kimi-k31-pro-max",
+      "task_id": "pelican-svg",
+      "model": "Kimi K3.1 Pro",
+      "format": "svg",
+      "display": "external_link",
+      "license": null,
+      "license_status": "no_explicit_redistribution_license_located",
+      "source": {
+        "url": "https://simonwillison.net/2026/Oct/23/kimi-k31-pro/",
+        "published_at": "2026-10-23",
+        "retrieved_at": "2026-10-31",
+        "author": "Simon Willison"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://simonwillison.net/2026/Oct/23/kimi-k31-pro/",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": "Moonshot API",
+        "harness": "LLM CLI openai endpoint --responses",
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "max"
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      },
+      "artifact_url": "https://tools.simonwillison.net/markdown-svg-renderer?url=https://gist.github.com/simonw/9b7181492209387da1d4f53002f26663",
+      "available_settings": {
+        "reasoning_effort": [
+          "low",
+          "medium",
+          "max"
+        ]
+      }
+    },
+    {
+      "id": "simon-gemini4-argon-high",
+      "task_id": "pelican-svg",
+      "model": "Gemini 4 Argon",
+      "format": "svg",
+      "display": "external_link",
+      "license": null,
+      "license_status": "no_explicit_redistribution_license_located",
+      "source": {
+        "url": "https://simonwillison.net/2026/oct/13/",
+        "published_at": "2026-10-13",
+        "retrieved_at": "2026-10-31",
+        "author": "Simon Willison"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://simonwillison.net/2026/oct/13/",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": "Gemini API",
+        "harness": "llm-gemini 0.35",
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "high"
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      },
+      "artifact_url": "https://tools.simonwillison.net/markdown-svg-renderer?url=https://gist.github.com/simonw/d741e4420dea14c460f0108ac22dbc26",
+      "available_settings": {
+        "reasoning_effort": [
+          "low",
+          "medium",
+          "high"
+        ]
+      }
+    },
+    {
+      "id": "simon-claude-fable51-high",
+      "task_id": "pelican-svg",
+      "model": "Claude Fable 5.1",
+      "format": "svg",
+      "display": "external_link",
+      "license": null,
+      "license_status": "no_explicit_redistribution_license_located",
+      "source": {
+        "url": "https://static.simonwillison.net/static/2026/claude-pelicans-grid.html",
+        "published_at": null,
+        "retrieved_at": "2026-10-31",
+        "author": "Simon Willison"
+      },
+      "generated_at": "2026-09-01",
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://static.simonwillison.net/static/2026/claude-pelicans-grid.html",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": "LLM CLI / llm-anthropic",
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "high"
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      },
+      "reported_usage": {
+        "input_tokens": 27,
+        "output_tokens": 2612
+      },
+      "available_settings": {
+        "reasoning_effort": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      }
+    },
+    {
+      "id": "simon-claude-opus55-high",
+      "task_id": "pelican-svg",
+      "model": "Claude Opus 5.5",
+      "format": "svg",
+      "display": "external_link",
+      "license": null,
+      "license_status": "no_explicit_redistribution_license_located",
+      "source": {
+        "url": "https://static.simonwillison.net/static/2026/claude-pelicans-grid.html",
+        "published_at": null,
+        "retrieved_at": "2026-10-31",
+        "author": "Simon Willison"
+      },
+      "generated_at": "2026-09-22",
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://static.simonwillison.net/static/2026/claude-pelicans-grid.html",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": "LLM CLI / llm-anthropic",
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "high"
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      },
+      "reported_usage": {
+        "input_tokens": 27,
+        "output_tokens": 3366
+      }
+    },
+    {
+      "id": "simon-claude-opus55-max-no-svg",
+      "task_id": "pelican-svg",
+      "model": "Claude Opus 5.5 · max 无成图",
+      "format": "svg",
+      "display": "external_link",
+      "license": null,
+      "license_status": "no_explicit_redistribution_license_located",
+      "source": {
+        "url": "https://static.simonwillison.net/static/2026/claude-pelicans-grid.html",
+        "published_at": null,
+        "retrieved_at": "2026-10-31",
+        "author": "Simon Willison"
+      },
+      "generated_at": "2026-09-22",
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://static.simonwillison.net/static/2026/claude-pelicans-grid.html",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": "LLM CLI / llm-anthropic",
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "max"
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      },
+      "reported_usage": {
+        "input_tokens": 27,
+        "output_tokens": 128000
+      },
+      "reported_outcome": "no_svg_returned",
+      "notes": [
+        "原作保留了未返回 SVG 的运行：128,000 个输出 token 均用于思考。"
+      ]
+    },
+    {
+      "id": "simon-original-gpt4o",
+      "task_id": "pelican-svg",
+      "model": "GPT-4o · 2024 原作",
+      "format": "svg",
+      "display": "external_link",
+      "license": null,
+      "license_status": "no_explicit_redistribution_license_located",
+      "source": {
+        "url": "https://simonwillison.net/2024/Oct/25/pelicans-on-a-bicycle/",
+        "published_at": "2024-10-25",
+        "retrieved_at": "2026-10-31",
+        "author": "Simon Willison"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://simonwillison.net/2024/Oct/25/pelicans-on-a-bicycle/",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": "LLM CLI",
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      },
+      "source_repository": "https://github.com/simonw/pelican-bicycle"
+    },
+    {
+      "id": "gally-gpt52pro-octopus",
+      "task_id": "octopus-organ-svg",
+      "model": "GPT-5.2 Pro",
+      "format": "svg",
+      "display": "external_link",
+      "license": null,
+      "license_status": "no_explicit_redistribution_license_located",
+      "source": {
+        "url": "https://gally.net/temp/20251107pelican-alternatives/index.html",
+        "title": "Tom Gally：LLM SVG Generation Benchmark",
+        "published_at": "2025-12-12",
+        "retrieved_at": "2026-10-31",
+        "author": "Tom Gally",
+        "updated_at": "2025-12-12",
+        "license_status": "no_explicit_redistribution_license_located"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://gally.net/temp/20251107pelican-alternatives/index.html",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      },
+      "notes": [
+        "作者在 2025-12-12 补入前三题的 GPT-5.2 Pro 输出。"
+      ]
+    },
+    {
+      "id": "gally-gpt52pro-starfish",
+      "task_id": "starfish-bulldozer-svg",
+      "model": "GPT-5.2 Pro",
+      "format": "svg",
+      "display": "external_link",
+      "license": null,
+      "license_status": "no_explicit_redistribution_license_located",
+      "source": {
+        "url": "https://gally.net/temp/20251107pelican-alternatives/index.html",
+        "title": "Tom Gally：LLM SVG Generation Benchmark",
+        "published_at": "2025-12-12",
+        "retrieved_at": "2026-10-31",
+        "author": "Tom Gally",
+        "updated_at": "2025-12-12",
+        "license_status": "no_explicit_redistribution_license_located"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://gally.net/temp/20251107pelican-alternatives/index.html",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      }
+    },
+    {
+      "id": "kings-deepseek-v4-flash-agent",
+      "task_id": "animated-pelican-html",
+      "model": "DeepSeek V4 Flash · pi Agent",
+      "format": "html",
+      "display": "external_link",
+      "license": null,
+      "license_status": "all_rights_reserved_explicitly_stated",
+      "source": {
+        "url": "https://github.com/kings0527/pelican-bicycle",
+        "title": "Animated SVG pelican：DeepSeek / pi 工作流",
+        "published_at": null,
+        "retrieved_at": "2026-10-31",
+        "author": "kings0527",
+        "license_status": "all_rights_reserved_explicitly_stated"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/kings0527/pelican-bicycle",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": "deepseek",
+        "harness": "pi coding agent",
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "max"
+      },
+      "source_based_validity": {
+        "xml_well_formed": null,
+        "svg_root": null,
+        "check": "external_link_not_downloaded"
+      },
+      "reported_workflow": {
+        "api_turns": 115,
+        "main_turns": 107,
+        "review_turns": 8,
+        "total_tokens_including_cache": 8654098,
+        "wall_clock_minutes": 44.5
+      },
+      "prompt_relation": "same_prompt",
+      "notes": [
+        "原作由多轮 Agent 与复核形成；一键试作只有一次请求。"
+      ]
+    },
+    {
+      "id": "nebius-deepseek-r1-0528-1",
+      "task_id": "pelican-svg",
+      "model": "DeepSeek-R1-0528",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--DeepSeek-R1-0528-1.svg",
+      "sha256": "b463f4a318169be1521a932d2d811af5720641c0671532ec56936ba1a07f00f7",
+      "size_bytes": 2388,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/DeepSeek-R1-0528-1.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/DeepSeek-R1-0528-1.svg",
+        "git_blob_sha": "f964ee8c335fa4ca650529a4ddc9637ef576896f",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-glm4-5-1",
+      "task_id": "pelican-svg",
+      "model": "GLM4.5",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--GLM4.5-1.svg",
+      "sha256": "98b5106ba8a8f8836ec8e5b2816c903193f67d525ba01865709d3dfd53fbcbd5",
+      "size_bytes": 3381,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/GLM4.5-1.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/GLM4.5-1.svg",
+        "git_blob_sha": "221a3fa0fcb606911545f09a1c70fa18acb9a662",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-glm4-5-3",
+      "task_id": "pelican-svg",
+      "model": "GLM4.5",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--GLM4.5-3.svg",
+      "sha256": "ebfdadc7b4b308d820a455d09471feb8e5f40ea291a251d07828ea72201f2904",
+      "size_bytes": 3061,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/GLM4.5-3.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/GLM4.5-3.svg",
+        "git_blob_sha": "e564ae763c9f0db14b41c0f20793f0324db7ff29",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-glm4-5-air-1",
+      "task_id": "pelican-svg",
+      "model": "GLM4.5-air",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--GLM4.5-air-1.svg",
+      "sha256": "1a21e541b63b407f6bd8c93932a04150446173dc95ee528fcb7217d6742f0760",
+      "size_bytes": 3738,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/GLM4.5-air-1.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/GLM4.5-air-1.svg",
+        "git_blob_sha": "e86b0fd3debe80c7ee5d47eb1e2023c6437c09f1",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-qwen3-235b-a22b-1",
+      "task_id": "pelican-svg",
+      "model": "Qwen3-235B-A22B",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--Qwen3-235B-A22B-1.svg",
+      "sha256": "8d4df66493ed7ca37506a8d406a557144fc93b30525e86d46317d7fee14fef54",
+      "size_bytes": 2568,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/Qwen3-235B-A22B-1.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/Qwen3-235B-A22B-1.svg",
+        "git_blob_sha": "77942e59bbf842ed2936f55e8fea7cbd02f80418",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-qwen3-235b-a22b-2",
+      "task_id": "pelican-svg",
+      "model": "Qwen3-235B-A22B",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--Qwen3-235B-A22B-2.svg",
+      "sha256": "b5346aa05fee6b65f848804dfdc5d8d2da6b278c3399c6da12ca12a0be812cce",
+      "size_bytes": 1548,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/Qwen3-235B-A22B-2.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/Qwen3-235B-A22B-2.svg",
+        "git_blob_sha": "7612f3e81daab3ba63579ebef354fd36809f1968",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-qwen3-235b-a22b-instruct-2507-1",
+      "task_id": "pelican-svg",
+      "model": "Qwen3-235B-A22B-Instruct-2507",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--Qwen3-235B-A22B-Instruct-2507-1.svg",
+      "sha256": "82f52de41c5f72c1a12f8dd95f40bd2dac93f0b69594ff8265e685154570dfe3",
+      "size_bytes": 3554,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/Qwen3-235B-A22B-Instruct-2507-1.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/Qwen3-235B-A22B-Instruct-2507-1.svg",
+        "git_blob_sha": "97c91d9b933866486290b3a70228f02caced6016",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-qwen3-235b-a22b-instruct-2507-2",
+      "task_id": "pelican-svg",
+      "model": "Qwen3-235B-A22B-Instruct-2507",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--Qwen3-235B-A22B-Instruct-2507-2.svg",
+      "sha256": "e428616bf4a84f633bb10a631f3e6e5ce368b2831b5e20f4602e92e1cba18409",
+      "size_bytes": 2597,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/Qwen3-235B-A22B-Instruct-2507-2.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/Qwen3-235B-A22B-Instruct-2507-2.svg",
+        "git_blob_sha": "0dde5e1b3f297d32db8b27c42330b304c3c596ab",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-gpt-oss-120b-1",
+      "task_id": "pelican-svg",
+      "model": "gpt-oss-120b",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--gpt-oss-120b-1.svg",
+      "sha256": "65c59ed8bd38f45d26df2ce54c5b08861aef088a473aab709b68751fa79a0426",
+      "size_bytes": 2254,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/gpt-oss-120b-1.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/gpt-oss-120b-1.svg",
+        "git_blob_sha": "550a842699faea9bf12b961a078e62584a7f9a75",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-gpt-oss-20b-1",
+      "task_id": "pelican-svg",
+      "model": "gpt-oss-20b",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--gpt-oss-20b-1.svg",
+      "sha256": "b0258e31cf3b7f07e35da07bbd10b5e435eb3f0696d9efd29987da0b05dc9444",
+      "size_bytes": 1376,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/gpt-oss-20b-1.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/gpt-oss-20b-1.svg",
+        "git_blob_sha": "c8045cfea0bde16237728f39b0a7a71f1c261027",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-gpt-oss-20b-2",
+      "task_id": "pelican-svg",
+      "model": "gpt-oss-20b",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--gpt-oss-20b-2.svg",
+      "sha256": "5dfe067b4a9fcc956425f51e58ddc77d25ab51a1357f9fe54af7f994dc23037d",
+      "size_bytes": 1594,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/gpt-oss-20b-2.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/gpt-oss-20b-2.svg",
+        "git_blob_sha": "3cb6e161231657fa06f1a1e48c2589ffec85b56d",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-kimi-k2-instruct-a",
+      "task_id": "pelican-svg",
+      "model": "kimi-k2-instruct",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--kimi-k2-instruct-a.svg",
+      "sha256": "2d16ec19b13ce75a0d1fdf0ac9c4a401955bfdf1e2f32b93e5ca5c2238d2c848",
+      "size_bytes": 3370,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/kimi-k2-instruct-a.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/kimi-k2-instruct-a.svg",
+        "git_blob_sha": "84ba1ed0f557383cac7962fccf7a9a8991025281",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-kimi-k2-thinking-a",
+      "task_id": "pelican-svg",
+      "model": "kimi-k2-thinking",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--kimi-k2-thinking-a.svg",
+      "sha256": "4f37d7809dfa6e6b59c1428f8849aee39985695d3d693732276944a929099805",
+      "size_bytes": 6177,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/kimi-k2-thinking-a.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/kimi-k2-thinking-a.svg",
+        "git_blob_sha": "b8df3da7d7683837fb2456d947c1cdb904aa6be6",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-kimi-k2-5-a",
+      "task_id": "pelican-svg",
+      "model": "kimi-k2.5",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--kimi-k2.5-a.svg",
+      "sha256": "5b0666d24b3bb738da8a3ef346bb00b28bc2f4ce02670cee9086d8bb5a15345a",
+      "size_bytes": 3955,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/kimi-k2.5-a.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/kimi-k2.5-a.svg",
+        "git_blob_sha": "c1928913252dfa6ad37a1561a3ef60230408b352",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-kimi-k2-5-b",
+      "task_id": "pelican-svg",
+      "model": "kimi-k2.5",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--kimi-k2.5-b.svg",
+      "sha256": "2bc9a81a0310444b0bac1ab9216078a3b060495cf74402579eb96574a008d503",
+      "size_bytes": 4375,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/kimi-k2.5-b.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/kimi-k2.5-b.svg",
+        "git_blob_sha": "069633158bac3d79c0b03237feeb9168901ae68c",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-minimax-m2-1-a",
+      "task_id": "pelican-svg",
+      "model": "minimax-m2.1",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--minimax-m2.1-a.svg",
+      "sha256": "15df8e89d20acf40f8e0c6cba247c101591ec27c623575b1b35731c37dd030ae",
+      "size_bytes": 4015,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/minimax-m2.1-a.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/minimax-m2.1-a.svg",
+        "git_blob_sha": "47739426d383bd69704b0826eb8da529f0651bd8",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-minimax-m2-1-b",
+      "task_id": "pelican-svg",
+      "model": "minimax-m2.1",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--minimax-m2.1-b.svg",
+      "sha256": "9be1233c62e546a7bf2bcd84ef176c5916156fad118d023db82a3bfee3df5244",
+      "size_bytes": 4027,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/minimax-m2.1-b.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/minimax-m2.1-b.svg",
+        "git_blob_sha": "fdbf038e746a0500247ea623a2def1c5e9425dba",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-nvidia-nemotron-3-nano-30b-a3b-1",
+      "task_id": "pelican-svg",
+      "model": "nvidia-nemotron-3-nano-30B-A3B",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--nvidia-nemotron-3-nano-30B-A3B-1.svg",
+      "sha256": "46aa79abdf26e7d051aad8097d3c80d0da447cc662ce77467e891ace0964f672",
+      "size_bytes": 1593,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/nvidia-nemotron-3-nano-30B-A3B-1.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/nvidia-nemotron-3-nano-30B-A3B-1.svg",
+        "git_blob_sha": "fa831649c36dae0f572b7cff35af2e0af94e6228",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "nebius-qwen3-next-80b-a3b-thinking",
+      "task_id": "pelican-svg",
+      "model": "qwen3-next-80B-A3B-thinking",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/nebius--qwen3-next-80B-A3B-thinking.svg",
+      "sha256": "a8f19d61ad121c1ffa7629f39eeb0224de4740e2a3b95afedbd73c2fb6dca23f",
+      "size_bytes": 1510,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/nebius-MIT.txt",
+        "copyright": "Copyright (c) 2025 Nebius B.V."
+      },
+      "source": {
+        "url": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle/images/qwen3-next-80B-A3B-thinking.svg",
+        "repository": "https://github.com/nebius/token-factory-cookbook",
+        "commit": "45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5",
+        "path": "fun/pelican-riding-bicycle/images/qwen3-next-80B-A3B-thinking.svg",
+        "git_blob_sha": "397a011fb149d5d08ba4aee5355297d0ce90fdf4",
+        "published_at": null,
+        "snapshot_at": "2026-10-30T21:33:13Z",
+        "retrieved_at": "2026-10-31",
+        "author": "Nebius cookbook contributors"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/nebius/token-factory-cookbook/blob/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": null,
+        "harness": null,
+        "temperature": null,
+        "top_p": null,
+        "top_k": null,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": null
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle",
+      "prompt_relation": "same_prompt",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "文件后缀只区分样本，未用于推断推理档位或采样参数。"
+      ]
+    },
+    {
+      "id": "bbinwang-qwen3-6-27b-prism-pro-dq-agent",
+      "task_id": "pelican-svg",
+      "model": "Qwen3.6-27B-PRISM-PRO-DQ-agent",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/bbinwang--Qwen3.6-27B-PRISM-PRO-DQ-agent.svg",
+      "sha256": "c55dcfab90cf81f2644e659e8927bacdae1250132688ebd09103bc4e1984b041",
+      "size_bytes": 2926,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/bbinwang-MIT.txt",
+        "copyright": "Copyright (c) 2026 bbinwang"
+      },
+      "source": {
+        "url": "https://github.com/bbinwang/pelican-bicycle/blob/b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432/svgs/Qwen3.6-27B-PRISM-PRO-DQ-agent.svg",
+        "repository": "https://github.com/bbinwang/pelican-bicycle",
+        "commit": "b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432",
+        "path": "svgs/Qwen3.6-27B-PRISM-PRO-DQ-agent.svg",
+        "git_blob_sha": "82d2109629218de6151665174c2846c0cbd414eb",
+        "published_at": null,
+        "snapshot_at": "2026-08-16T09:29:51Z",
+        "retrieved_at": "2026-10-31",
+        "author": "bbinwang"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/bbinwang/pelican-bicycle/blob/b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": "local llama-server",
+        "harness": "llama.cpp",
+        "temperature": 0.7,
+        "top_p": 0.8,
+        "top_k": 20,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "off",
+        "presence_penalty": 1.5,
+        "min_p": 0,
+        "repeat_penalty": 1,
+        "enable_thinking": false,
+        "kv_cache": "q8_0",
+        "speculative_decoding": "draft-mtp",
+        "spec_draft_n_max": 2,
+        "flash_attention": true,
+        "context_window": 200000,
+        "sampling_profile": "agent"
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle.",
+      "prompt_relation": "punctuation_variant",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "本地量化模型；模型名与参数由仓库作者记录。",
+        "agent / code 是采样档名称。"
+      ]
+    },
+    {
+      "id": "bbinwang-qwen3-6-27b-prism-pro-dq-code",
+      "task_id": "pelican-svg",
+      "model": "Qwen3.6-27B-PRISM-PRO-DQ-code",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/bbinwang--Qwen3.6-27B-PRISM-PRO-DQ-code.svg",
+      "sha256": "ca08fa51d5132238d6e714f5f0880ca9747cfc5598c8090519aee402fb3be5fd",
+      "size_bytes": 3120,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/bbinwang-MIT.txt",
+        "copyright": "Copyright (c) 2026 bbinwang"
+      },
+      "source": {
+        "url": "https://github.com/bbinwang/pelican-bicycle/blob/b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432/svgs/Qwen3.6-27B-PRISM-PRO-DQ-code.svg",
+        "repository": "https://github.com/bbinwang/pelican-bicycle",
+        "commit": "b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432",
+        "path": "svgs/Qwen3.6-27B-PRISM-PRO-DQ-code.svg",
+        "git_blob_sha": "c90b3b4afe4ace30bcc58b0c4ce7bd5511079d81",
+        "published_at": null,
+        "snapshot_at": "2026-08-16T09:29:51Z",
+        "retrieved_at": "2026-10-31",
+        "author": "bbinwang"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/bbinwang/pelican-bicycle/blob/b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": "local llama-server",
+        "harness": "llama.cpp",
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 20,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "off",
+        "presence_penalty": 0,
+        "min_p": 0,
+        "repeat_penalty": 1,
+        "enable_thinking": false,
+        "kv_cache": "q8_0",
+        "speculative_decoding": "draft-mtp",
+        "spec_draft_n_max": 2,
+        "flash_attention": true,
+        "context_window": 200000,
+        "sampling_profile": "code"
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle.",
+      "prompt_relation": "punctuation_variant",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "本地量化模型；模型名与参数由仓库作者记录。",
+        "agent / code 是采样档名称。"
+      ]
+    },
+    {
+      "id": "bbinwang-qwen3-6-27b-q4km",
+      "task_id": "pelican-svg",
+      "model": "Qwen3.6-27B-Q4KM",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/bbinwang--Qwen3.6-27B-Q4KM.svg",
+      "sha256": "0174b2b40b0d7ed2fbbac13a63e97847dcb9338d15895644a3fdca2a14f8709b",
+      "size_bytes": 7868,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/bbinwang-MIT.txt",
+        "copyright": "Copyright (c) 2026 bbinwang"
+      },
+      "source": {
+        "url": "https://github.com/bbinwang/pelican-bicycle/blob/b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432/svgs/Qwen3.6-27B-Q4KM.svg",
+        "repository": "https://github.com/bbinwang/pelican-bicycle",
+        "commit": "b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432",
+        "path": "svgs/Qwen3.6-27B-Q4KM.svg",
+        "git_blob_sha": "c69db6fa32fa5e3dda4152bc76c426fadfd3b221",
+        "published_at": null,
+        "snapshot_at": "2026-08-16T09:29:51Z",
+        "retrieved_at": "2026-10-31",
+        "author": "bbinwang"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/bbinwang/pelican-bicycle/blob/b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": "local llama-server",
+        "harness": "llama.cpp",
+        "temperature": 0.7,
+        "top_p": 0.8,
+        "top_k": 20,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "off",
+        "presence_penalty": 1.5,
+        "min_p": 0,
+        "repeat_penalty": 1,
+        "enable_thinking": false,
+        "kv_cache": "q8_0",
+        "speculative_decoding": "draft-mtp",
+        "spec_draft_n_max": 2,
+        "flash_attention": true,
+        "context_window": 150000
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle.",
+      "prompt_relation": "punctuation_variant",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "本地量化模型；模型名与参数由仓库作者记录。"
+      ]
+    },
+    {
+      "id": "bbinwang-qwen3-6-35b-a3b-ud-iq4-xs",
+      "task_id": "pelican-svg",
+      "model": "Qwen3.6-35B-A3B-UD-IQ4_XS",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/bbinwang--Qwen3.6-35B-A3B-UD-IQ4_XS.svg",
+      "sha256": "48344c2beafb759371b368bae698e95792da1bfed9c760fc564d49e190c58434",
+      "size_bytes": 7297,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/bbinwang-MIT.txt",
+        "copyright": "Copyright (c) 2026 bbinwang"
+      },
+      "source": {
+        "url": "https://github.com/bbinwang/pelican-bicycle/blob/b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432/svgs/Qwen3.6-35B-A3B-UD-IQ4_XS.svg",
+        "repository": "https://github.com/bbinwang/pelican-bicycle",
+        "commit": "b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432",
+        "path": "svgs/Qwen3.6-35B-A3B-UD-IQ4_XS.svg",
+        "git_blob_sha": "c457d1a662d28ca3912ce982768cf8dd74cdccfd",
+        "published_at": null,
+        "snapshot_at": "2026-08-16T09:29:51Z",
+        "retrieved_at": "2026-10-31",
+        "author": "bbinwang"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/bbinwang/pelican-bicycle/blob/b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": "local llama-server",
+        "harness": "llama.cpp",
+        "temperature": 0.7,
+        "top_p": 0.8,
+        "top_k": 20,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "off",
+        "presence_penalty": 1.5,
+        "min_p": 0,
+        "repeat_penalty": 1,
+        "enable_thinking": false,
+        "kv_cache": "q8_0",
+        "speculative_decoding": "draft-mtp",
+        "spec_draft_n_max": 2,
+        "flash_attention": true,
+        "context_window": 200000
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle.",
+      "prompt_relation": "punctuation_variant",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": false
+      },
+      "notes": [
+        "本地量化模型；模型名与参数由仓库作者记录。"
+      ]
+    },
+    {
+      "id": "bbinwang-qwen3-8-27b-ud-q4-k-xl",
+      "task_id": "pelican-svg",
+      "model": "Qwen3.8-27B-UD-Q4_K_XL",
+      "format": "svg",
+      "display": "bundled_asset",
+      "asset": "assets/bbinwang--Qwen3.8-27B-UD-Q4_K_XL.svg",
+      "sha256": "e48736b21f0ed11c044e2ca06937a3d0dce5b0ddc4118283adc69216638b8f59",
+      "size_bytes": 16465,
+      "license": {
+        "spdx": "MIT",
+        "file": "LICENSES/bbinwang-MIT.txt",
+        "copyright": "Copyright (c) 2026 bbinwang"
+      },
+      "source": {
+        "url": "https://github.com/bbinwang/pelican-bicycle/blob/b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432/svgs/Qwen3.8-27B-UD-Q4_K_XL.svg",
+        "repository": "https://github.com/bbinwang/pelican-bicycle",
+        "commit": "b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432",
+        "path": "svgs/Qwen3.8-27B-UD-Q4_K_XL.svg",
+        "git_blob_sha": "e5fad6e4c117df0e430e07e19003ecef58f04d36",
+        "published_at": null,
+        "snapshot_at": "2026-08-16T09:29:51Z",
+        "retrieved_at": "2026-10-31",
+        "author": "bbinwang"
+      },
+      "generated_at": null,
+      "origin": "published_model_output",
+      "model_label_provenance": {
+        "kind": "author_reported",
+        "evidence": "https://github.com/bbinwang/pelican-bicycle/blob/b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432/README.md",
+        "independently_verified": false
+      },
+      "reported_settings": {
+        "provider": "local llama-server",
+        "harness": "llama.cpp",
+        "temperature": 0.7,
+        "top_p": 0.8,
+        "top_k": 20,
+        "max_tokens": null,
+        "seed": null,
+        "system_prompt": null,
+        "reasoning_effort": "off",
+        "presence_penalty": 1.5,
+        "min_p": 0,
+        "repeat_penalty": 1,
+        "enable_thinking": false,
+        "kv_cache": "q8_0",
+        "speculative_decoding": "draft-mtp",
+        "spec_draft_n_max": 2,
+        "flash_attention": true,
+        "context_window": 150000
+      },
+      "source_prompt": "Generate an SVG of a pelican riding a bicycle.",
+      "prompt_relation": "punctuation_variant",
+      "source_based_validity": {
+        "xml_well_formed": true,
+        "svg_root": true,
+        "script_elements": 0,
+        "external_references": [],
+        "event_attributes": [],
+        "check": "local_xml_parse_and_reference_scan",
+        "animated": true
+      },
+      "notes": [
+        "本地量化模型；模型名与参数由仓库作者记录。"
+      ]
+    }
+  ],
+  "interpretation": {
+    "model_identity": "not_calibrated_for_identification",
+    "model_labels": "author_reported",
+    "api_mri_generated_examples": 0
+  },
+  "license_notice": "LICENSES/NOTICE.md"
+}

@@ -9,6 +9,10 @@
 | KBF，本机评分代码固定于提交 68aefbbab879469152aaac9fd988a86c30ee4739 | 26 个经检查的完整参考包、原始提示与解析器、领域容差、格式校验和单侧二项统计评分 | [原始仓库](https://github.com/Ooo0ption/KBF/tree/68aefbbab879469152aaac9fd988a86c30ee4739)，Apache-2.0；许可及修改说明随 `src/relay_audit/vendor/kbf/` 分发 |
 | ShadowAPI | 仅参考公开的对照实验和复用路线，本版没有复制其代码或数据 | [官方仓库](https://github.com/TrustAIRLab/ShadowAPI)；其自有代码与第三方题目分别适用许可 |
 | One Token Is Enough / PAMELA | 共同短探针、132 标签参考计数；独立移植文本规范化规则 | [数据](https://zenodo.org/records/21278557) CC BY 4.0；[配置及代码](https://zenodo.org/records/21278793) MIT；原作者归属、来源校验及完整 MIT 文本见 `src/relay_audit/data/identification/NOTICE` |
+| Nebius token-factory-cookbook | 示例馆 19 个原始 SVG | [固定提交 45408f6](https://github.com/nebius/token-factory-cookbook/tree/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle)，MIT，© 2025 Nebius B.V. |
+| bbinwang/pelican-bicycle | 示例馆 5 个原始 SVG，保留作者采样与量化参数 | [固定提交 b14acbb](https://github.com/bbinwang/pelican-bicycle/tree/b14acbb2ebe9d9be5f0dec3d35d8f4ae6fcaa432)，MIT，© 2026 bbinwang |
+
+示例馆逐文件哈希、版权原文及来源见 [showcase/LICENSES/NOTICE.md](src/relay_audit/data/showcase/LICENSES/NOTICE.md)。另 13 条作品只保留原作链接。模型名称沿用原作者标签；API-MRI 未重跑这些公开作品。浏览器暂停动画时生成临时静态预览，原 SVG 保持原样。DSH 插件为本项目编写，宿主和 Better Sidebar 由用户已有的 DSH 环境提供，接口依据与依赖版本见 [插件说明](dsh-plugin/NOTICE.md)。
 
 v0.6 的候选识别使用单独的共同提示库，未把 KBF 不同完整批次的回答拼成多类训练集。参考计数的 CC BY 4.0 许可单独适用，不由本项目 MIT 许可取代。模型名称和家族沿用作者标签，准确率评价的数据拆分与拒判范围见[方法说明](docs/model-identification.md)。
 

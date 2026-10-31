@@ -14,3 +14,4 @@ build/
 dist/
 /data/
 .build-venv/
+node_modules/

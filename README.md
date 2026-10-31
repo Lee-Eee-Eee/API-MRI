@@ -9,6 +9,7 @@ API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧�
 | 连接与速度 | 请求成功与错误、首正文等待、完整耗时、流式间隔、服务端用量对应的全程输出速率 | 2 请求，256 输出配额 |
 | 工具调用 | 指定工具及参数、结果回填、自主选用、无需工具的回答 | 至多 4 请求，512 输出配额 |
 | 模型指纹 | 与 132 个公开参考标签的距离、逐探针贡献、排名轨迹和删题敏感性 | 32 请求，512 输出配额 |
+| 经典题试作 | 鹈鹕骑自行车等题目的 SVG / HTML、图形预览、用量与耗时 | 1 请求，默认 2,048 输出上限 |
 
 先看计划，再开始采样；所有请求串行发送，无自动重试。输出配额按请求参数累加，输入与额外推理计费另记。结果和 JSONL 留在本机，已有记录可反复离线复算。没有 Key 也可以试用合成示例。
 
@@ -20,9 +21,15 @@ API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧�
 
 ## 开始使用
 
-**Windows 用户：** 在 [Releases](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest) 下载 `API-MRI-0.7.0-windows-x64.zip`，完整解压后双击 `API-MRI.exe`。无需安装 Python。浏览器打开工作台，另有一个小窗口用于打开页面和退出程序。使用与升级步骤见[便携版指南](docs/portable.md)。
+**Windows 用户：** 在 [Releases](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest) 下载 `API-MRI-0.8.0-windows-x64.zip`，完整解压后双击 `API-MRI.exe`。无需安装 Python。浏览器打开工作台，另有一个小窗口用于打开页面和退出程序。使用与升级步骤见[便携版指南](docs/portable.md)。
 
 安装后点击“试用示例”，即可查看流式时间线和工具调用结果。示例使用本地合成响应；模型指纹示例从参考分布合成，两者均不调用模型 API。
+
+**DSH 用户：** 安装 [Better Sidebar 插件](dsh-plugin/README.md)，在侧栏连接已启动的 API-MRI。Windows 便携版与源码版都可作为后端；Release 同时提供 `dsh-api-mri-0.8.0.tgz` 和插件发现页索引。
+
+**只想看作品：** 打开“示例馆”，可浏览 24 幅公开 SVG 和 13 条原作链接，按模型并排查看。首批题目有鹈鹕骑车、章鱼弹管风琴、海星开推土机、钟表、六边形弹球和动画鹈鹕。浏览不发模型请求；试作前展示单次请求与输出上限。每份作品保留提示、出处和已知参数。[来源与使用方法](docs/classic-examples.md)
+
+![API-MRI 示例馆](docs/images/showcase-v08.jpg)
 
 以下是源码安装方式，适合修改代码或在 Linux / macOS 使用。
 

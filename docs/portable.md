@@ -1,6 +1,6 @@
 # Windows 便携版
 
-从 [Releases](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest) 下载 `API-MRI-0.7.0-windows-x64.zip`，完整解压到一个可以写入的文件夹，双击 `API-MRI.exe`。程序自带 Python 和 CPU 分析依赖，不需要管理员权限。
+从 [Releases](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest) 下载 `API-MRI-0.8.0-windows-x64.zip`，完整解压到一个可以写入的文件夹，双击 `API-MRI.exe`。程序自带 Python 和 CPU 分析依赖，不需要管理员权限。
 
 浏览器会打开工作台。先点击“试用示例”即可查看合成结果，不需要 Key。真实检测时填写 API 地址、模型名和 Key，核对计划后开始。请求从这台电脑发往填写的服务地址；密钥只用于本次运行，不写入浏览器持久存储或配置文件。
 
@@ -31,6 +31,7 @@
 .\api-mri-cli.exe service-demo --out data/cli-service-example
 .\api-mri-cli.exe identify-demo --out data/cli-identify-example
 .\api-mri-cli.exe references
+.\api-mri-cli.exe showcase-demo --task pelican-svg --out data/cli-pelican-example
 ```
 
 命令行的相对输出路径以当前工作目录为准。输出目录须为新目录；已有证据不会被覆盖。
@@ -43,6 +44,18 @@
 ```
 
 启动器的小窗口显示当前地址。重复启动同一份程序会打开已有会话。
+
+## 在 DSH 侧栏使用
+
+安装 [API-MRI 的 Better Sidebar 插件](../dsh-plugin/README.md)后，以 DSH 地址授权嵌入。例如 DSH 位于 `http://127.0.0.1:3080`：
+
+```powershell
+.\API-MRI.exe --embed-origin http://127.0.0.1:3080 --no-browser
+```
+
+再到 DSH 的 API-MRI 页签点击“连接”。若已有普通窗口正在运行，先退出，再用这条命令启动。嵌入授权随本次启动生效；`localhost` 与 `127.0.0.1`、不同端口须分别匹配。
+
+示例馆的公开作品随包提供，浏览无需联网。模型试作只发送一次请求，默认输出上限 2,048；保存的 JSONL 可离线导入复算。HTML 作品在独立沙箱内运行，不能读取工作台或向外请求资源。
 
 ## 常见问题
 

@@ -30,6 +30,17 @@ def _analyze(reference: Path, candidate: Path, out: Path, args: argparse.Namespa
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="API-MRI：连接、流式速度、工具调用与模型指纹。")
     commands = parser.add_subparsers(dest="command", required=True)
+    showcase_plan = commands.add_parser("showcase-plan", help="规划一次经典题试作，不调用API")
+    showcase_plan.add_argument("--config", type=Path, required=True)
+    showcase_run = commands.add_parser("showcase", help="发送一次经典题请求，保存作品与调用记录")
+    showcase_run.add_argument("--config", type=Path, required=True)
+    showcase_run.add_argument("--out", type=Path, required=True)
+    showcase_demo = commands.add_parser("showcase-demo", help="回放已授权的原作者作品，不调用模型API")
+    showcase_demo.add_argument("--task", default=None)
+    showcase_demo.add_argument("--out", type=Path, required=True)
+    showcase_replay = commands.add_parser("showcase-replay", help="从已有经典题JSONL复算报告")
+    showcase_replay.add_argument("--records", type=Path, required=True)
+    showcase_replay.add_argument("--out", type=Path, required=True)
     service_plan = commands.add_parser("service-plan", help="预览连接、流式响应和工具检查计划，不调用API")
     service_plan.add_argument("--config", type=Path, required=True)
     service_run = commands.add_parser("service", help="按预算测量单端点服务并保存记录")
@@ -106,6 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
     ui.add_argument("--port", type=int, default=8765)
     ui.add_argument("--runs-dir", type=Path, default=Path("runs/ui"))
     ui.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
+    ui.add_argument("--embed-origin", action="append", default=[], metavar="ORIGIN", help="允许指定DSH回环来源嵌入工作台，可重复指定")
     return parser
 
 
@@ -129,7 +141,28 @@ def main(argv: list[str] | None = None) -> int:
         from .study import attach_study, redact_study, validate_study
 
         study = validate_study(json.loads(args.study.read_text(encoding="utf-8"))) if getattr(args, "study", None) else {}
-        if args.command in {"service-plan", "service", "service-demo", "service-replay"}:
+        if args.command in {"showcase-plan", "showcase", "showcase-demo", "showcase-replay"}:
+            from .showcase import demo_showcase, parse_showcase_records, plan_showcase, replay_showcase, run_showcase
+
+            if args.command in {"showcase-plan", "showcase"}:
+                config = json.loads(args.config.read_text(encoding="utf-8"))
+                if not isinstance(config, dict) or not isinstance(config.get("candidate"), dict):
+                    raise ValueError("试作配置需要candidate对象。")
+                if "api_key" in config["candidate"]:
+                    raise ValueError("CLI配置使用api_key_env环境变量名称，移除明文api_key。")
+                if args.command == "showcase-plan":
+                    print(json.dumps(plan_showcase(config), ensure_ascii=False, indent=2))
+                    return 0
+                result = run_showcase(config, args.out)
+            elif args.command == "showcase-demo":
+                result = demo_showcase(args.out, task_id=args.task)
+            else:
+                result = replay_showcase(parse_showcase_records(args.records.read_text(encoding="utf-8")), args.out)
+            print("公开作品已回放，无新模型调用。" if result.get("public_source_demo") else "试作记录已保存。")
+            print(f"报告：{args.out / 'report.md'}")
+            if result.get("collection", {}).get("failure"):
+                return 1
+        elif args.command in {"service-plan", "service", "service-demo", "service-replay"}:
             from .service_quality import plan_service_quality, run_service_quality, demo_service_quality, replay_service_quality
             if args.command in {"service-plan", "service"}:
                 payload = json.loads(args.config.read_text(encoding="utf-8"))
@@ -220,7 +253,7 @@ def main(argv: list[str] | None = None) -> int:
                 from .web import serve
             except ImportError:
                 parser.error('请先安装界面依赖：python -m pip install -e ".[api,ui]"')
-            serve(port=args.port, runs_dir=args.runs_dir, library_dir=args.library_dir)
+            serve(port=args.port, runs_dir=args.runs_dir, library_dir=args.library_dir, embed_origins=args.embed_origin)
         elif args.command in {"plan", "run"}:
             from .workflows import plan_pair, run_pair
 

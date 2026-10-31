@@ -1,0 +1,99 @@
+{
+  "schema": "api-mri-showcase-ui-qa/1",
+  "date": "2026-10-31",
+  "evidence_type": "UI integration with one explicitly named local mock; no commercial model evaluation",
+  "commercial_model_requests": 0,
+  "local_mock_model_requests": 1,
+  "catalog": {
+    "tasks": 6,
+    "examples": 37,
+    "licensed_svg_assets": 24,
+    "external_only_examples": 13,
+    "svg_bytes": 94757,
+    "all_git_blob_sha1_match": true,
+    "all_sha256_match": true,
+    "xml_well_formed": 24,
+    "script_elements": 0,
+    "external_href_src_references": 0
+  },
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 720,
+      "horizontal_overflow": false,
+      "loaded_svg_images": 2
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "horizontal_overflow": false,
+      "layout": "two columns"
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "horizontal_overflow": false,
+      "layout": "stacked"
+    }
+  ],
+  "interaction_checks": {
+    "external_examples_only_link_to_original": true,
+    "source_details_show_known_settings_and_unknown_generation_date": true,
+    "browsing_and_two_plans_sent_zero_model_requests": true,
+    "changed_output_cap_invalidated_old_plan": true,
+    "key_cleared_immediately_on_submit": true,
+    "saved_run_files_exclude_mock_key": true,
+    "mock_html_inline_script_executed": true,
+    "mock_html_parent_document_access_blocked": true,
+    "iframe_sandbox_attribute": "allow-scripts",
+    "history_reopened_html_report": true,
+    "browser_jsonl_download": true,
+    "browser_jsonl_import_and_replay": true,
+    "public_source_demo_replay_requests": 0,
+    "replay_labels_original_request_count_separately": true,
+    "keyboard_tab_reached_primary_trial_action": true,
+    "keyboard_static_preview_removed_smil_only_in_preview": true
+  },
+  "mock_run_ids": {
+    "single_trial": "20261031T053858-2d99578d20",
+    "imported_mock_replay": "20261031T053959-eb43c2d31c",
+    "imported_public_source_demo": "20261031T054048-b8a19deae7"
+  },
+  "motion": {
+    "prefers_reduced_motion_default": "implemented; preference emulation was not exercised in this browser session",
+    "original_asset_bytes_unchanged": true
+  },
+  "checks": {
+    "node_syntax": "passed",
+    "html_unique_ids": "passed",
+    "taste_lint_failures": 0,
+    "taste_lint_warnings": 9,
+    "taste_lint_warning_reason": "Existing approved paper-surface shadows in app.css were retained.",
+    "cua_console_errors": 0
+  },
+  "screenshots": {
+    "images/showcase-v08.jpg": {
+      "bytes": 57079,
+      "sha256": "a221722f305cf8ed3d67567f64b4256bb9adeb3b2b3d9d0b96be157be86df5bf",
+      "format": "JPEG"
+    },
+    "images/showcase-v08-mobile.jpg": {
+      "bytes": 26565,
+      "sha256": "fdf7008c4c075c7d316a1915bb0fa68e1f48a0c80dd0b38550aff070c907de80",
+      "format": "JPEG"
+    },
+    "images/showcase-v08-tablet.jpg": {
+      "bytes": 50783,
+      "sha256": "d64925bf08267b25c46c212a69ce3db47c047ff6bfd083cf40a85e06a0146544",
+      "format": "JPEG"
+    }
+  },
+  "qa_server": {
+    "url": "http://127.0.0.1:8767",
+    "isolated_runs_and_library": true,
+    "embed_origins": [
+      "http://127.0.0.1:3080",
+      "http://127.0.0.1:3088"
+    ]
+  }
+}

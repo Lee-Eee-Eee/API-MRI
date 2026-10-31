@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from . import __version__
@@ -25,6 +25,34 @@ STATIC = Path(__file__).parent / "static"
 MAX_BODY_BYTES = 6 * 1024 * 1024
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024
 LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def normalize_embed_origins(origins=None) -> tuple[str, ...]:
+    """Explicit local frame ancestors; never enables cross-origin API access."""
+    if origins is None:
+        return ()
+    if not isinstance(origins, (list, tuple)) or len(origins) > 8:
+        raise ValueError("最多允许8个DSH地址。")
+    normalized = []
+    for value in origins:
+        try:
+            if not isinstance(value, str) or any(c.isspace() for c in value):
+                raise ValueError
+            part = urlsplit(value)
+            if (part.scheme not in {"http", "https"} or part.hostname not in LOOPBACK_HOSTS
+                    or part.username is not None or part.password is not None
+                    or part.path not in {"", "/"} or part.query or part.fragment
+                    or part.port == 0):
+                raise ValueError
+            host = "[::1]" if part.hostname == "::1" else part.hostname
+            port = part.port
+            suffix = f":{port}" if port is not None and (part.scheme, port) not in {("http", 80), ("https", 443)} else ""
+            origin = f"{part.scheme}://{host}{suffix}"
+        except (ValueError, TypeError):
+            raise ValueError("嵌入地址须为DSH的完整回环来源，例如http://localhost:8080；不含路径、凭据或通配符。") from None
+        if origin not in normalized:
+            normalized.append(origin)
+    return tuple(normalized)
 
 
 class AnalysisSettings(BaseModel):
@@ -67,6 +95,21 @@ def validate_job(payload: Any, *, library_dir: Path | None = None) -> dict:
     mode = payload.get("mode")
     settings = _analysis_settings(payload)
     clean = {"mode": mode, **settings.model_dump()}
+    if mode in {"showcase", "showcase_demo", "showcase_offline"}:
+        from .showcase import list_showcase, parse_showcase_records, plan_showcase
+
+        if mode == "showcase":
+            config = {key: payload[key] for key in ("task_id", "candidate", "max_tokens", "timeout", "token_parameter") if key in payload}
+            plan_showcase(config)
+            clean["showcase_config"] = config
+        elif mode == "showcase_demo":
+            task_id = payload.get("task_id")
+            if task_id is not None and task_id not in {task["id"] for task in list_showcase()["tasks"]}:
+                raise ValueError("请选择示例馆中的题目。")
+            clean["task_id"] = task_id
+        else:
+            clean["showcase_records"] = parse_showcase_records(payload.get("evidence_jsonl"))
+        return clean
     if mode in {"service", "service_demo", "service_offline"}:
         from .service_quality import parse_service_records, plan_service_quality
 
@@ -216,6 +259,11 @@ class JobManager:
                     if report.get("kind") == "service_quality":
                         summary["candidate"] = copy.deepcopy(report.get("candidate", {}))
                         summary["checks"] = copy.deepcopy(report.get("checks", []))
+                    if report.get("kind") == "showcase":
+                        summary["candidate"] = copy.deepcopy(report.get("candidate", {}))
+                        summary["task"] = {key: report.get("task", {}).get(key) for key in ("id", "title", "format")}
+                        summary["public_source_demo"] = report.get("public_source_demo", False)
+                        summary["origin"] = report.get("origin")
                     if report.get("kind") == "identification":
                         summary["ranking"] = copy.deepcopy(report.get("ranking", [])[:1])
                     row["reports"].append({"name": entry["name"], "report": summary})
@@ -268,7 +316,19 @@ class JobManager:
             if event.is_set():
                 self._update(identifier, status="cancelled")
                 return
-            if payload["mode"] in {"service", "service_demo", "service_offline"}:
+            if payload["mode"] in {"showcase", "showcase_demo", "showcase_offline"}:
+                from .showcase import demo_showcase, replay_showcase, run_showcase
+
+                if payload["mode"] == "showcase":
+                    result = run_showcase(payload["showcase_config"], out, progress=progress, cancelled=event.is_set)
+                elif payload["mode"] == "showcase_demo":
+                    progress({"completed": 0, "total": 1, "phase": "reading", "message": "读取已公开作品"})
+                    result = demo_showcase(out, task_id=payload["task_id"])
+                else:
+                    progress({"completed": 0, "total": 1, "phase": "reading", "message": "复算已有试作记录"})
+                    result = replay_showcase(payload["showcase_records"], out)
+                reports.append({"name": "showcase", "report": result})
+            elif payload["mode"] in {"service", "service_demo", "service_offline"}:
                 from .service_quality import run_service_quality, demo_service_quality, replay_service_quality
 
                 if payload["mode"] == "service":
@@ -390,6 +450,8 @@ class JobManager:
             names["jsonl"] = "identification_records.jsonl"
         if job["mode"].startswith("service"):
             names["jsonl"] = "service_records.jsonl"
+        if job["mode"].startswith("showcase"):
+            names["jsonl"] = "showcase_records.jsonl"
         filename = names.get(format_name)
         if filename is None:
             raise KeyError(format_name)
@@ -408,6 +470,12 @@ class JobManager:
         if report_name not in {item["name"] for item in job.get("reports", [])}:
             raise KeyError(report_name)
         directory = self.root / identifier / "evidence"
+        if job["mode"].startswith("showcase"):
+            path = (directory / "showcase_records.jsonl").resolve()
+            if not path.is_relative_to(self.root):
+                raise KeyError("showcase_records.jsonl")
+            rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()] if path.exists() else []
+            return {"showcase": rows}
         if job["mode"].startswith("service"):
             path = (directory / "service_records.jsonl").resolve()
             if not path.is_relative_to(self.root):
@@ -506,7 +574,9 @@ class ReferenceUpdateManager:
         self.event.set()
 
 
-def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | None = None) -> FastAPI:
+def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | None = None,
+               embed_origins=None) -> FastAPI:
+    allowed_frames = normalize_embed_origins(embed_origins)
     library_path = Path(library_dir) if library_dir is not None else Path(runs_dir).parent / "reference-library"
     manager = JobManager(Path(runs_dir), library_dir=library_path)
     updater = ReferenceUpdateManager(library_path)
@@ -549,7 +619,11 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        ancestors = " ".join(allowed_frames) if allowed_frames else "'none'"
+        if "Content-Security-Policy" not in response.headers:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+                f"connect-src 'self'; frame-src 'self'; frame-ancestors {ancestors}; base-uri 'none'; form-action 'self'")
         return response
 
     @app.exception_handler(RequestValidationError)
@@ -568,6 +642,52 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
     def stylesheet():
         return FileResponse(STATIC / "app.css", media_type="text/css")
 
+    @app.get("/showcase.js")
+    def showcase_javascript():
+        return FileResponse(STATIC / "showcase.js", media_type="text/javascript")
+
+    @app.get("/api/showcase")
+    def showcase_catalog():
+        from .showcase import list_showcase
+
+        return list_showcase()
+
+    @app.get("/api/showcase/examples/{example_id}")
+    def showcase_example(example_id: str):
+        from .showcase import list_showcase, showcase_asset
+
+        try:
+            example = next(item for item in list_showcase()["examples"] if item["id"] == example_id)
+            asset = showcase_asset(example_id)
+            return {"example": example, "source": asset.read_text(encoding="utf-8")}
+        except (StopIteration, ValueError, OSError, KeyError):
+            raise HTTPException(404, "该作品仅提供原始来源链接，或文件未收录。") from None
+
+    @app.get("/api/runs/{identifier}/showcase-preview")
+    def showcase_preview(identifier: str):
+        try:
+            job = manager.get(identifier)
+            report = next(entry["report"] for entry in job.get("reports", []) if entry["name"] == "showcase")
+            artifact = report["artifact"]
+            if artifact.get("format") != "html" or not isinstance(artifact.get("source"), str):
+                raise ValueError
+            source = artifact["source"]
+            if len(source.encode("utf-8")) > 256 * 1024:
+                raise ValueError
+        except (KeyError, StopIteration, ValueError, TypeError):
+            raise HTTPException(404, "本次运行没有可预览的HTML作品。") from None
+        ancestors = "'self'" + (" " + " ".join(allowed_frames) if allowed_frames else "")
+        # Both HTTP CSP and the parent iframe enforce an opaque origin. This
+        # boundary also applies when the preview URL is opened as a top page.
+        return HTMLResponse(source, headers={
+            "Content-Security-Policy": (
+                "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; "
+                "style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; "
+                "frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'; "
+                f"frame-ancestors {ancestors}"),
+            "Permissions-Policy": "camera=(), microphone=(), geolocation=(), clipboard-read=(), clipboard-write=()",
+        })
+
     @app.get("/api/bootstrap")
     def bootstrap():
         from .lab import list_scenarios
@@ -581,9 +701,10 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
                                    models=[{key: model[key] for key in ("model", "label", "family")} for model in bank["models"]])
 
         return {"version": __version__, "session_token": session_token, "probes": list_probes(),
+                "embedding": {"origins": list(allowed_frames)},
                 "scenarios": list_scenarios(), "reference_packs": list_reference_packs(library_path),
                 "identification_bank": identification_bank,
-                "capabilities": {"modes": ["service", "service_demo", "service_offline", "identify", "identify_demo", "identify_offline", "fingerprint", "fingerprint_demo", "fingerprint_offline", "demo", "lab", "live", "offline"], "protocol": "Chat Completions", "local_only": True}}
+                "capabilities": {"modes": ["showcase", "showcase_demo", "showcase_offline", "service", "service_demo", "service_offline", "identify", "identify_demo", "identify_offline", "fingerprint", "fingerprint_demo", "fingerprint_offline", "demo", "lab", "live", "offline"], "protocol": "Chat Completions", "local_only": True}}
 
     @app.get("/api/runs")
     def runs():
@@ -623,9 +744,11 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
 
     @app.post("/api/plan")
     def plan(payload: dict):
-        from .workflows import plan_pair
-
         try:
+            if payload.get("mode") == "showcase":
+                from .showcase import plan_showcase
+                cleaned = validate_job(payload)
+                return plan_showcase(cleaned["showcase_config"])
             if payload.get("mode") == "service":
                 from .service_quality import plan_service_quality
                 cleaned = validate_job(payload)
@@ -638,6 +761,8 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
                 from .fingerprint import plan_fingerprint
                 cleaned = validate_job(payload, library_dir=library_path)
                 return plan_fingerprint({key: cleaned[key] for key in ("reference_pack", "candidate", "timeout", "profile", "budget") if key in cleaned}, library_dir=library_path)
+            from .workflows import plan_pair
+
             cleaned = validate_job({**payload, "mode": "live"})
             return plan_pair({key: value for key, value in cleaned.items() if key not in {"mode", "study"}})
         except (ValueError, TypeError):
@@ -688,10 +813,11 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
     return app
 
 
-def serve(*, port: int = 8765, runs_dir: Path | str = "runs/ui", library_dir: Path | str | None = None) -> None:
+def serve(*, port: int = 8765, runs_dir: Path | str = "runs/ui", library_dir: Path | str | None = None,
+          embed_origins=None) -> None:
     import uvicorn
 
     if not 1024 <= port <= 65535:
         raise ValueError("端口应在1024到65535之间。")
     print(f"API-MRI 工作台：http://127.0.0.1:{port}（Ctrl+C停止）", flush=True)
-    uvicorn.run(create_app(runs_dir, library_dir=library_dir), host="127.0.0.1", port=port, access_log=False, log_level="warning")
+    uvicorn.run(create_app(runs_dir, library_dir=library_dir, embed_origins=embed_origins), host="127.0.0.1", port=port, access_log=False, log_level="warning")

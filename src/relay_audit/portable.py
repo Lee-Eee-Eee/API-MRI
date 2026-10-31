@@ -19,7 +19,7 @@ import threading
 import time
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPDefaultErrorHandler, HTTPErrorProcessor, HTTPHandler, OpenerDirector, Request
 import webbrowser
 
 from . import __version__
@@ -110,9 +110,22 @@ class InstanceLock:
             self.stream = None
 
 
+def _loopback_opener() -> OpenerDirector:
+    # These probes use HTTP on 127.0.0.1 only. Constructing urllib's default
+    # HTTPSHandler needlessly scans the Windows CA store on every health poll.
+    opener = OpenerDirector()
+    for handler in (HTTPHandler(), HTTPDefaultErrorHandler(), HTTPErrorProcessor(), _NoRedirect()):
+        opener.add_handler(handler)
+    return opener
+
+
 def _request_json(url: str, headers: dict[str, str] | None = None) -> dict:
-    # Proxy environment settings must never send the loopback instance secret away.
-    opener = build_opener(ProxyHandler({}), _NoRedirect())
+    from urllib.parse import urlsplit
+
+    part = urlsplit(url)
+    if part.scheme != "http" or part.hostname != HOST or part.username is not None or part.password is not None:
+        raise ValueError("Instance probes require an HTTP loopback address")
+    opener = _loopback_opener()
     with opener.open(Request(url, headers=headers or {}), timeout=1.0) as response:
         if response.status != 200:
             raise ValueError("unexpected local response")
@@ -125,7 +138,8 @@ def _request_json(url: str, headers: dict[str, str] | None = None) -> dict:
     return result
 
 
-def existing_instance(data_dir: Path, identity: str, *, timeout: float = STARTUP_TIMEOUT) -> str | None:
+def existing_instance(data_dir: Path, identity: str, *, timeout: float = STARTUP_TIMEOUT,
+                      required_origins=()) -> str | None:
     deadline = time.monotonic() + timeout
     while True:
         try:
@@ -142,6 +156,8 @@ def existing_instance(data_dir: Path, identity: str, *, timeout: float = STARTUP
             url = f"http://{HOST}:{port}"
             response = _request_json(url + "/api/portable/instance", {INSTANCE_HEADER: token})
             if response.get("installation_id") == identity and response.get("version") == state.get("version"):
+                if not set(required_origins).issubset(set(response.get("embed_origins", []))):
+                    return None
                 return url
         except (OSError, URLError, HTTPError, ValueError, KeyError, TypeError):
             pass
@@ -172,9 +188,11 @@ def bind_loopback(preferred_port: int) -> socket.socket:
 
 
 class PortableServer:
-    def __init__(self, data_dir: Path, identity: str, *, preferred_port: int = 8765):
+    def __init__(self, data_dir: Path, identity: str, *, preferred_port: int = 8765, embed_origins=()):
         self.data_dir = data_dir
         self.identity = identity
+        from .web import normalize_embed_origins
+        self.embed_origins = normalize_embed_origins(embed_origins)
         self.token = secrets.token_hex(32)
         self.listener = bind_loopback(preferred_port)
         self.port = self.listener.getsockname()[1]
@@ -192,14 +210,15 @@ class PortableServer:
 
         from .web import create_app
 
-        self.app = create_app(self.data_dir / "runs", library_dir=self.data_dir / "reference-library")
+        self.app = create_app(self.data_dir / "runs", library_dir=self.data_dir / "reference-library",
+                              embed_origins=self.embed_origins)
 
         # A static token on disk is checked against the live process. Merely
         # finding an API-MRI-looking page at a familiar port is insufficient.
         async def instance(request: Request):
             if not secrets.compare_digest(request.headers.get(INSTANCE_HEADER, ""), self.token):
                 raise HTTPException(403, "无效实例。")
-            return {"installation_id": self.identity, "version": __version__}
+            return {"installation_id": self.identity, "version": __version__, "embed_origins": list(self.embed_origins)}
 
         # FastAPI evaluates annotations in this module's globals. Request is
         # imported lazily so --help and error dialogs need no web dependencies.
@@ -233,7 +252,7 @@ class PortableServer:
         raise PortableError("启动等待超时。请检查安装包是否完整，关闭后重试。")
 
     def _save_state(self) -> None:
-        state = {"pid": os.getpid(), "port": self.port, "token": self.token,
+        state = {"pid": os.getpid(), "port": self.port, "token": self.token, "embed_origins": list(self.embed_origins),
                  "installation_id": self.identity, "version": __version__}
         temporary = self.data_dir / ".portable-session.tmp"
         temporary.write_text(json.dumps(state), encoding="utf-8")
@@ -242,14 +261,15 @@ class PortableServer:
 
     def smoke_test(self) -> dict:
         bootstrap = _request_json(self.url + "/api/bootstrap")
-        opener = build_opener(ProxyHandler({}), _NoRedirect())
+        opener = _loopback_opener()
         sizes: dict[str, int] = {}
-        for asset in ("/", "/app.js", "/app.css"):
+        for asset in ("/", "/app.js", "/app.css", "/showcase.js"):
             with opener.open(self.url + asset, timeout=5) as response:
                 sizes[asset] = len(response.read())
                 if response.status != 200 or sizes[asset] == 0:
                     raise PortableError("界面资源不完整，请重新解压安装包。")
         result = {"status": "passed", "version": __version__, "port": self.port,
+                  "embed_origins": list(self.embed_origins),
                   "reference_packs": len(bootstrap.get("reference_packs", [])),
                   "identification_models": bootstrap.get("identification_bank", {}).get("model_count", 0),
                   "assets": sizes, "real_model_calls": 0}
@@ -372,6 +392,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="API-MRI 便携工作台")
     parser.add_argument("--data-dir", type=Path, default=None, help="记录与参考库的保存位置；默认程序旁 data 文件夹")
     parser.add_argument("--port", type=int, default=8765, help="首选端口；被占用时自动另选")
+    parser.add_argument("--embed-origin", action="append", default=[], metavar="ORIGIN", help="允许指定DSH回环来源嵌入，可重复指定")
     parser.add_argument("--no-browser", action="store_true", help="不自动打开浏览器")
     parser.add_argument("--headless", action="store_true", help="不显示控制窗口，使用 Ctrl+C 停止")
     parser.add_argument("--smoke-test", action="store_true", help="检查启动和资源后退出；结果写入 data/smoke-test.json")
@@ -388,13 +409,15 @@ def main(argv: list[str] | None = None) -> int:
     server: PortableServer | None = None
     controller: Controller | None = None
     try:
+        from .web import normalize_embed_origins
+        embed_origins = normalize_embed_origins(args.embed_origin)
         data_dir = prepare_data_dir(args.data_dir or default_data_dir())
         identity = installation_id(data_dir)
         lock = InstanceLock(data_dir)
         if not lock.acquire():
-            url = existing_instance(data_dir, identity)
+            url = existing_instance(data_dir, identity, required_origins=embed_origins)
             if url is None:
-                raise PortableError("此 data 文件夹正被另一个实例使用，或上次启动尚未完成。请关闭已有 API-MRI 后重试。")
+                raise PortableError("已有实例正在使用此 data 文件夹，或其嵌入设置不同。请先退出已有 API-MRI，再用相同参数启动。")
             if args.smoke_test:
                 raise PortableError("便携版正在运行。请先退出，再运行启动自检。")
             if not args.no_browser:
@@ -402,7 +425,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if not args.headless and not args.smoke_test:
             controller = Controller()
-        server = PortableServer(data_dir, identity, preferred_port=args.port)
+        server = PortableServer(data_dir, identity, preferred_port=args.port, embed_origins=embed_origins)
         server.start()
         if args.smoke_test:
             print(json.dumps(server.smoke_test(), ensure_ascii=False))

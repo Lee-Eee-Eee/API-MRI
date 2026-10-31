@@ -15,6 +15,7 @@
     />
     <link rel="stylesheet" href="/app.css" />
     <script src="/app.js" defer></script>
+    <script src="/showcase.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">跳到主要内容</a>
@@ -60,6 +61,12 @@
               d="M5 8a8 8 0 0 1 14 0M3 13v-1a9 9 0 0 1 18 0v2M7 19v-7a5 5 0 0 1 10 0v8M11 21v-9a1 1 0 0 1 2 0v9"
             /></svg
           >模型指纹</a
+        >
+        <a href="#showcase" class="nav-link" data-view="showcase"
+          ><svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 4h16v16H4zM4 16l5-5 4 4 3-3 4 4" />
+            <circle cx="15" cy="8" r="1.5" /></svg
+          >示例馆</a
         >
       </nav>
       <nav class="nav-secondary" aria-label="记录与研究">
@@ -414,6 +421,85 @@
           <div id="report-container" hidden></div>
         </section>
       </div>
+      <section id="showcase-view" class="showcase" hidden aria-label="经典题与公开作品">
+        <div id="showcase-load-error" class="notice error" role="alert" hidden>
+          <span id="showcase-load-error-text"></span>
+          <button id="showcase-reload" class="text-button" type="button">重新读取</button>
+        </div>
+        <div class="showcase-toolbar">
+          <div class="field">
+            <label for="showcase-task">题目</label>
+            <select id="showcase-task" disabled><option>正在读取题目…</option></select>
+          </div>
+          <p id="showcase-task-description">正在读取公开作品。</p>
+          <button id="showcase-to-trial" class="button secondary" type="button" disabled>用我的 API 试作 <span aria-hidden="true">↗</span></button>
+        </div>
+        <div class="showcase-gallery" aria-label="作品并排查看">
+          <article id="showcase-work-left" class="showcase-work">
+            <label class="sr-only" for="showcase-left">左侧作品</label>
+            <select id="showcase-left" class="showcase-model" disabled><option>正在读取作品…</option></select>
+            <div id="showcase-stage-left" class="showcase-stage" aria-live="polite"><p>正在读取作品。</p></div>
+            <div id="showcase-caption-left" class="showcase-caption"></div>
+          </article>
+          <article id="showcase-work-right" class="showcase-work">
+            <label class="sr-only" for="showcase-right">右侧作品</label>
+            <select id="showcase-right" class="showcase-model" disabled><option>正在读取作品…</option></select>
+            <div id="showcase-stage-right" class="showcase-stage" aria-live="polite"><p>正在读取作品。</p></div>
+            <div id="showcase-caption-right" class="showcase-caption"></div>
+          </article>
+        </div>
+        <details class="showcase-task-notes">
+          <summary>提示与观察细节</summary>
+          <div class="showcase-prompt-row"><pre id="showcase-prompt"></pre><button id="showcase-copy-prompt" class="text-button" type="button">复制提示</button></div>
+          <ul id="showcase-inspect"></ul>
+          <p id="showcase-adaptation" class="field-help" hidden></p>
+          <div id="showcase-task-sources" class="showcase-source-links"></div>
+        </details>
+        <section id="showcase-trial" class="showcase-trial" aria-labelledby="showcase-trial-heading">
+          <div class="showcase-trial-title">
+            <h2 id="showcase-trial-heading">单次试作</h2>
+            <p>同一提示，发送一次请求。</p>
+          </div>
+          <div class="showcase-trial-body">
+            <form id="showcase-form">
+              <div class="showcase-form-grid">
+                <div class="field"><label for="showcase-api-base">API 地址</label><input id="showcase-api-base" type="url" placeholder="https://…/v1" autocomplete="off" spellcheck="false" required /></div>
+                <div class="field"><label for="showcase-api-model">接口模型名</label><input id="showcase-api-model" type="text" maxlength="200" placeholder="该接口接受的模型名" autocomplete="off" spellcheck="false" required /></div>
+                <div class="field"><label for="showcase-max-tokens">输出上限</label><select id="showcase-max-tokens"><option value="1024">1,024 tokens</option><option value="2048" selected>2,048 tokens</option><option value="4096">4,096 tokens</option></select></div>
+              </div>
+              <div class="showcase-form-actions">
+                <details class="showcase-advanced"><summary>请求设置</summary><div class="field-row">
+                  <div class="field"><label for="showcase-token-parameter">输出限制字段</label><select id="showcase-token-parameter"><option value="max_tokens">max_tokens</option><option value="max_completion_tokens">max_completion_tokens</option></select></div>
+                  <div class="field"><label for="showcase-timeout">超时 / 秒</label><input id="showcase-timeout" type="number" min="1" max="300" value="120" required /></div>
+                </div></details>
+                <button id="showcase-plan-button" class="button primary" type="submit" disabled>核对试作计划</button>
+              </div>
+            </form>
+            <p id="showcase-form-error" class="notice error" role="alert" hidden></p>
+            <div id="showcase-plan" class="showcase-plan" hidden>
+              <div class="showcase-plan-heading"><h3 id="showcase-plan-title">核对这一次请求</h3><button id="showcase-change-plan" class="text-button" type="button">修改</button></div>
+              <p id="showcase-plan-summary"></p>
+              <p id="showcase-plan-endpoint" class="showcase-endpoint"></p>
+              <p id="showcase-plan-note" class="field-help"></p>
+              <div class="showcase-confirm-row">
+                <div class="field"><label for="showcase-api-key">API Key</label><input id="showcase-api-key" type="password" minlength="8" maxlength="4096" autocomplete="new-password" spellcheck="false" aria-describedby="showcase-key-note" /><small id="showcase-key-note">提交后清空。</small></div>
+                <button id="showcase-start" class="button primary" type="button" disabled>发送 1 次请求</button>
+              </div>
+            </div>
+            <div id="showcase-progress" class="showcase-progress" role="status" hidden>
+              <div><h3 id="showcase-progress-title" tabindex="-1">正在试作</h3><p id="showcase-progress-message"></p></div>
+              <button id="showcase-cancel" class="button secondary" type="button">停止</button>
+            </div>
+          </div>
+        </section>
+        <section id="showcase-result" class="showcase-result" aria-labelledby="showcase-result-title" hidden>
+          <div class="showcase-result-heading"><div><h2 id="showcase-result-title">试作记录</h2><p id="showcase-result-status"></p></div><div id="showcase-exports" class="showcase-exports" aria-label="导出试作记录"></div></div>
+          <dl id="showcase-result-metrics" class="showcase-result-metrics"></dl>
+          <p id="showcase-result-note" class="field-help"></p>
+          <details><summary>返回内容与原始记录</summary><pre id="showcase-result-output"></pre><pre id="showcase-result-record"></pre></details>
+        </section>
+        <details class="showcase-collection-notes"><summary>收录与来源</summary><p id="showcase-collection-summary"></p><p>模型名称沿用原作者标签。作品保留提示、参数和日期；模型身份预测在“模型指纹”中完成。</p><a href="https://github.com/Lee-Eee-Eee/API-MRI/blob/main/docs/classic-examples.md" target="_blank" rel="noopener noreferrer">来源集合与收录方法 <span aria-hidden="true">↗</span></a></details>
+      </section>
       <section id="history-view" hidden aria-labelledby="history-heading">
         <div class="list-toolbar">
           <h2 id="history-heading">已保存的运行</h2>
@@ -593,6 +679,7 @@
           <label for="import-kind">记录类型</label
           ><select id="import-kind">
             <option value="service_offline">连接、速度与工具调用</option>
+            <option value="showcase_offline">经典题试作记录</option>
             <option value="identify_offline">模型候选识别</option>
             <option value="fingerprint_offline">指定型号对照</option>
             <option value="offline">双端点任务比较</option>

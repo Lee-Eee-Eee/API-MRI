@@ -285,6 +285,10 @@ def main(argv: list[str] | None = None) -> int:
             path.unlink()
     for name in ("LICENSE", "THIRD_PARTY.md"):
         shutil.copy2(ROOT / name, bundle / name)
+    notices_text = (bundle / "THIRD_PARTY.md").read_text(encoding="utf-8")
+    for prefix in ("src/", "dsh-plugin/"):
+        notices_text = notices_text.replace(f"]({prefix}", f"]({REPOSITORY}/blob/v{version}/{prefix}")
+    (bundle / "THIRD_PARTY.md").write_text(notices_text, encoding="utf-8")
     (bundle / "README.md").write_text(
         f"# API-MRI {version}\n\n"
         "双击 **API-MRI.exe** 打开工作台。关闭启动窗口即可退出。\n\n"
@@ -312,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
                     text = target.read_text(encoding="utf-8")
                     # Developer source links open at the release tag; the
                     # executable bundle keeps its runtime under _internal.
-                    for prefix in ("src/", "scripts/"):
+                    for prefix in ("src/", "scripts/", "dsh-plugin/"):
                         text = text.replace("](" + "../" + prefix,
                                             f"]({REPOSITORY}/blob/v{version}/{prefix}")
                     text = text.replace("](../README.md", f"]({REPOSITORY}/blob/v{version}/README.md")

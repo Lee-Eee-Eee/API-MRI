@@ -2,7 +2,7 @@
 
 Run from any Python with only its standard library available::
 
-    python scripts/check_portable.py --bundle "API-MRI-0.7.0-windows-x64" --out "new check directory"
+    python scripts/check_portable.py --bundle "API-MRI-0.8.0-windows-x64" --out "new check directory"
 
 All model-facing commands use synthetic fixtures or replay saved records. The
 GUI executable is started with its built-in smoke flag and must actually exit.
@@ -206,6 +206,88 @@ class Checker:
         require(comparable(report_files(source)) == comparable(report_files(directory)), "Service replay changed the report")
         return {"report_equal": True}
 
+    def showcase(self) -> dict:
+        root = (self.bundle / "_internal" / "relay_audit" / "data" / "showcase").resolve()
+        catalog_path = root / "catalog.json"
+        catalog = load_json(catalog_path)
+        require(catalog.get("schema") == "api-mri-showcase-catalog/1", "Invalid showcase catalog schema")
+        tasks, examples = catalog.get("tasks"), catalog.get("examples")
+        require(isinstance(tasks, list) and len(tasks) >= 6 and all(isinstance(row, dict) for row in tasks),
+                "Showcase task catalog is incomplete")
+        task_ids = [row.get("id") for row in tasks]
+        require(all(isinstance(value, str) and value for value in task_ids)
+                and len(set(task_ids)) == len(task_ids) and "pelican-svg" in task_ids,
+                "Showcase task identifiers are invalid")
+        require(isinstance(examples, list) and all(isinstance(row, dict) for row in examples),
+                "Invalid showcase examples")
+        example_ids = [row.get("id") for row in examples]
+        require(all(isinstance(value, str) and value for value in example_ids)
+                and len(set(example_ids)) == len(example_ids), "Showcase example identifiers are invalid")
+
+        def local_file(value: Any, label: str) -> Path:
+            require(isinstance(value, str) and value and not Path(value).is_absolute(), f"Invalid showcase {label} path")
+            path = (root / value).resolve()
+            require(path.is_relative_to(root) and path.is_file(), f"Missing or unsafe showcase {label}: {value}")
+            return path
+
+        bundled = {}
+        asset_bytes = 0
+        for row in examples:
+            require(row.get("task_id") in task_ids, "Showcase example refers to an unknown task")
+            if not row.get("asset"):
+                continue
+            path = local_file(row["asset"], "asset")
+            expected = row.get("sha256")
+            require(isinstance(expected, str) and re.fullmatch(r"[0-9a-f]{64}", expected),
+                    f"Missing showcase asset SHA-256: {row['id']}")
+            require(digest(path) == expected, f"Showcase asset SHA-256 mismatch: {row['id']}")
+            license_info = row.get("license")
+            require(isinstance(license_info, dict) and isinstance(license_info.get("spdx"), str)
+                    and license_info["spdx"], f"Missing showcase asset license: {row['id']}")
+            local_file(license_info.get("file"), "license")
+            bundled[row["id"]] = row
+            asset_bytes += path.stat().st_size
+        require(len(bundled) >= 24, "Showcase bundle has fewer than 24 local examples")
+
+        source, replay = self.out / "showcase demo", self.out / "showcase replay"
+        self.cli_command("showcase-demo", "--task", "pelican-svg", "--out", str(source))
+        records = source / "showcase_records.jsonl"
+        require(records.is_file() and records.stat().st_size > 0, "No showcase demo evidence")
+        self.cli_command("showcase-replay", "--records", str(records), "--out", str(replay))
+        report = report_files(source)
+        replayed = report_files(replay)
+        require(report == replayed, "Showcase replay changed the report")
+        require(records.read_bytes() == (replay / records.name).read_bytes(), "Showcase replay changed raw evidence")
+        require(load_json(source / "sampling_plan.json") == load_json(replay / "sampling_plan.json"),
+                "Showcase replay changed the sampling plan")
+        require(report.get("schema") == "api-mri-showcase/1" and report.get("kind") == "showcase"
+                and report.get("origin") == "public_source_demo" and report.get("public_source_demo") is True
+                and report.get("synthetic") is False and report.get("status") == "completed",
+                "Showcase demo did not preserve its published-example origin")
+        require(report.get("task", {}).get("id") == "pelican-svg", "Showcase demo used the wrong task")
+        cost = report.get("cost", {})
+        require(all(type(cost.get(key)) is int and cost[key] == 0 for key in
+                    ("request_count", "real_requests", "requested_output_tokens", "maximum_requests",
+                     "maximum_requested_output_tokens")), "Showcase demo or replay reported model calls")
+        rows = [json.loads(line) for line in records.read_text(encoding="utf-8").splitlines() if line.strip()]
+        require([row.get("type") for row in rows] == ["manifest", "public_example", "finish"]
+                and rows[0].get("origin") == "public_source_demo" and rows[-1].get("reason") == "completed",
+                "Showcase evidence contains a model request or an incomplete public example")
+        published = report.get("published_example", {})
+        require(published.get("id") in bundled and published == bundled[published["id"]],
+                "Showcase demo did not use a packaged catalog example")
+        artifact = report.get("artifact", {})
+        require(artifact.get("format") == "svg" and artifact.get("format_valid") is True
+                and artifact.get("complete") is True and artifact.get("executed") is False
+                and artifact.get("sha256") == published["sha256"], "Showcase demo artifact is invalid")
+        require(isinstance(artifact.get("source"), str)
+                and hashlib.sha256(artifact["source"].encode("utf-8")).hexdigest() == published["sha256"],
+                "Showcase demo output differs from its published asset")
+        return {"tasks": len(tasks), "examples": len(examples), "bundled_examples": len(bundled),
+                "external_examples": len(examples) - len(bundled), "asset_bytes": asset_bytes,
+                "catalog_sha256": digest(catalog_path), "selected_example": published["id"],
+                "report_equal": True, "evidence_equal": True, "real_model_calls": 0}
+
     def identify_demo(self) -> dict:
         directory = self.out / "identify demo"
         self.cli_command("identify-demo", "--out", str(directory))
@@ -298,7 +380,7 @@ class Checker:
                 "GUI model bank or offline smoke flags invalid")
         require(result.get("reference_packs", 0) >= 1 and all(size > 100 for size in result.get("assets", {}).values()),
                 "GUI resources missing")
-        require(set(result.get("assets", {})) == {"/", "/app.js", "/app.css"}, "GUI asset check incomplete")
+        require(set(result.get("assets", {})) == {"/", "/app.js", "/app.css", "/showcase.js"}, "GUI asset check incomplete")
         require(not (data / ".portable-session.json").exists(), "GUI executable left an active session file")
         port = result.get("port")
         require(type(port) is int and 1024 <= port <= 65535, "Invalid GUI smoke port")
@@ -322,6 +404,7 @@ class Checker:
             self.check("references", self.references)
             self.check("service_demo", self.service_demo)
             self.check("service_replay", self.service_replay)
+            self.check("showcase_catalog_demo_and_replay", self.showcase)
             self.check("identify_demo", self.identify_demo)
             self.check("identify_replay", self.identify_replay)
             self.check("fingerprint_screening_and_replay", lambda: self.fingerprint("screening"))

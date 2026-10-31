@@ -1,5 +1,13 @@
 # 验证记录
 
+## 0.8.0：DSH 侧栏与经典题示例馆
+
+2026年10月31日，采集、离线复算、嵌入授权与页面边界专项35项通过（15.42秒），DSH插件11项Node测试通过。构建wheel后逐字节核对94个源码与资源，包含24个原始SVG、catalog和两份MIT许可；压缩CRC通过。
+
+实际浏览器验证并排看图、源码与出处、动画暂停、无Key预检、改配置后计划失效、单次模拟请求、Key清空及存档脱敏、HTML脚本执行与父文档隔离、JSONL下载/导入和历史重开。1280、768、390像素视口无整页横向溢出，控制台无错误。测试共向回环模拟服务发送1次请求，公开作品回放新增0次模型调用。完整记录见[图库UI检查](showcase-ui-qa.json)。
+
+使用独立DSH_HOME安装DSH0.2.1-rc.3、BetterSidebar0.28.2与API-MRI插件，验证配置装配、页签注册、iframe加载和v0.8.0握手。测试未配置DSH模型或Key；检查范围见[宿主记录](../dsh-plugin/tests/host-qa.json)。[示例来源](classic-examples.md)另列原作者标签、运行条件与逐文件哈希。
+
 ## 0.7.0：Windows 便携包
 
 2026年10月31日发布 [Windows x64 ZIP](https://github.com/Lee-Eee-Eee/API-MRI/releases/tag/v0.7.0)。分发包使用固定来源与SHA-256的CPython 3.12.16、CPU Torch 2.8.0，源码提交为 `5226fd4b453d99aa6a86d3f1e91d384fc6e3c0f0`。

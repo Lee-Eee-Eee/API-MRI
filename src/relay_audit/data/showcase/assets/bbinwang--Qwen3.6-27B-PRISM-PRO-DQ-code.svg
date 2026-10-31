@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <!-- Background -->
+  <rect width="400" height="300" fill="#e6f7ff" />
+  
+  <!-- Ground shadow -->
+  <ellipse cx="200" cy="265" rx="140" ry="12" fill="#b0d8e6" opacity="0.6" />
+
+  <!-- Bicycle -->
+  <g id="bicycle">
+    <!-- Wheels -->
+    <circle cx="100" cy="220" r="40" fill="none" stroke="#333" stroke-width="6" />
+    <circle cx="300" cy="220" r="40" fill="none" stroke="#333" stroke-width="6" />
+    <!-- Spokes (simplified) -->
+    <circle cx="100" cy="220" r="35" fill="none" stroke="#666" stroke-width="1" stroke-dasharray="4,4" />
+    <circle cx="300" cy="220" r="35" fill="none" stroke="#666" stroke-width="1" stroke-dasharray="4,4" />
+    
+    <!-- Frame -->
+    <path d="M100 220 L180 220 L130 160 Z" fill="none" stroke="#d32f2f" stroke-width="5" stroke-linejoin="round" />
+    <path d="M180 220 L280 220 L290 140" fill="none" stroke="#d32f2f" stroke-width="5" stroke-linejoin="round" />
+    <path d="M130 160 L290 140" fill="none" stroke="#d32f2f" stroke-width="5" stroke-linejoin="round" />
+    <path d="M130 160 L180 220" fill="none" stroke="#d32f2f" stroke-width="5" stroke-linejoin="round" />
+    
+    <!-- Seat -->
+    <path d="M110 160 Q130 150 150 160" fill="none" stroke="#333" stroke-width="6" stroke-linecap="round" />
+    
+    <!-- Handlebars -->
+    <path d="M280 140 Q290 130 300 140 Q310 150 300 160" fill="none" stroke="#333" stroke-width="5" stroke-linecap="round" />
+    
+    <!-- Pedals & Crank -->
+    <circle cx="180" cy="220" r="10" fill="#555" />
+    <line x1="180" y1="220" x2="160" y2="240" stroke="#333" stroke-width="4" stroke-linecap="round" />
+    <line x1="180" y1="220" x2="200" y2="200" stroke="#333" stroke-width="4" stroke-linecap="round" />
+    <rect x="150" y="235" width="20" height="8" fill="#333" rx="2" />
+    <rect x="190" y="195" width="20" height="8" fill="#333" rx="2" />
+  </g>
+
+  <!-- Pelican -->
+  <g id="pelican">
+    <!-- Legs -->
+    <path d="M170 160 Q160 190 160 235" fill="none" stroke="#ff9800" stroke-width="4" stroke-linecap="round" />
+    <path d="M190 160 Q200 190 200 195" fill="none" stroke="#ff9800" stroke-width="4" stroke-linecap="round" />
+    
+    <!-- Body -->
+    <ellipse cx="180" cy="140" rx="35" ry="25" fill="#ffffff" stroke="#cccccc" stroke-width="2" />
+    
+    <!-- Wing -->
+    <path d="M150 130 Q170 110 200 130 Q180 150 150 130" fill="#e0e0e0" stroke="#cccccc" stroke-width="1" />
+    
+    <!-- Neck -->
+    <path d="M195 130 Q200 110 210 105" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" />
+    
+    <!-- Head -->
+    <circle cx="215" cy="100" r="15" fill="#ffffff" stroke="#cccccc" stroke-width="2" />
+    
+    <!-- Eye -->
+    <circle cx="220" cy="98" r="3" fill="#000" />
+    
+    <!-- Beak -->
+    <path d="M225 95 Q260 95 270 105 Q260 115 225 110 Z" fill="#ff9800" stroke="#e67e00" stroke-width="1" />
+    <!-- Pouch -->
+    <path d="M225 108 Q250 125 270 105 Q250 100 225 108 Z" fill="#ffcc80" stroke="#e67e00" stroke-width="1" />
+  </g>
+</svg>

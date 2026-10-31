@@ -7,3 +7,5 @@
 *.css text eol=lf
 *.js text eol=lf
 *.jpg binary
+# Published model outputs retain the exact upstream bytes and hashes.
+src/relay_audit/data/showcase/assets/*.svg -text -whitespace

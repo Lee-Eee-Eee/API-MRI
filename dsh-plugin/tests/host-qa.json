@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "testedAt": "2026-10-31",
+  "package": "dsh-api-mri",
+  "version": "0.8.0",
+  "environment": {
+    "platform": "Windows",
+    "node": "24.11.1",
+    "pnpm": "12.3.4",
+    "dsh": "0.2.1-rc.3",
+    "betterSidebar": "0.28.2",
+    "runtimeNodeLinker": "isolated",
+    "runtimeAutoInstallPeers": true,
+    "installScriptsEnabled": false,
+    "profileIsolated": true,
+    "profileHome": "tmp/api-mri-dsh-smoke/home",
+    "accountConfigured": false,
+    "modelCalls": 0
+  },
+  "verification": {
+    "nodeTests": { "passed": 11, "failed": 0 },
+    "officialPluginInstall": "pass",
+    "bundleRegistration": "pass",
+    "dumpConfig": { "status": "pass", "exitCode": 0 },
+    "webStartup": "pass",
+    "sidebarTabRegistration": "pass",
+    "iframeLoad": "pass",
+    "readyHandshake": "pass",
+    "displayedBackendVersion": "0.8.0",
+    "browserConsoleWarnings": 0,
+    "browserConsoleErrors": 0,
+    "showcaseWithinSidebar": {
+      "status": "not_exercised",
+      "reason": "CUA cross-origin iframe input target unavailable"
+    },
+    "showcaseStandalone": "pass"
+  },
+  "origins": {
+    "dsh": "http://127.0.0.1:3088",
+    "apiMri": "http://127.0.0.1:8767"
+  },
+  "evidenceRoot": "workspace",
+  "evidence": {
+    "profileManifest": "tmp/api-mri-dsh-smoke/home/profiles/web/package.json",
+    "composedConfiguration": "tmp/api-mri-dsh-smoke/dump-config.yml",
+    "redactedStartupLog": "tmp/api-mri-dsh-smoke/web-redacted.log",
+    "sidebarScreenshot": "detector/docs/images/dsh-sidebar-v08.jpg"
+  },
+  "installationNotes": [
+    "The initial isolated runtime disabled automatic peer installation. CLI startup required the upstream cordis-plugin-group peer; Web startup exposed additional required DSH peers.",
+    "One standard isolated install with autoInstallPeers enabled completed the peer graph. Official plugin add, configuration composition and Web startup then succeeded."
+  ]
+}

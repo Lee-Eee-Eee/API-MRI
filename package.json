@@ -1,0 +1,43 @@
+{
+  "name": "dsh-api-mri",
+  "version": "0.8.0",
+  "description": "API-MRI workspace for DSH Better Sidebar",
+  "type": "module",
+  "main": "dsh-plugin/lib/index.js",
+  "exports": {
+    ".": "./dsh-plugin/lib/index.js",
+    "./client": "./dsh-plugin/lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.1-rc.1 <0.3.0"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": { "patch": "./dsh-plugin/cordis.patch.yml" },
+    "client": { "platform": "web", "inject": ["dsh-better-sidebar"] }
+  },
+  "peerDependencies": {
+    "dsh-better-sidebar": ">=0.28.2 <0.29.0",
+    "react": "^18.2.0"
+  },
+  "scripts": {
+    "build:dsh": "node dsh-plugin/build.mjs",
+    "test:dsh": "node --test dsh-plugin/tests/*.test.mjs"
+  },
+  "files": [
+    "dsh-plugin/lib",
+    "dsh-plugin/src",
+    "dsh-plugin/build.mjs",
+    "dsh-plugin/market-index.mjs",
+    "dsh-plugin/cordis.patch.yml",
+    "dsh-plugin/README.md",
+    "dsh-plugin/NOTICE.md",
+    "dsh-plugin/LICENSE",
+    "dsh-plugin/tests/host-qa.json"
+  ],
+  "repository": { "type": "git", "url": "https://github.com/Lee-Eee-Eee/API-MRI.git" },
+  "homepage": "https://github.com/Lee-Eee-Eee/API-MRI",
+  "license": "MIT"
+}

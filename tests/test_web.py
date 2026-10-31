@@ -41,7 +41,7 @@ def test_local_boundary_and_session_token(tmp_path):
         assert bootstrap.headers["cache-control"] == "no-store"
         html = client.get("/").text
         assets = re.findall(r'(?:src|href)="(/[^"#]+\.(?:js|css))"', html)
-        assert len(assets) == 2
+        assert set(assets) == {"/app.css", "/app.js", "/showcase.js"}
         assert all(client.get(path).status_code == 200 for path in assets)
         assert client.post("/api/runs", json={"mode": "demo"}).status_code == 403
         headers = {"X-Relay-Token": token}

@@ -22,6 +22,8 @@
     updateRunning: false,
     pairPlan: null,
     pairSignature: null,
+    embedOrigins: [],
+    version: "",
   };
   const views = {
     quality: {
@@ -45,6 +47,10 @@
       emptyDescription:
         "固定短探针复用公开参考分布。逐题贡献和删去单个探针后的排序变化，展示候选结论依赖哪些回答。",
     },
+    showcase: {
+      title: "示例馆",
+      description: "同一道题，看代码、画面与调用代价。",
+    },
     history: {
       title: "运行记录",
       description: "重新打开报告，导出记录或离线复算。",
@@ -59,6 +65,9 @@
     },
   };
   const modeNames = {
+    showcase: "经典题试作",
+    showcase_demo: "公开作品回放",
+    showcase_offline: "试作记录复算",
     service: "服务检查",
     service_demo: "服务合成示例",
     service_offline: "服务记录复算",
@@ -241,6 +250,7 @@
       "import-submit",
     ].forEach((id) => ($(id).disabled = locked));
     $("update-library").disabled = locked;
+    window.API_MRI_SHOWCASE?.setLocked(locked);
   }
   function closeMenu() {
     const was = $("navigation").classList.contains("open");
@@ -268,7 +278,7 @@
       $("empty-result").hidden = false;
     }
     $("check-view").hidden = !isCheck;
-    ["history", "library", "research"].forEach(
+    ["history", "library", "research", "showcase"].forEach(
       (v) => ($(v + "-view").hidden = target !== v),
     );
     $("try-demo").hidden = !isCheck;
@@ -297,6 +307,7 @@
     closeMenu();
     if (target === "history") renderHistory();
     if (target === "library") renderLibrary();
+    document.dispatchEvent(new CustomEvent("api-mri:view", { detail: { view: target } }));
     if (focus) $("main").focus();
   }
   function renderMechanism(view) {
@@ -525,6 +536,7 @@
     return submitRun({ mode: "service_demo", checks });
   }
   function viewForRun(run) {
+    if (run.mode.startsWith("showcase")) return "showcase";
     if (run.mode.startsWith("identify") || run.mode.startsWith("fingerprint"))
       return "identity";
     if (run.mode.startsWith("service")) {
@@ -543,9 +555,11 @@
     setBusy(true);
     showError("");
     let accepted = false;
+    let acceptedRun = null;
     try {
       const run = await api("/api/runs", value);
       accepted = true;
+      acceptedRun = run;
       state.running = run.id;
       state.run = run;
       state.runs = [run, ...state.runs.filter((r) => r.id !== run.id)];
@@ -560,11 +574,13 @@
       $("pair-key").value = "";
       invalidatePlan();
       renderProgress(run);
-      $("progress-title").tabIndex = -1;
-      $("progress-title").focus({ preventScroll: true });
+      if (!value.mode.startsWith("showcase")) {
+        $("progress-title").tabIndex = -1;
+        $("progress-title").focus({ preventScroll: true });
+      }
       pollLater(150);
       toast(
-        value.mode.includes("demo") || value.mode === "lab"
+        value.mode === "showcase_demo" ? "正在回放已公开作品，无新模型调用。" : value.mode.includes("demo") || value.mode === "lab"
           ? "正在生成合成示例，无模型调用。"
           : "任务已开始，已完成的记录会保留。",
       );
@@ -575,9 +591,10 @@
       if (value.candidate) delete value.candidate.api_key;
       if (value.reference) delete value.reference.api_key;
       setBusy(false);
-      if (accepted && matchMedia("(max-width:720px)").matches)
+      if (accepted && !value.mode.startsWith("showcase") && matchMedia("(max-width:720px)").matches)
         $("inspection").scrollIntoView({ block: "start", behavior: "smooth" });
     }
+    return acceptedRun;
   }
   function pollLater(delay = 800) {
     clearTimeout(state.poll);
@@ -625,6 +642,10 @@
     }
   }
   function renderProgress(run) {
+    if (run.mode.startsWith("showcase")) {
+      window.API_MRI_SHOWCASE?.renderProgress(run);
+      return;
+    }
     const active = ["queued", "running"].includes(run.status),
       p = run.progress || {};
     $("progress-area").hidden = !active;
@@ -1471,6 +1492,10 @@
   }
   function renderReports(run) {
     state.run = run;
+    if (run.mode.startsWith("showcase")) {
+      window.API_MRI_SHOWCASE?.renderRun(run);
+      return;
+    }
     const isResearch = ["lab", "live", "offline", "demo"].includes(run.mode),
       target = isResearch ? $("research-result") : $("report-container");
     target.replaceChildren();
@@ -1530,7 +1555,7 @@
         pollLater(100);
         updateButtons();
       }
-      if (matchMedia("(max-width:720px)").matches)
+      if (view !== "showcase" && matchMedia("(max-width:720px)").matches)
         $(
           view === "research" ? "research-result" : "inspection",
         ).scrollIntoView({ block: "start", behavior: "smooth" });
@@ -1580,7 +1605,7 @@
             modeNames[run.mode] ||
             run.mode,
         ),
-        el("p", "", modeNames[run.mode] || run.mode),
+        el("p", "", report.task?.title || modeNames[run.mode] || run.mode),
       );
       const status = el("div", "history-status");
       status.append(
@@ -1592,6 +1617,8 @@
       );
       if (report.synthetic)
         status.append(el("small", "", "合成数据 · 无模型调用"));
+      if (report.public_source_demo)
+        status.append(el("small", "", "公开作品回放 · 无新模型调用"));
       row.append(
         name,
         status,
@@ -1793,7 +1820,9 @@
   }
   function openImport(run = null, entry = null) {
     const mode = run?.mode || "";
-    $("import-kind").value = mode.startsWith("identify")
+    $("import-kind").value = mode.startsWith("showcase")
+      ? "showcase_offline"
+      : mode.startsWith("identify")
       ? "identify_offline"
       : mode.startsWith("fingerprint")
         ? "fingerprint_offline"
@@ -1952,6 +1981,8 @@
       const boot = await api("/api/bootstrap");
       state.token = boot.session_token;
       state.ready = true;
+      state.version = boot.version;
+      state.embedOrigins = boot.embedding?.origins || [];
       state.bank = boot.identification_bank || { models: [] };
       state.packs = boot.reference_packs || [];
       state.probes = boot.probes || [];
@@ -1965,6 +1996,8 @@
       renderPacks();
       renderLibrary();
       initResearch();
+      document.dispatchEvent(new CustomEvent("api-mri:workbench-ready"));
+      if (pendingEmbedHello) acknowledgeEmbed(pendingEmbedHello);
       await loadHistory();
       const update = await api("/api/reference-library/update");
       if (["queued", "running"].includes(update.status)) {
@@ -2089,6 +2122,26 @@
       closeMenu();
       $("menu-button").focus();
     }
+  });
+  let pendingEmbedHello = null;
+  function acknowledgeEmbed(event) {
+    if (!state.ready) { pendingEmbedHello = event; return; }
+    pendingEmbedHello = null;
+    if (!state.embedOrigins.includes(event.origin)) return;
+    event.source.postMessage({ type: "api-mri:ready", nonce: event.data.nonce, version: state.version }, event.origin);
+  }
+  window.addEventListener("message", (event) => {
+    if (window.parent === window || event.source !== window.parent || event.data?.type !== "api-mri:hello") return;
+    if (typeof event.data.nonce !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(event.data.nonce)) return;
+    acknowledgeEmbed(event);
+  });
+  window.apiMRI = Object.freeze({
+    request: api,
+    submit: submitRun,
+    toast,
+    ready: () => state.ready,
+    locked: () => !state.ready || state.busy || Boolean(state.running) || state.updateRunning,
+    connection: () => ({ api_base: $("api-base").value, model: $("api-model").value }),
   });
   window.addEventListener("hashchange", () => route(true));
   window.addEventListener("resize", () => {
