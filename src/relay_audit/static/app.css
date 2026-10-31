@@ -2340,6 +2340,13 @@ circle.illustration-sage {
   margin-bottom: 20px;
 }
 .showcase-toolbar .field { margin: 0; }
+.showcase-filters { margin-bottom: 18px; grid-template-columns: 160px minmax(180px, 1fr) auto; }
+.showcase-filters > label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.showcase-filters input[type="checkbox"] { width: auto; }
+@media (max-width: 720px) {
+  .showcase-filters { grid-template-columns: 1fr 1fr; }
+  .showcase-filters > label { grid-column: 1 / -1; }
+}
 .showcase-toolbar .field label { font-size: 12px; }
 .showcase-toolbar p { color: var(--muted); font-size: 13px; max-width: 34em; }
 .showcase-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
@@ -2475,3 +2482,5 @@ circle.illustration-sage {
 @media (prefers-reduced-motion: reduce) {
   .showcase button { transition: none; }
 }
+
+@media (max-width: 720px) { .showcase .showcase-filters { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }

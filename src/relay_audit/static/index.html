@@ -426,6 +426,12 @@
           <span id="showcase-load-error-text"></span>
           <button id="showcase-reload" class="text-button" type="button">重新读取</button>
         </div>
+        <p id="showcase-visible-summary" class="muted" aria-live="polite"></p>
+        <div class="showcase-toolbar showcase-filters">
+          <div class="field"><label for="showcase-category">题型</label><select id="showcase-category"><option value="">全部题型</option><option>空间关系</option><option>结构与语义</option><option>动画与机构</option><option>科学可视化</option><option>交互与模拟</option></select></div>
+          <div class="field"><label for="showcase-model-search">查找模型</label><input id="showcase-model-search" type="search" placeholder="如 Claude、DeepSeek、Qwen" /></div>
+          <label><input id="showcase-bundled-only" type="checkbox" /> 只看可直接预览的作品</label>
+        </div>
         <div class="showcase-toolbar">
           <div class="field">
             <label for="showcase-task">题目</label>

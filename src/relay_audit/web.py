@@ -25,10 +25,11 @@ STATIC = Path(__file__).parent / "static"
 MAX_BODY_BYTES = 6 * 1024 * 1024
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024
 LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+DSH_DESKTOP_ORIGIN = "dsh-app://app"
 
 
 def normalize_embed_origins(origins=None) -> tuple[str, ...]:
-    """Explicit local frame ancestors; never enables cross-origin API access."""
+    """Explicit loopback or DSH desktop ancestors; API origins stay separate."""
     if origins is None:
         return ()
     if not isinstance(origins, (list, tuple)) or len(origins) > 8:
@@ -39,17 +40,24 @@ def normalize_embed_origins(origins=None) -> tuple[str, ...]:
             if not isinstance(value, str) or any(c.isspace() for c in value):
                 raise ValueError
             part = urlsplit(value)
-            if (part.scheme not in {"http", "https"} or part.hostname not in LOOPBACK_HOSTS
-                    or part.username is not None or part.password is not None
-                    or part.path not in {"", "/"} or part.query or part.fragment
-                    or part.port == 0):
+            if part.path not in {"", "/"} or part.query or part.fragment:
                 raise ValueError
-            host = "[::1]" if part.hostname == "::1" else part.hostname
-            port = part.port
-            suffix = f":{port}" if port is not None and (part.scheme, port) not in {("http", 80), ("https", 443)} else ""
-            origin = f"{part.scheme}://{host}{suffix}"
+            if part.scheme == "dsh-app":
+                # Electron registers this single standard, secure app origin.
+                # Matching the complete authority also rejects ports/userinfo.
+                if part.netloc != "app" or "?" in value or "#" in value:
+                    raise ValueError
+                origin = DSH_DESKTOP_ORIGIN
+            else:
+                if (part.scheme not in {"http", "https"} or part.hostname not in LOOPBACK_HOSTS
+                        or part.username is not None or part.password is not None or part.port == 0):
+                    raise ValueError
+                host = "[::1]" if part.hostname == "::1" else part.hostname
+                port = part.port
+                suffix = f":{port}" if port is not None and (part.scheme, port) not in {("http", 80), ("https", 443)} else ""
+                origin = f"{part.scheme}://{host}{suffix}"
         except (ValueError, TypeError):
-            raise ValueError("嵌入地址须为DSH的完整回环来源，例如http://localhost:8080；不含路径、凭据或通配符。") from None
+            raise ValueError("嵌入地址须为DSH的完整回环来源（如http://localhost:8080）或桌面来源dsh-app://app；不含路径、凭据或通配符。") from None
         if origin not in normalized:
             normalized.append(origin)
     return tuple(normalized)
@@ -622,7 +630,7 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
         ancestors = " ".join(allowed_frames) if allowed_frames else "'none'"
         if "Content-Security-Policy" not in response.headers:
             response.headers["Content-Security-Policy"] = (
-                "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+                "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://gally.net; "
                 f"connect-src 'self'; frame-src 'self'; frame-ancestors {ancestors}; base-uri 'none'; form-action 'self'")
         return response
 
@@ -663,6 +671,18 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
         except (StopIteration, ValueError, OSError, KeyError):
             raise HTTPException(404, "该作品仅提供原始来源链接，或文件未收录。") from None
 
+    @app.get("/api/showcase/examples/{example_id}/preview")
+    def public_showcase_preview(example_id: str):
+        from .showcase import list_showcase, showcase_asset
+        try:
+            entry = next(e for e in list_showcase()["examples"] if e["id"] == example_id)
+            if entry["format"] != "html":
+                raise ValueError
+            source = showcase_asset(example_id).read_bytes().decode("utf-8")
+        except (StopIteration, ValueError, OSError, KeyError):
+            raise HTTPException(404, "没有可预览的HTML原作。") from None
+        return isolated_showcase_html(source)
+
     @app.get("/api/runs/{identifier}/showcase-preview")
     def showcase_preview(identifier: str):
         try:
@@ -676,6 +696,9 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
                 raise ValueError
         except (KeyError, StopIteration, ValueError, TypeError):
             raise HTTPException(404, "本次运行没有可预览的HTML作品。") from None
+        return isolated_showcase_html(source)
+
+    def isolated_showcase_html(source: str):
         ancestors = "'self'" + (" " + " ".join(allowed_frames) if allowed_frames else "")
         # Both HTTP CSP and the parent iframe enforce an opaque origin. This
         # boundary also applies when the preview URL is opened as a top page.

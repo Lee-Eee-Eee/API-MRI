@@ -1,7 +1,37 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_BACKEND, STORAGE_KEY, parseLocalOrigin, readSavedOrigin, saveOrigin,
-  createNonce, createHandshake, startupCommands } from '../src/core.js';
+  createNonce, createHandshake, startupCommands, DESKTOP_ORIGIN, parseDshOrigin, hostOriginForLocation } from '../src/core.js';
+
+test('DSH host accepts only the fixed desktop origin and existing local Web origins', () => {
+  for (const input of ['dsh-app://app', 'dsh-app://app/']) assert.equal(parseDshOrigin(input), DESKTOP_ORIGIN);
+  assert.equal(parseDshOrigin('http://localhost:3080/'), 'http://localhost:3080');
+  for (const input of ['null', null, 'dsh-app://other', 'dsh-app://app.evil', 'dsh-app://app:3080',
+    'dsh-app://user@app', 'dsh-app://user:pass@app', 'dsh-app://app/path', 'dsh-app://app//',
+    'dsh-app://app?key=value', 'dsh-app://app#x', 'dsh-app://%61pp', 'file://app',
+    'https://remote.example', ' dsh-app://app', 'dsh-app://app\n']) {
+    assert.throws(() => parseDshOrigin(input), { name: 'Error' }, String(input));
+  }
+  // A DSH page origin never becomes a model-backend address or a handshake destination.
+  assert.throws(() => parseLocalOrigin(DESKTOP_ORIGIN));
+  assert.throws(() => saveOrigin(null, DESKTOP_ORIGIN));
+});
+
+test('desktop location fallback never accepts a generic null or opaque page', () => {
+  const desktop = { origin: 'null', protocol: 'dsh-app:', hostname: 'app', host: 'app', port: '', href: 'dsh-app://app/' };
+  assert.equal(hostOriginForLocation({ origin: DESKTOP_ORIGIN }), DESKTOP_ORIGIN);
+  assert.equal(hostOriginForLocation(desktop), DESKTOP_ORIGIN);
+  assert.equal(hostOriginForLocation({ origin: 'http://127.0.0.1:3080' }), 'http://127.0.0.1:3080');
+  for (const input of [null, {}, { origin: 'null' }, { ...desktop, origin: 'https://evil.example' },
+    { ...desktop, protocol: 'file:' }, { ...desktop, hostname: 'other' }, { ...desktop, host: 'app:3080' },
+    { ...desktop, port: '3080' }, { ...desktop, href: 'dsh-app://user@app/' },
+    { ...desktop, href: 'dsh-app://app/path' }, { ...desktop, href: 'dsh-app://app?query' },
+    { ...desktop, href: 'file:///app' }]) assert.throws(() => hostOriginForLocation(input), { name: 'Error' });
+  assert.deepEqual(startupCommands(DESKTOP_ORIGIN), {
+    windows: '.\\API-MRI.exe --embed-origin dsh-app://app --no-browser',
+    source: 'python -m relay_audit.cli ui --embed-origin dsh-app://app'
+  });
+});
 
 test('backend address accepts exact loopback origins with valid ports', () => {
   for (const [input, expected] of [

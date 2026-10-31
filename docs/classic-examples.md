@@ -1,5 +1,25 @@
 # 经典题与公开作品
 
+## 当前收录（2026-11-01）
+
+62道题、705条作品记录；82份离线作品、273份按需加载的原站SVG，其余350条提供完整原作链接。共157个来源模型标签，保留版本、档位和作者别名，不能把这个数字当作157个独立模型。
+
+| 方向 | 新增内容 | 来源与方式 |
+| --- | --- | --- |
+| 空间关系 | 章鱼弹管风琴、长颈鹿装落地钟、海马看显微镜等30道题 | [Tom Gally](https://gally.net/temp/20251107pelican-alternatives/index.html)，273幅在线原图；用户点击才向原站请求，不发送Key或提示正文 |
+| 动画与机构 | 中文鹈鹕动画，199次运行 | [Vastxie](https://github.com/vastxie/pelican-gallery-data/tree/641d786c2f9d5725e25a5417c9785f05fa88bc01)，53个作者展示模型，保存档位、工具、耗时及已知费用 |
+| 结构与语义 | 青蛙下颌，跨期模型输出 | [FROGS / Jay Mollica](https://github.com/jaymollica/frogs/tree/0b074c7946902ed4fd52d44d5cff174acc961634)，CC BY 4.0；每个模型取canonical题最新一次记录，含失败链接，不按分数挑选 |
+| 科学可视化 | 黑洞吸积盘、脉冲星、木星、行星环 | [jdmnk/design-benchmark](https://github.com/jdmnk/design-benchmark/tree/42109688e5f333143c116d6ef0161e4cabc662cd)，README声明MIT；20份自包含CSS原作在沙箱播放，依赖WebGL/外部库的作品保留原站链接 |
+| 交互与模拟 | Flappy Bird、贪吃蛇、平台跳跃、重力布料、DNA、赛车漂移、纸飞机等18题 | [HTML AI Battle](https://github.com/diegocp01/html_ai_battle/tree/2cca2683469911e10a4bf2c9b4a9cab4589767cc)，79份原作链接，保留原始单轮提示，不转载未授许可的HTML |
+
+题型、模型名称、离线作品可组合筛选；左右默认选择不同的作品。HTML原作与试作共用opaque-origin沙箱，禁网络、弹窗和父页面访问。科学任务的原始系统指令也在提示面板显示，并随试作发送。原作耗时和费用属于作者运行条件，不与一次短试作直接混算。
+
+扩充脚本：`scripts/expand_showcase.py`，依赖requests、beautifulsoup4；仅拉取固定仓库版本与公开题集，不执行远程代码、不调用模型。数据统计及固定提交保存在`data/showcase/expansion-20261101.json`。
+
+Rapidata与Yupp提供更广的候选数据；本轮核读发现它们把模型输出另列为适用提供方条款，不能仅凭数据集CC BY标签把所有图片当作可打包素材。它们目前作为后续选题与复核来源。
+
+## 首批收录记录（2026-10-31）
+
 打开示例馆就能看 24 幅公开 SVG，无需填写密钥。选一道题后，可以把同一提示发给正在使用的 API，保存它返回的代码、用量与耗时，再并排看两幅作品。浏览与试作分开：只有确认试作才会发出一次请求。
 
 首批收录 6 道题、37 条作品记录。24 个 SVG 来自明确采用 MIT 许可的仓库，原文件合计 94,757 字节；另 13 条保留原作链接，包含近期模型和一次没有返回图形的运行。来源检查日期为 2026-10-31。

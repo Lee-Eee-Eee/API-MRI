@@ -15,6 +15,7 @@ from relay_audit.web import create_app, normalize_embed_origins
 
 BASE = "http://127.0.0.1:8765"
 DSH = "http://localhost:8080"
+DESKTOP_DSH = "dsh-app://app"
 KEY = "fixture-showcase-key-0123456789"
 
 
@@ -56,9 +57,9 @@ def test_catalog_and_only_authorized_asset_source_are_available(tmp_path):
         response = client.get("/api/showcase")
         assert response.status_code == 200
         catalog = response.json()
-        assert len(catalog["tasks"]) == 6 and len(catalog["examples"]) == 37
+        assert len(catalog["tasks"]) >= 60 and len(catalog["examples"]) >= 700
         assets = [entry for entry in catalog["examples"] if entry.get("asset")]
-        assert len(assets) == 24
+        assert len(assets) >= 80
         example = client.get("/api/showcase/examples/" + assets[0]["id"])
         assert example.status_code == 200 and example.headers["content-type"].startswith("application/json")
         assert example.json()["example"] == assets[0]
@@ -86,6 +87,28 @@ def test_plan_needs_no_key_and_never_starts_collection(tmp_path, monkeypatch):
         assert not list(tmp_path.glob("*/job.json"))
         invalid = client.post("/api/plan", json={**payload, "task_id": "missing"}, headers=auth)
         assert invalid.status_code == 422
+
+
+def test_published_html_uses_the_same_opaque_sandbox_as_trials(tmp_path):
+    entry = next(e for e in showcase.list_showcase()["examples"] if e.get("asset") and e["format"] == "html")
+    with TestClient(create_app(tmp_path), base_url=BASE) as client:
+        response = client.get(f"/api/showcase/examples/{entry['id']}/preview")
+        assert response.status_code == 200
+        assert response.content == showcase.showcase_asset(entry["id"]).read_bytes()
+        policy = directives(response)
+        assert policy["sandbox"] == ["allow-scripts"]
+        assert policy["connect-src"] == ["'none'"]
+        assert policy["frame-src"] == ["'none'"]
+        assert "clipboard-write=()" in response.headers["permissions-policy"]
+        assert client.get("/api/showcase/examples/nonexistent/preview").status_code == 404
+
+
+def test_archived_system_prompt_is_kept_in_the_trial_request():
+    task = next(t for t in showcase.list_showcase()["tasks"] if t.get("system_prompt"))
+    plan = showcase.plan_showcase({"task_id": task["id"], "candidate": {"api_base": "https://fixture.example/v1", "model": "fixture"}})
+    body = showcase._body(plan, task)
+    assert body["messages"] == [{"role": "system", "content": task["system_prompt"]}, {"role": "user", "content": task["prompt"]}]
+    assert plan["maximum_requests"] == 1
 
 
 def test_public_demo_download_history_records_and_offline_replay(tmp_path):
@@ -176,21 +199,22 @@ def test_cancellation_during_the_request_remains_cancelled_not_failed(tmp_path, 
         assert report["cost"]["request_count"] == 1
 
 
-def test_embedding_changes_only_frame_ancestors_not_api_origins_or_script_policy(tmp_path):
+@pytest.mark.parametrize("origin", [DSH, DESKTOP_DSH])
+def test_embedding_changes_only_frame_ancestors_not_api_origins_or_script_policy(tmp_path, origin):
     with TestClient(create_app(tmp_path / "default"), base_url=BASE) as client:
         policy = directives(client.get("/"))
         assert policy["frame-ancestors"] == ["'none'"]
         assert policy["script-src"] == ["'self'"]
-    with TestClient(create_app(tmp_path / "embedded", embed_origins=[DSH]), base_url=BASE) as client:
+    with TestClient(create_app(tmp_path / "embedded", embed_origins=[origin]), base_url=BASE) as client:
         auth = headers(client)
         root = client.get("/")
         policy = directives(root)
-        assert policy["frame-ancestors"] == [DSH]
+        assert policy["frame-ancestors"] == [origin]
         assert policy["script-src"] == ["'self'"] and "unsafe-inline" not in root.headers["content-security-policy"]
-        assert client.get("/api/bootstrap").json()["embedding"]["origins"] == [DSH]
+        assert client.get("/api/bootstrap").json()["embedding"]["origins"] == [origin]
         payload = {"mode": "showcase_demo", "task_id": "pelican-svg"}
-        assert client.post("/api/runs", json=payload, headers={**auth, "Origin": DSH}).status_code == 403
-        assert client.get("/api/bootstrap", headers={"Origin": DSH}).status_code == 403
+        assert client.post("/api/runs", json=payload, headers={**auth, "Origin": origin}).status_code == 403
+        assert client.get("/api/bootstrap", headers={"Origin": origin}).status_code == 403
         assert client.post("/api/runs", json=payload).status_code == 403
         assert client.post("/api/runs", json=payload, headers={"X-Relay-Token": "invalid"}).status_code == 403
         assert client.post("/api/plan", json={"mode": "showcase", "task_id": "pelican-svg", "candidate": {
@@ -204,10 +228,18 @@ def test_origin_normalization_preserves_only_exact_loopback_origins():
         "http://localhost", "https://localhost", "http://[::1]:8080", "http://127.0.0.1:8000")
 
 
+def test_desktop_embed_origin_is_fixed_and_can_mix_with_loopback_origins():
+    assert normalize_embed_origins([DESKTOP_DSH + "/", DSH, DESKTOP_DSH]) == (DESKTOP_DSH, DSH)
+
+
 @pytest.mark.parametrize("origin", ["*", "null", "https://example.com", "http://localhost.example.com:8080",
     "http://127.0.0.2:8080", "file:///app", "http://user:password@localhost:8080", "http://localhost:8080/ui",
     "http://localhost:8080?key=secret", "http://localhost:8080/#section", "http://localhost:0",
-    "http://localhost:65536", "http://localhost:8080;script-src", "http://localhost:8080\n", "http://*:8080"])
+    "http://localhost:65536", "http://localhost:8080;script-src", "http://localhost:8080\n", "http://*:8080",
+    "dsh-app://other", "dsh-app://localhost", "dsh-app://app:80", "dsh-app://app:",
+    "dsh-app://user@app", "dsh-app://app/ui", "dsh-app://app?key=secret", "dsh-app://app/#section",
+    "dsh-app://app?", "dsh-app://app#",
+    "dsh-app://*.app", "dsh-app://%61pp", "dsh-app:app", "dsh-app:///app"])
 def test_invalid_embed_origin_fails_before_server_start(tmp_path, origin):
     with pytest.raises(ValueError):
         create_app(tmp_path, embed_origins=[origin])
@@ -229,7 +261,7 @@ def save_html_job(app, identifier="a" * 24, *, name="showcase", format="html", s
     return identifier, source
 
 
-@pytest.mark.parametrize("origins", [[], [DSH]])
+@pytest.mark.parametrize("origins", [[], [DSH], [DESKTOP_DSH]])
 def test_html_preview_has_a_server_enforced_opaque_sandbox(tmp_path, origins):
     app = create_app(tmp_path, embed_origins=origins)
     identifier, source = save_html_job(app)
@@ -259,19 +291,20 @@ def test_preview_rejects_non_showcase_or_overlarge_html(tmp_path, changes):
         assert client.get("/api/runs/ffff/showcase-preview").status_code == 404
 
 
-def test_portable_instance_advertises_and_enforces_the_requested_frame_scope(tmp_path):
+@pytest.mark.parametrize("origin", [DSH, DESKTOP_DSH])
+def test_portable_instance_advertises_and_enforces_the_requested_frame_scope(tmp_path, origin):
     data = prepare_data_dir(tmp_path / "便携 嵌入" / "data")
     identity = installation_id(data)
-    server = PortableServer(data, identity, preferred_port=0, embed_origins=[DSH])
+    server = PortableServer(data, identity, preferred_port=0, embed_origins=[origin])
     try:
         server.start(timeout=30)
-        assert existing_instance(data, identity, timeout=0, required_origins=[DSH]) == server.url
+        assert existing_instance(data, identity, timeout=0, required_origins=[origin]) == server.url
         assert existing_instance(data, identity, timeout=0, required_origins=["http://localhost:9999"]) is None
         assert existing_instance(data, identity, timeout=0) == server.url
         bootstrap = _request_json(server.url + "/api/bootstrap")
-        assert bootstrap["embedding"]["origins"] == [DSH]
+        assert bootstrap["embedding"]["origins"] == [origin]
         stored = json.loads((data / ".portable-session.json").read_text(encoding="utf-8"))
-        assert stored["embed_origins"] == [DSH]
+        assert stored["embed_origins"] == [origin]
     finally:
         server.stop(timeout=5)
     assert not (data / ".portable-session.json").exists()

@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #03040a; }
+  .scene {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    background: radial-gradient(120% 120% at 50% 50%, #0b0d16 0%, #03040a 62%);
+  }
+  /* Starfield — done; leave it as-is. */
+  .stars { position: absolute; inset: 0; opacity: .85;
+    background-image:
+      radial-gradient(1px 1px at 15% 22%, #fff, transparent),
+      radial-gradient(1px 1px at 68% 14%, #cbd5ff, transparent),
+      radial-gradient(1px 1px at 82% 61%, #fff, transparent),
+      radial-gradient(1px 1px at 34% 78%, #e6ecff, transparent),
+      radial-gradient(1px 1px at 52% 41%, #fff, transparent),
+      radial-gradient(1px 1px at 9% 66%, #cfd8ff, transparent),
+      radial-gradient(1px 1px at 91% 33%, #fff, transparent),
+      radial-gradient(1px 1px at 26% 9%, #fff, transparent),
+      radial-gradient(1px 1px at 74% 88%, #dfe6ff, transparent);
+  }
+  /* The black hole is centered here; its size = the event-horizon diameter (~30% of viewport height). */
+  .blackhole { position: relative; width: 30vh; height: 30vh; }
+
+  /* ==================== BLACK HOLE RENDERING ==================== */
+
+  @keyframes rotateDisk {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+
+  @keyframes shimmerLensing {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.55; }
+  }
+
+  /* Event horizon — solid black sphere */
+  .horizon {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: #000;
+  }
+
+  /* Accretion disk — edge-on, hot, rotating band with azimuthal structure */
+  .disk {
+    position: absolute;
+    inset: 50%;
+    width: 270%;
+    height: 22%;
+    background:
+      radial-gradient(ellipse 100% 100% at 50% 50%, rgba(255,243,208,0.9) 0%, rgba(255,243,208,0.2) 80%, transparent 100%),
+      conic-gradient(from 0deg,
+        #fff3d0 0deg,
+        #ffb84d 40deg,
+        #ff9933 80deg,
+        #c8551a 120deg,
+        #ff7722 160deg,
+        rgba(200,85,26,0.6) 180deg,
+        #ff7722 210deg,
+        #ff9933 260deg,
+        #ffb84d 310deg,
+        #fff3d0 360deg
+      );
+    background-blend-mode: multiply;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    filter: brightness(1.2) saturate(1.1);
+    animation: rotateDisk 5s linear infinite;
+  }
+
+  /* Lensing halo — bent arcs over top and under bottom */
+  .lensing {
+    position: absolute;
+    inset: 50%;
+    width: 320%;
+    height: 280%;
+    transform: translate(-50%, -50%);
+    background:
+      radial-gradient(ellipse 85% 45% at 50% -15%, rgba(255,240,200,0.45) 0%, rgba(255,243,208,0.15) 35%, transparent 65%),
+      radial-gradient(ellipse 85% 45% at 50% 115%, rgba(255,240,200,0.35) 0%, rgba(255,243,208,0.1) 35%, transparent 65%);
+    animation: shimmerLensing 2s ease-in-out infinite;
+  }
+
+  /* Photon ring — thin bright edge around event horizon */
+  .photon-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2.5px solid rgba(255,243,208,0.95);
+    box-shadow: 0 0 12px rgba(255,243,208,0.7), inset 0 0 6px rgba(255,243,208,0.4);
+  }
+
+</style>
+</head>
+<body>
+  <div class="scene">
+    <div class="stars"></div>
+    <div class="blackhole">
+      <div class="disk"></div>
+      <div class="lensing"></div>
+      <div class="horizon"></div>
+      <div class="photon-ring"></div>
+    </div>
+  </div>
+</body>
+</html>

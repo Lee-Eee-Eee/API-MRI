@@ -1,5 +1,6 @@
 export const DEFAULT_BACKEND = 'http://127.0.0.1:8765';
 export const STORAGE_KEY = 'api-mri.backend-origin';
+export const DESKTOP_ORIGIN = 'dsh-app://app';
 
 /** Accept an origin, never an arbitrary URL or a host resolved from user input. */
 export function parseLocalOrigin(value) {
@@ -10,6 +11,26 @@ export function parseLocalOrigin(value) {
     throw new Error('地址须为 http(s)://127.0.0.1、localhost 或 [::1]，可附端口。');
   }
   return new URL(candidate).origin;
+}
+
+/** The DSH renderer may be its one privileged desktop origin or a local Web origin. */
+export function parseDshOrigin(value) {
+  if (typeof value === 'string' && /^dsh-app:\/\/app\/?$/.test(value)) return DESKTOP_ORIGIN;
+  return parseLocalOrigin(value);
+}
+
+export function hostOriginForLocation(location) {
+  try { return parseDshOrigin(location?.origin); }
+  catch (error) {
+    // Some URL implementations serialize custom schemes as "null". Derive
+    // only from the exact official application URL, never from "null" alone.
+    if (location?.origin === 'null' && location.protocol === 'dsh-app:'
+      && location.hostname === 'app' && location.host === 'app' && location.port === ''
+      && typeof location.href === 'string' && /^dsh-app:\/\/app\/?$/.test(location.href)) {
+      return DESKTOP_ORIGIN;
+    }
+    throw error;
+  }
 }
 
 export function readSavedOrigin(storage) {
@@ -76,7 +97,7 @@ export function createHandshake({ eventTarget, targetWindow, targetOrigin, nonce
 }
 
 export function startupCommands(dshOrigin) {
-  const origin = parseLocalOrigin(dshOrigin);
+  const origin = parseDshOrigin(dshOrigin);
   return {
     windows: `.\\API-MRI.exe --embed-origin ${origin} --no-browser`,
     source: `python -m relay_audit.cli ui --embed-origin ${origin}`

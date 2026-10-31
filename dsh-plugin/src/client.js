@@ -1,6 +1,6 @@
 import React from 'react';
 import { DEFAULT_BACKEND, parseLocalOrigin, readSavedOrigin, saveOrigin,
-  createNonce, createHandshake, startupCommands } from './core.js';
+  createNonce, createHandshake, startupCommands, hostOriginForLocation } from './core.js';
 
 export const name = 'dsh-api-mri';
 export const inject = ['betterSidebar'];
@@ -23,7 +23,7 @@ function Mark({ size = 24 }) {
 }
 
 function localHostOrigin() {
-  try { return parseLocalOrigin(window.location.origin); } catch { return null; }
+  try { return hostOriginForLocation(window.location); } catch { return null; }
 }
 
 function storedOrigin() {
@@ -75,7 +75,7 @@ export function Workbench({ visible = true }) {
   function connect(event) {
     event?.preventDefault();
     try {
-      if (!hostOrigin) throw new Error('请在 localhost、127.0.0.1 或 [::1] 上打开 DSH Web。');
+      if (!hostOrigin) throw new Error('请使用 DSH 桌面版，或在回环地址上打开 DSH Web。');
       const origin = parseLocalOrigin(address);
       if (origin === hostOrigin) throw new Error('API-MRI 与 DSH 须使用不同端口。');
       setAddress(origin);
@@ -113,7 +113,7 @@ export function Workbench({ visible = true }) {
             type: 'text', inputMode: 'url', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false,
             placeholder: DEFAULT_BACKEND, 'aria-invalid': !!error, 'aria-describedby': error ? `${inputId}-error` : undefined }),
           h('button', { className: 'api-mri-companion__connect', type: 'submit', disabled: !hostOrigin }, '连接'))),
-      (error || !hostOrigin) && h('p', { className: 'api-mri-companion__error', id: `${inputId}-error`, role: 'alert' }, error || '请在 localhost、127.0.0.1 或 [::1] 上打开 DSH Web。'),
+      (error || !hostOrigin) && h('p', { className: 'api-mri-companion__error', id: `${inputId}-error`, role: 'alert' }, error || '请使用 DSH 桌面版，或在回环地址上打开 DSH Web。'),
       h(LaunchHelp, { origin: hostOrigin, open: true }))
       : h('div', { className: 'api-mri-companion__frame-wrap' },
         h('iframe', { key: connection.id, ref: frame, className: 'api-mri-companion__frame', src: connection.origin,

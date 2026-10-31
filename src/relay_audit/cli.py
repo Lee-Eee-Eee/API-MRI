@@ -117,7 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
     ui.add_argument("--port", type=int, default=8765)
     ui.add_argument("--runs-dir", type=Path, default=Path("runs/ui"))
     ui.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
-    ui.add_argument("--embed-origin", action="append", default=[], metavar="ORIGIN", help="允许指定DSH回环来源嵌入工作台，可重复指定")
+    ui.add_argument("--embed-origin", action="append", default=[], metavar="ORIGIN", help="允许DSH桌面来源dsh-app://app或指定回环来源嵌入，可重复指定")
     return parser
 
 

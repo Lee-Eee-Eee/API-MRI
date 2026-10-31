@@ -27,7 +27,7 @@ API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧�
 
 **DSH 用户：** 安装 [Better Sidebar 插件](dsh-plugin/README.md)，在侧栏连接已启动的 API-MRI。Windows 便携版与源码版都可作为后端；Release 同时提供 `dsh-api-mri-0.8.0.tgz` 和插件发现页索引。
 
-**只想看作品：** 打开“示例馆”，可浏览 24 幅公开 SVG 和 13 条原作链接，按模型并排查看。首批题目有鹈鹕骑车、章鱼弹管风琴、海星开推土机、钟表、六边形弹球和动画鹈鹕。浏览不发模型请求；试作前展示单次请求与输出上限。每份作品保留提示、出处和已知参数。[来源与使用方法](docs/classic-examples.md)
+**只想看作品：** 打开“示例馆”，可浏览 82 份离线作品、273 份按需在线原图与其他原作链接，按模型并排查看。当前62道题覆盖空间绘图、动画机构、科学可视化、游戏与物理模拟。浏览不发模型请求；试作前展示单次请求与输出上限。每份作品保留提示、出处和已知参数。[来源与使用方法](docs/classic-examples.md)
 
 ![API-MRI 示例馆](docs/images/showcase-v08.jpg)
 

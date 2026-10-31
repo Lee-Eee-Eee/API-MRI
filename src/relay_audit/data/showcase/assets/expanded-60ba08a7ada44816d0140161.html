@@ -1,0 +1,221 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #03040a; }
+  .scene {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    background: radial-gradient(120% 120% at 50% 50%, #0b0d16 0%, #03040a 62%);
+  }
+  .stars { position: absolute; inset: 0; opacity: .85;
+    background-image:
+      radial-gradient(1px 1px at 15% 22%, #fff, transparent),
+      radial-gradient(1px 1px at 68% 14%, #cbd5ff, transparent),
+      radial-gradient(1px 1px at 82% 61%, #fff, transparent),
+      radial-gradient(1px 1px at 34% 78%, #e6ecff, transparent),
+      radial-gradient(1px 1px at 52% 41%, #fff, transparent),
+      radial-gradient(1px 1px at 9% 66%, #cfd8ff, transparent),
+      radial-gradient(1px 1px at 91% 33%, #fff, transparent),
+      radial-gradient(1px 1px at 26% 9%, #fff, transparent),
+      radial-gradient(1px 1px at 74% 88%, #dfe6ff, transparent);
+  }
+  .blackhole { position: relative; width: 30vh; height: 30vh; overflow: visible; }
+
+  /* ==================== BLACK HOLE RENDERING ==================== */
+
+  /* Custom property for conic-gradient rotation — exactly one full turn in 5s */
+  @property --disk-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+
+  @keyframes rotate-disk {
+    0%   { --disk-angle: 0deg; }
+    100% { --disk-angle: 360deg; }
+  }
+
+  /* Subtle outer glow around the black hole */
+  .blackhole::before {
+    content: '';
+    position: absolute;
+    width: 130%;
+    height: 130%;
+    top: -15%;
+    left: -15%;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(255, 170, 90, 0.07) 55%,
+      rgba(255, 140, 70, 0.03) 75%,
+      transparent 100%
+    );
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ---- Accretion Disk (edge-on, wide, rotating structure) ---- */
+  .disk {
+    position: absolute;
+    width: 75vh;
+    height: 75vh;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scaleY(0.13);
+    background:
+      radial-gradient(ellipse at center,
+        rgba(255, 245, 220, 0.35) 0%,
+        rgba(255, 200, 130, 0.15) 25%,
+        transparent 50%
+      ),
+      conic-gradient(
+        from var(--disk-angle, 0deg),
+        #fff3d0 0deg,    #ffae3b 10deg,   #c8551a 22deg,
+        #ffae3b 34deg,   #fff3d0 46deg,   #ffae3b 58deg,
+        #c8551a 70deg,   #ffae3b 82deg,   #fff3d0 94deg,
+        #ffae3b 106deg,  #c8551a 118deg,  #ffae3b 130deg,
+        #fff3d0 142deg,  #ffae3b 154deg,  #c8551a 166deg,
+        #ffae3b 178deg,  #fff3d0 190deg,  #ffae3b 202deg,
+        #c8551a 214deg,  #ffae3b 226deg,  #fff3d0 238deg,
+        #ffae3b 250deg,  #c8551a 262deg,  #ffae3b 274deg,
+        #fff3d0 286deg,  #ffae3b 298deg,  #c8551a 310deg,
+        #ffae3b 322deg,  #fff3d0 334deg,  #ffae3b 346deg,
+        #fff3d0 360deg
+      );
+    z-index: 1;
+    animation: rotate-disk 5s linear infinite;
+    box-shadow:
+      0 0 18px rgba(255, 170, 90, 0.45),
+      0 0 45px rgba(255, 140, 60, 0.22);
+    pointer-events: none;
+  }
+
+  /* Relativistic beaming overlay — left side (approaching) brighter */
+  .disk::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: linear-gradient(
+      to right,
+      rgba(255, 255, 240, 0.28) 0%,
+      rgba(255, 240, 210, 0.18) 25%,
+      transparent 50%,
+      rgba(0, 0, 0, 0.08) 62%,
+      rgba(0, 0, 0, 0.25) 100%
+    );
+    pointer-events: none;
+  }
+
+  /* ---- Lensing Halos (arcs bending over top and under bottom) ---- */
+  .lensing {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  /* Top arc — curves over the horizon */
+  .lensing::before {
+    content: '';
+    position: absolute;
+    width: 70vh;
+    height: 17vh;
+    top: -15vh;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 0 0 50% 50%;
+    border-bottom: 2px solid rgba(255, 210, 150, 0.82);
+    box-shadow:
+      0 3px 14px rgba(255, 180, 100, 0.5),
+      0 0 28px rgba(255, 150, 80, 0.28);
+  }
+
+  /* Bottom arc — curves under the horizon (mirrored) */
+  .lensing::after {
+    content: '';
+    position: absolute;
+    width: 70vh;
+    height: 17vh;
+    bottom: -15vh;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 50% 50% 0 0;
+    border-top: 2px solid rgba(255, 210, 150, 0.82);
+    box-shadow:
+      0 -3px 14px rgba(255, 180, 100, 0.5),
+      0 0 28px rgba(255, 150, 80, 0.28);
+  }
+
+  /* ---- Event Horizon (solid black sphere) ---- */
+  .horizon {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #000;
+    z-index: 3;
+    box-shadow:
+      inset 0 0 6px rgba(0, 0, 0, 0.9),
+      0 0 1px rgba(0, 0, 0, 0.7);
+    pointer-events: none;
+  }
+
+  /* Front disk segment — thin bright line crossing in front of the horizon */
+  .horizon::after {
+    content: '';
+    position: absolute;
+    width: 115%;
+    height: 2.5px;
+    top: 50%;
+    left: -7.5%;
+    transform: translateY(-50%);
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(255, 200, 120, 0.25) 6%,
+      rgba(255, 235, 190, 0.65) 18%,
+      rgba(255, 245, 215, 0.85) 35%,
+      rgba(255, 245, 215, 0.85) 65%,
+      rgba(255, 235, 190, 0.65) 82%,
+      rgba(255, 200, 120, 0.25) 94%,
+      transparent 100%
+    );
+    z-index: 5;
+    pointer-events: none;
+    box-shadow: 0 0 8px rgba(255, 200, 140, 0.55);
+  }
+
+  /* ---- Photon Ring (thin bright ring hugging the horizon edge) ---- */
+  .photon-ring {
+    position: absolute;
+    width: calc(100% + 4px);
+    height: calc(100% + 4px);
+    top: -2px;
+    left: -2px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 225, 185, 0.88);
+    z-index: 4;
+    box-shadow:
+      0 0 3px rgba(255, 200, 150, 0.8),
+      0 0 11px rgba(255, 175, 115, 0.5),
+      inset 0 0 3px rgba(255, 200, 150, 0.35);
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+  <div class="scene">
+    <div class="stars"></div>
+    <div class="blackhole">
+      <div class="disk"></div>
+      <div class="lensing"></div>
+      <div class="horizon"></div>
+      <div class="photon-ring"></div>
+    </div>
+  </div>
+</body>
+</html>

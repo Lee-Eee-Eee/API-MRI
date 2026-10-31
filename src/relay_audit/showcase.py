@@ -137,7 +137,9 @@ def plan_showcase(payload: dict) -> dict:
 
 
 def _body(config: dict, task: dict) -> dict:
-    return {"model": config["candidate"]["model"], "messages": [{"role": "user", "content": task["prompt"]}],
+    messages = ([{"role": "system", "content": task["system_prompt"]}] if task.get("system_prompt") else [])
+    messages.append({"role": "user", "content": task["prompt"]})
+    return {"model": config["candidate"]["model"], "messages": messages,
             "stream": False, config["token_parameter"]: config["max_tokens"]}
 
 

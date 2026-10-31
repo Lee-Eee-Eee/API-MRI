@@ -5,6 +5,7 @@ window.__ModuleLoader__.load({
     const React = require('react');
 const DEFAULT_BACKEND = 'http://127.0.0.1:8765';
 const STORAGE_KEY = 'api-mri.backend-origin';
+const DESKTOP_ORIGIN = 'dsh-app://app';
 
 /** Accept an origin, never an arbitrary URL or a host resolved from user input. */
 function parseLocalOrigin(value) {
@@ -15,6 +16,26 @@ function parseLocalOrigin(value) {
     throw new Error('地址须为 http(s)://127.0.0.1、localhost 或 [::1]，可附端口。');
   }
   return new URL(candidate).origin;
+}
+
+/** The DSH renderer may be its one privileged desktop origin or a local Web origin. */
+function parseDshOrigin(value) {
+  if (typeof value === 'string' && /^dsh-app:\/\/app\/?$/.test(value)) return DESKTOP_ORIGIN;
+  return parseLocalOrigin(value);
+}
+
+function hostOriginForLocation(location) {
+  try { return parseDshOrigin(location?.origin); }
+  catch (error) {
+    // Some URL implementations serialize custom schemes as "null". Derive
+    // only from the exact official application URL, never from "null" alone.
+    if (location?.origin === 'null' && location.protocol === 'dsh-app:'
+      && location.hostname === 'app' && location.host === 'app' && location.port === ''
+      && typeof location.href === 'string' && /^dsh-app:\/\/app\/?$/.test(location.href)) {
+      return DESKTOP_ORIGIN;
+    }
+    throw error;
+  }
 }
 
 function readSavedOrigin(storage) {
@@ -81,7 +102,7 @@ function createHandshake({ eventTarget, targetWindow, targetOrigin, nonce,
 }
 
 function startupCommands(dshOrigin) {
-  const origin = parseLocalOrigin(dshOrigin);
+  const origin = parseDshOrigin(dshOrigin);
   return {
     windows: `.\\API-MRI.exe --embed-origin ${origin} --no-browser`,
     source: `python -m relay_audit.cli ui --embed-origin ${origin}`
@@ -110,7 +131,7 @@ function Mark({ size = 24 }) {
 }
 
 function localHostOrigin() {
-  try { return parseLocalOrigin(window.location.origin); } catch { return null; }
+  try { return hostOriginForLocation(window.location); } catch { return null; }
 }
 
 function storedOrigin() {
@@ -162,7 +183,7 @@ function Workbench({ visible = true }) {
   function connect(event) {
     event?.preventDefault();
     try {
-      if (!hostOrigin) throw new Error('请在 localhost、127.0.0.1 或 [::1] 上打开 DSH Web。');
+      if (!hostOrigin) throw new Error('请使用 DSH 桌面版，或在回环地址上打开 DSH Web。');
       const origin = parseLocalOrigin(address);
       if (origin === hostOrigin) throw new Error('API-MRI 与 DSH 须使用不同端口。');
       setAddress(origin);
@@ -200,7 +221,7 @@ function Workbench({ visible = true }) {
             type: 'text', inputMode: 'url', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false,
             placeholder: DEFAULT_BACKEND, 'aria-invalid': !!error, 'aria-describedby': error ? `${inputId}-error` : undefined }),
           h('button', { className: 'api-mri-companion__connect', type: 'submit', disabled: !hostOrigin }, '连接'))),
-      (error || !hostOrigin) && h('p', { className: 'api-mri-companion__error', id: `${inputId}-error`, role: 'alert' }, error || '请在 localhost、127.0.0.1 或 [::1] 上打开 DSH Web。'),
+      (error || !hostOrigin) && h('p', { className: 'api-mri-companion__error', id: `${inputId}-error`, role: 'alert' }, error || '请使用 DSH 桌面版，或在回环地址上打开 DSH Web。'),
       h(LaunchHelp, { origin: hostOrigin, open: true }))
       : h('div', { className: 'api-mri-companion__frame-wrap' },
         h('iframe', { key: connection.id, ref: frame, className: 'api-mri-companion__frame', src: connection.origin,

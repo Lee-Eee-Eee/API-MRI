@@ -41,11 +41,11 @@
   }
   const task = () => state.catalog?.tasks.find((item) => item.id === state.task);
   const report = () => state.run?.reports?.find((item) => item.name === "showcase")?.report;
-  function locked() { return state.locked || state.localBusy || !state.catalog || !bridge()?.ready(); }
+  function locked() { return state.noMatches || state.locked || state.localBusy || !state.catalog || !bridge()?.ready(); }
   function updateControls() {
     $("showcase-plan-button").disabled = locked();
     $("showcase-start").disabled = locked() || !state.plan;
-    $("showcase-to-trial").disabled = !state.catalog;
+    $("showcase-to-trial").disabled = !state.catalog || state.noMatches;
     $("showcase-plan-button").hidden = Boolean(state.plan);
     $("showcase-api-key").disabled = locked();
   }
@@ -94,8 +94,10 @@
       if (!value.tasks.some((item) => item.id === state.task)) state.task = value.tasks[0].id;
       $("showcase-task").disabled = false;
       const bundled = value.examples.filter((item) => item.asset).length;
-      $("showcase-collection-summary").textContent = `${value.tasks.length} 道题，${bundled} 份随项目提供的作品，${value.examples.length - bundled} 条原作链接。收集于 ${date(value.collected_at)}。`;
+      $("showcase-collection-summary").textContent = `${value.tasks.length} 道题 · ${new Set(value.examples.map(e => e.model)).size} 个来源模型标签 · ${bundled} 份离线作品 · ${value.examples.filter(e => e.remote_preview_url).length} 份在线原图 · ${value.examples.length} 条记录`;
       const previous = report();
+      $("showcase-visible-summary").textContent = $("showcase-collection-summary").textContent;
+      refreshChoices(false);
       selectTask(previous?.task?.id || state.task, { rightTrial: Boolean(previous) });
       fillConnection();
     } catch (err) {
@@ -105,7 +107,10 @@
     } finally { state.loading = false; updateControls(); }
   }
   function selections() {
-    const items = state.catalog.examples.filter((item) => item.task_id === state.task);
+    const query = $("showcase-model-search").value.trim().toLowerCase();
+    const items = state.catalog.examples.filter((item) => item.task_id === state.task
+      && (!$("showcase-bundled-only").checked || item.asset)
+      && (!query || `${item.model} ${item.reported_settings?.model_id || ""}`.toLowerCase().includes(query)));
     const value = report();
     return { items, trial: value?.task?.id === state.task ? value : null };
   }
@@ -124,7 +129,8 @@
       group.label = label;
       subset.forEach((item) => {
         const suffix = item.asset && /-[123ab]\.svg$/i.test(item.asset) ? ` · ${item.asset.split("/").pop().match(/-([123ab])\.svg$/i)[1]}` : "";
-        const option = node("option", null, item.model + suffix);
+        const mode = item.reported_settings?.configuration_label;
+        const option = node("option", null, item.model + suffix + (mode ? ` · ${mode}` : ""));
         option.value = item.id;
         group.append(option);
       });
@@ -148,7 +154,7 @@
     $("showcase-task").value = id;
     const current = task();
     $("showcase-task-description").textContent = current.description || "";
-    $("showcase-prompt").textContent = current.prompt;
+    $("showcase-prompt").textContent = current.system_prompt ? `【系统指令】\n${current.system_prompt}\n\n【用户提示】\n${current.prompt}` : current.prompt;
     $("showcase-inspect").replaceChildren(...(current.inspect || []).map((value) => node("li", null, value)));
     $("showcase-adaptation").textContent = current.adaptation || current.source_workflow_note || "";
     $("showcase-adaptation").hidden = !$("showcase-adaptation").textContent;
@@ -159,7 +165,7 @@
     $("showcase-view").querySelector(".showcase-gallery").classList.toggle("single-work", !compare);
     const preferred = {
       left: id === "pelican-svg" ? "bbinwang-qwen3-8-27b-ud-q4-k-xl" : "",
-      right: rightTrial ? "__trial__" : id === "pelican-svg" ? "nebius-kimi-k2-5-a" : "",
+      right: rightTrial ? "__trial__" : id === "pelican-svg" ? "nebius-kimi-k2-5-a" : available.items[1]?.id || "",
     };
     for (const side of ["left", "right"]) {
       populateSelect(side, preferred[side]);
@@ -189,6 +195,10 @@
     if (example.reported_workflow?.api_turns) pairRow(data, "API 回合", number(example.reported_workflow.api_turns));
     if (example.source?.commit) pairRow(data, "固定提交", example.source.commit.slice(0, 12));
     if (example.sha256) pairRow(data, "SHA-256", example.sha256.slice(0, 16) + "…");
+    if (example.reported_duration_seconds != null) pairRow(data, "原作耗时", `${number(example.reported_duration_seconds, 2)} 秒`);
+    if (example.reported_cost_usd != null) pairRow(data, "原作费用", `USD ${example.reported_cost_usd}`);
+    if (example.reported_usage?.completionTokens != null || example.reported_usage?.completion_tokens != null)
+      pairRow(data, "原作输出用量", number(example.reported_usage.completionTokens ?? example.reported_usage.completion_tokens));
     details.append(data);
     const links = node("div", "showcase-source-links");
     if (example.source?.url) links.append(link("原始出处 ↗", example.source.url));
@@ -196,7 +206,7 @@
     details.append(links);
     if (example.notes?.length) details.append(node("p", "showcase-source-note", example.notes.join(" ")));
     if (sourceText !== undefined) {
-      const code = node("details"), codeTitle = node("summary", null, "SVG 源码");
+      const code = node("details"), codeTitle = node("summary", null, "原始源码");
       code.append(codeTitle, node("pre", null, sourceText));
       details.append(code);
     }
@@ -250,6 +260,15 @@
       const external = node("div", "showcase-external");
       const detail = example.reported_outcome === "no_svg_returned" ? "原作者记录了未返回图形的这次运行。" : "作品与完整运行记录保存在原作者页面。";
       external.append(node("h3", null, example.model), node("p", null, detail), link("查看原作 ↗", example.artifact_url || example.source?.url));
+      if (typeof example.remote_preview_url === "string" && /^https:\/\/gally\.net\/temp\/20251107pelican-alternatives\/svgs\/[^/?#]+\.svg$/.test(example.remote_preview_url)) {
+        external.append(button("在线查看原图", () => {
+          const picture = node("img"); picture.alt = `${example.model}：${task().title}`;
+          picture.referrerPolicy = "no-referrer";
+          picture.addEventListener("error", () => stage.replaceChildren(node("p", null, "原站图形加载失败，可使用原作链接。")), {once:true});
+          picture.src = example.remote_preview_url;
+          stage.replaceChildren(picture);
+        }));
+      }
       stage.replaceChildren(external);
       caption.append(sourceDetails(example));
       return;
@@ -265,8 +284,16 @@
       if (revision !== state.requests[side]) return;
       if (typeof data.source !== "string") throw new Error("作品没有可读取的 SVG 源码。");
       const line = node("div", "showcase-caption-line");
-      line.append(node("span", null, `${example.source?.author || "公开作品"} · ${date(example.source?.snapshot_at || example.source?.published_at)}`));
-      showSvg(stage, data.source, `${example.model}：${task().title}`, side, line);
+      line.append(node("span", null, `${example.source?.author || example.source?.repository || "公开作品"} · ${date(example.generated_at || example.source?.snapshot_at || example.source?.published_at)}`));
+      if (example.format === "html") {
+        const frame = node("iframe");
+        frame.title = `${example.model}：${task().title}`;
+        frame.setAttribute("sandbox", "allow-scripts");
+        frame.src = `/api/showcase/examples/${encodeURIComponent(example.id)}/preview`;
+        stage.replaceChildren(frame);
+        const pause = button("暂停", () => { frame.src = "about:blank"; pause.hidden = true; });
+        line.append(pause, button("重新播放", () => { frame.src = `/api/showcase/examples/${encodeURIComponent(example.id)}/preview`; pause.hidden = false; }));
+      } else showSvg(stage, data.source, `${example.model}：${task().title}`, side, line);
       caption.append(line, sourceDetails(example, data.source));
     } catch (err) {
       if (revision !== state.requests[side]) return;
@@ -397,6 +424,35 @@
     setLocked(value) { state.locked = Boolean(value); updateControls(); },
   };
   $("showcase-task").addEventListener("change", (event) => selectTask(event.target.value));
+  function refreshChoices(render = true) {
+    if (!state.catalog) return;
+    const category = $("showcase-category").value;
+    const query = $("showcase-model-search").value.trim().toLowerCase();
+    const matching = state.catalog.examples.filter(e => (!$("showcase-bundled-only").checked || e.asset)
+      && (!query || `${e.model} ${e.reported_settings?.model_id || ""}`.toLowerCase().includes(query)));
+    const choices = state.catalog.tasks.filter(t => (!category || t.category === category) && matching.some(e => e.task_id === t.id));
+    state.noMatches = !choices.length;
+    $("showcase-task").disabled = !choices.length;
+    $("showcase-task").replaceChildren(...choices.map(t => {
+      const works = matching.filter(e => e.task_id === t.id);
+      const option = node("option", null, `${t.title} · ${new Set(works.map(e => e.model)).size} 标签`); option.value = t.id; return option;
+    }));
+    if (choices.length) {
+      const id = choices.some(t => t.id === state.task) ? state.task : choices[0].id;
+      $("showcase-task").value = id;
+      if (render) selectTask(id); else state.task = id;
+    } else {
+      for (const side of ["left", "right"]) {
+        $("showcase-stage-"+side).replaceChildren(node("p",null,"没有匹配的作品，试试其他模型名称或题型。"));
+        $("showcase-caption-"+side).replaceChildren();
+        $("showcase-"+side).replaceChildren();
+      }
+    }
+    updateControls();
+  }
+  $("showcase-model-search").addEventListener("input", () => refreshChoices());
+  $("showcase-bundled-only").addEventListener("change", () => refreshChoices());
+  $("showcase-category").addEventListener("change", () => refreshChoices());
   for (const side of ["left", "right"]) $("showcase-" + side).addEventListener("change", () => renderSelected(side));
   $("showcase-form").addEventListener("submit", (event) => { event.preventDefault(); plan(); });
   for (const event of ["input", "change"]) $("showcase-form").addEventListener(event, invalidate);

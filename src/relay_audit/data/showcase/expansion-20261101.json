@@ -1,0 +1,13 @@
+{
+  "tasks": 62,
+  "examples": 705,
+  "model_labels": 157,
+  "bundled": 82,
+  "bundled_tasks": 4,
+  "pins": {
+    "vastxie/pelican-gallery-data": "641d786c2f9d5725e25a5417c9785f05fa88bc01",
+    "jaymollica/frogs": "0b074c7946902ed4fd52d44d5cff174acc961634",
+    "jdmnk/design-benchmark": "42109688e5f333143c116d6ef0161e4cabc662cd",
+    "diegocp01/html_ai_battle": "2cca2683469911e10a4bf2c9b4a9cab4589767cc"
+  }
+}

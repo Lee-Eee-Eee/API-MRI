@@ -29,3 +29,12 @@ Simon Willison 的模型对照、Tom Gally 的 SVG 题集与 kings0527 的动画
 题目中的短提示注明出处；钟表和六边形任务使用 API-MRI 改写的提示，并标为 `adapted`。示例馆中的本地作品均来自上述公开仓库，API-MRI 没有合成“某模型的实测输出”。
 
 `source-assets.json` 逐文件保留上游路径、固定提交、Git blob SHA-1、SHA-256 与语法检查结果。应用自身许可不替代本目录的第三方许可。
+
+
+## 2026-11-01新增作品
+
+FROGS benchmark, Jay Mollica, https://frogs.vaguespac.es ：数据CC BY 4.0，许可声明见FROGS-CC-BY-4.0.txt，原文件未修改，来源固定于0b074c7946902ed4fd52d44d5cff174acc961634。
+
+jdmnk/design-benchmark：原README声明MIT，完整声明随design-benchmark-README.md保留。固定于42109688e5f333143c116d6ef0161e4cabc662cd，原HTML未修改。
+
+Gally原图仅通过原站URL按需加载；Vastxie与HTML AI Battle只索引公开作品链接，未复制其HTML素材。每条归属及参数随catalog保存。

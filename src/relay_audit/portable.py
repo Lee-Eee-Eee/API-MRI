@@ -392,7 +392,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="API-MRI 便携工作台")
     parser.add_argument("--data-dir", type=Path, default=None, help="记录与参考库的保存位置；默认程序旁 data 文件夹")
     parser.add_argument("--port", type=int, default=8765, help="首选端口；被占用时自动另选")
-    parser.add_argument("--embed-origin", action="append", default=[], metavar="ORIGIN", help="允许指定DSH回环来源嵌入，可重复指定")
+    parser.add_argument("--embed-origin", action="append", default=[], metavar="ORIGIN", help="允许DSH桌面来源dsh-app://app或指定回环来源嵌入，可重复指定")
     parser.add_argument("--no-browser", action="store_true", help="不自动打开浏览器")
     parser.add_argument("--headless", action="store_true", help="不显示控制窗口，使用 Ctrl+C 停止")
     parser.add_argument("--smoke-test", action="store_true", help="检查启动和资源后退出；结果写入 data/smoke-test.json")

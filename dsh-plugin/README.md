@@ -6,9 +6,9 @@
 
 ## 安装
 
-需要 DSH **0.2.1-rc.1 及以上的 0.2.x**、Better Sidebar **0.28.2**。这版面向回环地址上的 DSH Web。
+需要DSH **0.2.1-rc.1及以上的0.2.x**、Better Sidebar **0.28.2**。支持DSH桌面版和回环地址上的DSH Web；桌面支持从API-MRI **0.8.1**加入。
 
-已在 Windows、Node.js 24.11.1、DSH 0.2.1-rc.3、Better Sidebar 0.28.2 上完成真实安装、配置装配、浏览器页签与跨来源连接验证。测试使用独立的 DSH_HOME，未配置模型或 API key；结果见 [host-qa.json](tests/host-qa.json)。
+0.8.0已在Windows、Node.js 24.11.1、DSH Web 0.2.1-rc.3、Better Sidebar 0.28.2上完成真实安装、配置装配、浏览器页签与跨来源连接验证。测试使用独立的DSH_HOME；结果见[host-qa.json](tests/host-qa.json)。
 
 在已有 DSH Web profile 中安装：
 
@@ -26,6 +26,28 @@ dsh plugin --profile web add ./dsh-api-mri-0.8.0.tgz
 
 重启 DSH，在右侧栏的「新建标签页」菜单选 **API-MRI**。`dsh plugin add` 会装配插件层，毋须再手写一份 Cordis 插件行。
 
+### 桌面版
+
+桌面版使用`desktop` profile。安装包含桌面修补的0.8.1插件包：
+
+```sh
+dsh plugin --profile desktop add ./dsh-api-mri-0.8.1.tgz
+```
+
+Windows桌面应用自带CLI；未安装全局`dsh`命令时，可在PowerShell调用：
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\下载目录\dsh-api-mri-0.8.1.tgz"
+```
+
+桌面窗口使用固定来源`dsh-app://app`。启动API-MRI时授权这个来源：
+
+```powershell
+.\API-MRI.exe --embed-origin dsh-app://app --no-browser
+```
+
+API-MRI后端也须包含0.8.1的桌面支持。源码版可运行`python -m relay_audit.cli ui --embed-origin dsh-app://app`。安装后刷新插件或重开DSH窗口，再从Better Sidebar新建API-MRI页签并连接服务地址。
+
 ## 启动并连接
 
 打开页签后的「启动 API-MRI」会显示当前 DSH 地址对应的命令。例如 DSH 在 `http://127.0.0.1:3080`：
@@ -42,7 +64,7 @@ macOS / Linux：按[主项目的源码安装指南](https://github.com/Lee-Eee-E
 python -m relay_audit.cli ui --embed-origin http://127.0.0.1:3080
 ```
 
-然后在页签中点击「连接」。`--embed-origin` 必须与浏览器地址栏中的 DSH **协议、主机和端口**一致；`localhost` 与 `127.0.0.1` 是两个不同来源。更换 DSH 端口后，按新地址重启 API-MRI。
+然后在页签中点击「连接」。Web版的`--embed-origin`须与浏览器地址栏中的DSH **协议、主机和端口**一致；`localhost`与`127.0.0.1`是两个不同来源。更换DSH端口后，按新地址重启API-MRI。桌面版固定使用`dsh-app://app`。
 
 API-MRI 使用其他端口时，修改页签的服务地址。支持 `http`、`https` 和 `127.0.0.1`、`localhost`、`[::1]`；地址只包含来源，不附路径、查询参数或账号密码。DSH 与 API-MRI 使用不同端口。
 
@@ -51,8 +73,8 @@ API-MRI 使用其他端口时，修改页签的服务地址。支持 `http`、`h
 ## 连接失败时
 
 - 在浏览器单独打开 API-MRI 地址，确认程序已经启动。
-- 用页签中生成的命令重启 **v0.8.0 或以上** API-MRI；旧版没有嵌入授权与握手。
-- 确认 DSH 地址是回环来源；此版本接入回环地址上的 DSH Web。
+- 用页签中生成的命令重启API-MRI。Web版从0.8.0支持嵌入；桌面版从0.8.1支持。
+- Web版的DSH地址须为回环来源，桌面版须为官方的`dsh-app://app`。
 - 在 HTTPS DSH 中连接 HTTP 服务若被浏览器拦截，使用同为 HTTP 的 DSH Web，或为 API-MRI 配置对应的 HTTPS 回环服务。
 
 ## 凭据与页面边界

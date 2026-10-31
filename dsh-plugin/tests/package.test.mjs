@@ -10,7 +10,7 @@ const manifest = JSON.parse(await readFile(new URL('../../package.json', import.
 
 test('official DSH bundle and client manifests select shared host services', async () => {
   assert.equal(manifest.name, 'dsh-api-mri');
-  assert.equal(manifest.version, '0.8.0');
+  assert.equal(manifest.version, '0.8.1');
   assert.equal(manifest.dsh.bundle.patch, './dsh-plugin/cordis.patch.yml');
   assert.deepEqual(manifest.dsh.client, { platform: 'web', inject: ['dsh-better-sidebar'] });
   assert.equal(manifest.peerDependencies['dsh-better-sidebar'], '>=0.28.2 <0.29.0');
@@ -66,6 +66,23 @@ test('checked-in browser factory registers one disposable BetterSidebar tab', as
   assert.equal(frame.props.referrerPolicy, 'no-referrer');
   assert.ok(!frame.props.sandbox.includes('allow-top-navigation'));
   assert.ok(!source.includes("postMessage({ type: 'api-mri:hello', nonce }, '*')"));
+  function renderSetup(location) {
+    window.location = location;
+    stateIndex = 0;
+    React.useState = () => [[states[0], null, 'idle', '', 0, ''][stateIndex++], () => {}];
+    const setup = tab.component({ visible: true });
+    return setup.type(setup.props);
+  }
+  function findButton(node, text) {
+    if (!node || typeof node !== 'object') return null;
+    if (node.type === 'button' && node.children.includes(text)) return node;
+    for (const child of node.children || []) { const found = findButton(child, text); if (found) return found; }
+    return null;
+  }
+  const desktop = renderSetup({ origin: 'dsh-app://app' });
+  assert.equal(findButton(desktop, '连接').props.disabled, false);
+  const opaque = renderSetup({ origin: 'null', href: 'file:///app' });
+  assert.equal(findButton(opaque, '连接').props.disabled, true);
 });
 
 test('browser and host outputs match source without a package build hook', async () => {

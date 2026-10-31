@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #03040a; }
+  .scene {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    background: radial-gradient(120% 120% at 50% 50%, #0b0d16 0%, #03040a 62%);
+  }
+  /* Starfield — done; leave it as-is. */
+  .stars { position: absolute; inset: 0; opacity: .85;
+    background-image:
+      radial-gradient(1px 1px at 15% 22%, #fff, transparent),
+      radial-gradient(1px 1px at 68% 14%, #cbd5ff, transparent),
+      radial-gradient(1px 1px at 82% 61%, #fff, transparent),
+      radial-gradient(1px 1px at 34% 78%, #e6ecff, transparent),
+      radial-gradient(1px 1px at 52% 41%, #fff, transparent),
+      radial-gradient(1px 1px at 9% 66%, #cfd8ff, transparent),
+      radial-gradient(1px 1px at 91% 33%, #fff, transparent),
+      radial-gradient(1px 1px at 26% 9%, #fff, transparent),
+      radial-gradient(1px 1px at 74% 88%, #dfe6ff, transparent);
+  }
+  /* The black hole is centered here; its size = the event-horizon diameter (~30% of viewport height). */
+  .blackhole { position: relative; width: 30vh; height: 30vh; }
+
+  /* ==================== YOUR CSS BELOW ==================== */
+  .horizon {
+    position: absolute; inset: 0;
+    background: #000; border-radius: 50%;
+    box-shadow: inset 0 0 30px #000, 0 0 60px #000;
+  }
+  .photon-ring {
+    position: absolute; inset: -3%;
+    border: 1.5px solid #c8e0ff;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #9cc8ff, 0 0 18px #6aa8ff;
+    opacity: .9;
+  }
+  .disk {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 75vh; height: 7vh;
+    transform: translate(-50%, -50%);
+    background: conic-gradient(
+      from 0deg at 50% 50%,
+      #c8551a 0deg 20deg,
+      #ffae3b 40deg 80deg,
+      #fff3d0 110deg 160deg,
+      #ffae3b 200deg 240deg,
+      #c8551a 270deg 300deg,
+      #fff3d0 340deg 360deg
+    );
+    border-radius: 50%;
+    box-shadow: 0 0 25px #ffae3b, 0 0 50px #c8551a;
+    filter: brightness(1.15);
+    animation: spin 5s linear infinite;
+  }
+  .disk::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(#fff3d0 48%, transparent 52%);
+    border-radius: 50%;
+    opacity: .65;
+    mix-blend-mode: screen;
+  }
+  .lensing {
+    position: absolute; inset: -22% -8%;
+    background: radial-gradient(ellipse 120% 55% at 50% 20%, #c8e0ff 8%, transparent 42%),
+                radial-gradient(ellipse 120% 55% at 50% 80%, #c8e0ff 8%, transparent 42%);
+    border-radius: 50%;
+    box-shadow: 0 0 30px #9cc8ff, 0 0 55px #6aa8ff;
+    opacity: .75;
+    filter: blur(1px);
+  }
+  @keyframes spin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to   { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+  <div class="scene">
+    <div class="stars"></div>
+    <div class="blackhole">
+      <div class="disk"></div>
+      <div class="lensing"></div>
+      <div class="horizon"></div>
+      <div class="photon-ring"></div>
+    </div>
+  </div>
+</body>
+</html>
