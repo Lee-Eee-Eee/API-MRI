@@ -29,7 +29,7 @@ API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧�
 
 **只想看作品：** “示例馆”默认展示42道有充分对照的题目，统一名称并按发布日期排序，模型与运行档位分开选择。SVG、HTML和WebGL原作在页内按需预览，保留提示、出处和已知参数。[来源与方法](docs/classic-examples.md)
 
-**想了解能力：** “能力参考”汇集带出处的公开成绩，逐条列出指标、版本、推理配置和Harness，另设六大评测入口。[数据与方法](docs/capability-reference.md)
+**想了解能力：** “能力参考”按榜单展示模型排名，可切换版本与运行条件、搜索型号、展开各推理档位的成绩和出处。[数据与方法](docs/capability-reference.md)
 
 ![API-MRI 示例馆](docs/images/showcase-v09.jpg)
 

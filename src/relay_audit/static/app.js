@@ -51,7 +51,7 @@
       title: "示例馆",
       description: "同一道题，看代码、画面与调用代价。",
     },
-    capabilities: {title: '能力参考', description: '看公开评测，也看模型、推理配置与 Harness。'},
+    capabilities: {title: '能力参考', description: '按评测查看排名与运行配置。'},
     history: {
       title: "运行记录",
       description: "重新打开报告，导出记录或离线复算。",

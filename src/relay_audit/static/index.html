@@ -425,11 +425,12 @@
       </div>
       <section id="capabilities-view" hidden aria-label="模型能力参考">
         <div class="capability-controls">
-          <div class="field"><label for="capability-model">模型</label><select id="capability-model"><option>正在读取…</option></select></div>
+          <div class="field"><label for="capability-benchmark">榜单</label><select id="capability-benchmark" disabled><option>正在读取…</option></select></div>
+          <div class="field"><label for="capability-cohort">版本与条件</label><select id="capability-cohort" disabled><option>正在读取…</option></select></div>
           <div class="field"><label for="capability-query">查找模型</label><input id="capability-query" type="search" placeholder="如 Claude、GPT、DeepSeek" /></div>
         </div>
         <div id="capability-scores" aria-live="polite"></div>
-        <div id="benchmark-directory" class="benchmark-directory"></div>
+        <details class="benchmark-methods"><summary>评测方法与原榜</summary><div id="benchmark-directory" class="benchmark-directory"></div></details>
       </section>
       <section id="showcase-view" class="showcase" hidden aria-label="经典题与公开作品">
         <div id="showcase-load-error" class="notice error" role="alert" hidden>

@@ -668,6 +668,15 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
         from .model_reference import capability_reference
         return capability_reference()
 
+    @app.get('/api/capability-rankings')
+    def model_rankings():
+        from .capability_rankings import capability_rankings
+        value = capability_rankings()
+        value['boards'] = [b for b in value['boards'] if b['direction']]
+        if not any(b['id'] == value['default_board'] for b in value['boards']):
+            value['default_board'] = value['boards'][0]['id'] if value['boards'] else None
+        return value
+
     @app.get('/api/data-status')
     def local_data_status():
         from .data_registry import data_status
