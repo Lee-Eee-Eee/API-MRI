@@ -34,8 +34,8 @@
         "响应头、首段正文、末段正文与连接结束分别记录。服务自报 token 用量可用时，计算输出吞吐。",
     },
     tools: {
-      title: "工具调用",
-      description: "检查工具选择、参数格式和结果回填。",
+      title: "工具协议与回路",
+      description: "在固定的最小 Harness 中，检查 API 是否完整交付调用与结果。",
       emptyTitle: "一个完整的工具调用回路",
       emptyDescription:
         "模型生成参数，工具返回合成数据，再由模型读出结果。另测自动选用工具和无须工具的回答。",
@@ -51,6 +51,7 @@
       title: "示例馆",
       description: "同一道题，看代码、画面与调用代价。",
     },
+    capabilities: {title: '能力参考', description: '看公开评测，也看模型、推理配置与 Harness。'},
     history: {
       title: "运行记录",
       description: "重新打开报告，导出记录或离线复算。",
@@ -278,7 +279,7 @@
       $("empty-result").hidden = false;
     }
     $("check-view").hidden = !isCheck;
-    ["history", "library", "research", "showcase"].forEach(
+    ["history", "library", "research", "showcase", "capabilities"].forEach(
       (v) => ($(v + "-view").hidden = target !== v),
     );
     $("try-demo").hidden = !isCheck;
@@ -974,7 +975,7 @@
       s.append(d);
     }
     if (toolRows.length) {
-      const s = section(root, "工具调用回路");
+      const s = section(root, "工具协议与回路");
       for (const [id, [label, note]] of toolRows) {
         const result = tools[id],
           pass = result.status === "passed",
@@ -994,7 +995,7 @@
         );
         s.append(row);
       }
-      s.append(el("p", "score-note", "工具使用固定的合成数据。"));
+      s.append(el("p", "score-note", "API-MRI 固定工具定义、提示、执行器与回填方式，使用合成表。结果反映当前模型、接入路径和这一回路的配合情况；DSH 等 Harness 的执行策略另测。"));
     }
     appendUsage(root, r);
     detail(root, "请求详情与测量定义", {

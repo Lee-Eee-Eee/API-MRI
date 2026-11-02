@@ -1,121 +1,61 @@
 # API-MRI · DSH Better Sidebar
 
-在 DSH 侧栏打开完整的 API-MRI 工作台。连接、吞吐、工具调用、模型指纹与示例画廊沿用 API-MRI 的界面和报告。
+在侧栏使用完整工作台：连接与速度、工具协议、模型指纹、示例馆和公开能力参考。
 
-插件连接已经启动的 API-MRI。第一次打开页签时输入地址并点击「连接」；默认地址是 `http://127.0.0.1:8765`。
+## 安装与打开
 
-## 安装
+需要DSH 0.2.1-rc.1及以上的0.2.x、Better Sidebar 0.28.2。Windows x64从0.9.0开始自动安装运行程序。
 
-需要DSH **0.2.1-rc.1及以上的0.2.x**、Better Sidebar **0.28.2**。支持DSH桌面版和回环地址上的DSH Web；桌面支持从API-MRI **0.8.1**加入。
+下载[Release](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest)中的`dsh-api-mri-0.9.0.tgz`，在PowerShell安装到桌面版：
 
-0.8.0已在Windows、Node.js 24.11.1、DSH Web 0.2.1-rc.3、Better Sidebar 0.28.2上完成真实安装、配置装配、浏览器页签与跨来源连接验证。测试使用独立的DSH_HOME；结果见[host-qa.json](tests/host-qa.json)。
+```powershell
+& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\下载目录\dsh-api-mri-0.9.0.tgz"
+```
 
-在已有 DSH Web profile 中安装：
+重开DSH，在Better Sidebar的「新建标签页」中选 **API-MRI**。第一次打开自动下载Windows运行包、核对SHA-256、解压并启动；页面显示下载进度。以后复用已安装版本，自动启动并连接。运行包包含Python与CPU分析依赖，大小以进度条为准。
+
+无需另下便携版。已有API-MRI服务时，也可以填写地址手动连接。macOS/Linux暂用[源码启动](../README.md#开始使用)，然后手动连接。
+
+DSH Web使用`web` profile：
 
 ```sh
 dsh plugin --profile web add dsh-better-sidebar@0.28.2
-dsh plugin --profile web add github:Lee-Eee-Eee/API-MRI#v0.8.0
-dsh --profile web --dump-config
+dsh plugin --profile web add ./dsh-api-mri-0.9.0.tgz
 ```
 
-也可以下载 Release 中的 `dsh-api-mri-0.8.0.tgz`，将第二条命令改为：
+Web地址须为回环地址，可附端口。桌面来源固定为`dsh-app://app`。HTTPS Web页面连接HTTP后端会受到浏览器混合内容限制；这种部署连接自行配置的HTTPS后端。
 
-```sh
-dsh plugin --profile web add ./dsh-api-mri-0.8.0.tgz
-```
+## 下载、进程和记录
 
-重启 DSH，在右侧栏的「新建标签页」菜单选 **API-MRI**。`dsh plugin add` 会装配插件层，毋须再手写一份 Cordis 插件行。
+运行包固定到插件版本，从本项目GitHub Release下载。tarball内置运行包摘要；Git源码安装读取同版本Release的运行清单。大小和SHA-256均匹配后才解压和启动。
 
-### 桌面版
+Windows保存位置：`%LOCALAPPDATA%\API-MRI\dsh-runtime`。版本号子目录保存程序，`data`保存检测记录与参考缓存。
 
-桌面版使用`desktop` profile。安装包含桌面修补的0.8.1插件包：
+插件分配空闲端口并授权当前DSH来源嵌入。DSH卸载插件或退出时停止自己启动的进程；手动连接的独立服务由用户管理。升级保留`data`。
 
-```sh
-dsh plugin --profile desktop add ./dsh-api-mri-0.8.1.tgz
-```
+下载失败可点「重试自动启动」，或手动连接。尚未发布运行包的开发版本会显示错误，源码后端仍可独立启动。
 
-Windows桌面应用自带CLI；未安装全局`dsh`命令时，可在PowerShell调用：
+## 密钥与预览
 
-```powershell
-& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\下载目录\dsh-api-mri-0.8.1.tgz"
-```
+Key在工作台内填写。安装器不读取DSH账号、会话和模型配置。启动后端时仅传Windows运行所需环境变量，不继承API Key环境变量。安装与看作品不调用模型。
 
-桌面窗口使用固定来源`dsh-app://app`。启动API-MRI时授权这个来源：
+宿主路由复用DSH的`connection.requestRejection()`。父页面与工作台握手仅传随机nonce和版本。作品置于没有同源、网络和弹窗权限的沙箱；three.js r160与OrbitControls随包提供。
 
-```powershell
-.\API-MRI.exe --embed-origin dsh-app://app --no-browser
-```
-
-API-MRI后端也须包含0.8.1的桌面支持。源码版可运行`python -m relay_audit.cli ui --embed-origin dsh-app://app`。安装后刷新插件或重开DSH窗口，再从Better Sidebar新建API-MRI页签并连接服务地址。
-
-## 启动并连接
-
-打开页签后的「启动 API-MRI」会显示当前 DSH 地址对应的命令。例如 DSH 在 `http://127.0.0.1:3080`：
-
-Windows：在解压后的 API-MRI 程序目录运行：
-
-```powershell
-.\API-MRI.exe --embed-origin http://127.0.0.1:3080 --no-browser
-```
-
-macOS / Linux：按[主项目的源码安装指南](https://github.com/Lee-Eee-Eee/API-MRI#readme)装好 Python 环境，在该环境运行：
-
-```sh
-python -m relay_audit.cli ui --embed-origin http://127.0.0.1:3080
-```
-
-然后在页签中点击「连接」。Web版的`--embed-origin`须与浏览器地址栏中的DSH **协议、主机和端口**一致；`localhost`与`127.0.0.1`是两个不同来源。更换DSH端口后，按新地址重启API-MRI。桌面版固定使用`dsh-app://app`。
-
-API-MRI 使用其他端口时，修改页签的服务地址。支持 `http`、`https` 和 `127.0.0.1`、`localhost`、`[::1]`；地址只包含来源，不附路径、查询参数或账号密码。DSH 与 API-MRI 使用不同端口。
-
-「打开 ↗」在独立窗口继续使用同一服务。「更换连接」关闭当前嵌入并回到地址表单。首次打开、地址编辑和页签注册均不调用模型 API；具体检测仍由你在 API-MRI 中发起。
-
-## 连接失败时
-
-- 在浏览器单独打开 API-MRI 地址，确认程序已经启动。
-- 用页签中生成的命令重启API-MRI。Web版从0.8.0支持嵌入；桌面版从0.8.1支持。
-- Web版的DSH地址须为回环来源，桌面版须为官方的`dsh-app://app`。
-- 在 HTTPS DSH 中连接 HTTP 服务若被浏览器拦截，使用同为 HTTP 的 DSH Web，或为 API-MRI 配置对应的 HTTPS 回环服务。
-
-## 凭据与页面边界
-
-API key 在 API-MRI 工作台内填写。插件的 Node 入口不注册 HTTP 代理、不启动进程，也不读取 DSH 的账号、会话或密钥。插件只在 DSH 的浏览器存储中保存一个经过校验的服务地址。
-
-API-MRI 页面与 DSH 处于不同来源。双方握手只传 `type`、随机 `nonce` 和 API-MRI 的 `version`，父页面核对发送窗口、来源与 nonce 后显示连接状态。工作台 iframe 允许脚本、同源请求、表单、下载及文档外链的新窗口，复制按钮获得 `clipboard-write` 权限；不授予剪贴板读取或顶层跳转权限。模型生成的 HTML 预览另有独立的 `allow-scripts` 沙箱，弹窗和剪贴板权限仍被禁用。API-MRI 默认拒绝被嵌入，只有启动时指定的 DSH 来源能打开它。
-
-## 开发与打包
-
-在 API-MRI 仓库根目录运行：
+## 构建
 
 ```sh
 npm run build:dsh
 npm run test:dsh
-npm pack
+npm pack --ignore-scripts
 ```
 
-构建与单元测试只需要 Node.js；没有安装脚本和运行时依赖。React 由 DSH 提供，Better Sidebar 通过 peer 依赖共享。预构建的 `lib/` 随 Git 与 tarball 分发。
+构建仅需Node.js，没有安装钩子。React与Better Sidebar由DSH提供。Release CI在便携包验收后运行`scripts/prepare_dsh_runtime.py`，写入该ZIP的摘要和大小，再打插件tarball。源码占位清单通过对应版本Release解析。
 
-开发时，可把安装命令换成绝对路径：
-
-```sh
-dsh plugin --profile web add link:/absolute/path/to/API-MRI
-```
-
-`src/index.js` 是空的宿主入口；`src/client.js` 使用 `ctx.betterSidebar.registerTab()`，由 Cordis effect 回收注册；`src/core.js` 管理地址、存储与握手。页签隐藏时停止父页面的握手计时与事件监听，卸载时清理。模型请求和页面自身的任务仍由 API-MRI 管理。
-
-### 自有插件索引
-
-DSH 的发现页接受 format-1 索引。发布者先提交发布源码，再用对应的 **40 位提交 SHA** 生成索引：
-
-```sh
-node dsh-plugin/market-index.mjs --commit <40位小写SHA> --published-at <Unix秒> --out dsh-plugin/market/index.json
-```
-
-本版本的[插件索引](https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v0.8.0/api-mri-dsh-index.json)可直接添加到 DSH「插件 → 发现」。索引的版本来源固定到发布提交 SHA。自行维护索引时，将生成的 JSON 托管在可直接获取的 HTTPS 地址；该命令只生成索引，不向第三方市场提交内容。
+自己的发现页索引由`dsh-plugin/market-index.mjs`生成，固定到发布提交，随Release提供；未提交第三方插件市场。
 
 ## 接入依据
 
-- [DSH 组合包打包与安装](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.zh.md)
-- [DSH 浏览器模块加载](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/client-modules.zh.md)
-- [Better Sidebar 外部插件指南](https://github.com/omdsh-dev/DSH-better-sidebar/blob/2d736f5496fe97f4bba6af37d99861649b9ef3c0/docs/external-plugin-guide.md)
-- [DSH 插件索引格式](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/util/plugin-market-index/src/types.ts)
+- [DSH打包安装](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.zh.md)
+- [DSH WebServer与Connection](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/web-server.zh.md)
+- [Better Sidebar插件接口](https://github.com/omdsh-dev/DSH-better-sidebar/blob/2d736f5496fe97f4bba6af37d99861649b9ef3c0/docs/external-plugin-guide.md)
+- [0.8.0的Web安装验收](tests/host-qa.json)保留历史验证范围；0.9.0自动安装由新版测试和Release验收记录。

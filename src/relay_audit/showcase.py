@@ -41,6 +41,7 @@ def _task_valid(task: dict, *, saved: bool = False) -> bool:
             and (bool(ID_PATTERN.fullmatch(task["id"])) or saved and task["id"] == "[REDACTED]")
             and isinstance(task.get("title"), str) and 1 <= len(task["title"]) <= 200
             and isinstance(task.get("prompt"), str) and 1 <= len(task["prompt"]) <= 16000
+            and (task.get('system_prompt') is None or isinstance(task.get('system_prompt'), str) and len(task['system_prompt']) <= 32000)
             and task.get("format") in FORMATS)
 
 
@@ -67,6 +68,16 @@ def list_showcase() -> dict:
                 or example.get("task_id") not in {task["id"] for task in tasks}):
             raise ValueError("公开作品条目的标识无效。")
         identifiers.add(example["id"])
+    from .model_reference import model_identity, reference
+    from .showcase_preview import original_url
+    for example in catalog['examples']:
+        example['identity'] = model_identity(example.get('model', ''))
+        example['preview_available'] = bool(example.get('asset') or original_url(example))
+    for task in tasks:
+        records = [e for e in catalog['examples'] if e['task_id'] == task['id']]
+        task['model_count'] = len({e['identity']['id'] for e in records})
+        task['default_visible'] = task['model_count'] >= 6
+    catalog['model_metadata'] = {key: reference()[key] for key in ('source', 'retrieved_at', 'source_sha256')}
     return catalog
 
 

@@ -53,6 +53,33 @@ export function Workbench({ visible = true }) {
   const [version, setVersion] = React.useState('');
   const frame = React.useRef(null);
   const attempt = React.useRef(0);
+  const [runtime, setRuntime] = React.useState(null);
+  const [runtimeRetry, setRuntimeRetry] = React.useState(0);
+  const automaticDone = React.useRef(false);
+
+  React.useEffect(() => {
+    if(!visible || !hostOrigin || connection || automaticDone.current)return undefined;
+    let stopped=false, timer;
+    const base=new URL(document.baseURI);base.search='';base.hash='';
+    if(!base.pathname.endsWith('/'))base.pathname+='/';
+    const url=new URL('api-mri/runtime',base);
+    async function poll(first=false){
+      try {
+        const res=await fetch(url,{method:first?'POST':'GET',credentials:'same-origin',signal:AbortSignal.timeout(15000),headers:first?{'Content-Type':'application/json'}:{},body:first?'{}':undefined});
+        if(!res.ok)throw new Error('当前插件未提供自动启动，请更新 Release 插件包。');
+        const info=await res.json();if(stopped)return;setRuntime(info);
+        if(info.phase==='ready'){
+          automaticDone.current=true;
+          const origin=parseLocalOrigin(info.url);setAddress(origin);attempt.current+=1;
+          setConnection({origin,id:attempt.current});setState('loading');setError('');return;
+        }
+        if(info.phase==='error')return;
+        timer=setTimeout(()=>poll(),900);
+      }catch(e){if(!stopped)setRuntime({phase:'error',error:e.message});}
+    }
+    poll(true);
+    return()=>{stopped=true;clearTimeout(timer);};
+  },[visible,hostOrigin,Boolean(connection),runtimeRetry]);
 
   React.useEffect(() => {
     // After a failed attempt only the explicit reconnect action creates a new attempt.
@@ -79,6 +106,7 @@ export function Workbench({ visible = true }) {
       const origin = parseLocalOrigin(address);
       if (origin === hostOrigin) throw new Error('API-MRI 与 DSH 须使用不同端口。');
       setAddress(origin);
+      automaticDone.current=true;
       try { saveOrigin(window.localStorage, origin); } catch { /* Storage is optional. */ }
       attempt.current += 1;
       setConnection({ origin, id: attempt.current });
@@ -104,8 +132,14 @@ export function Workbench({ visible = true }) {
       connection && h('button', { type: 'button', onClick: disconnect }, '更换连接')),
     !connection ? h('div', { className: 'api-mri-companion__setup' },
       h(Mark, { size: 44 }),
-      h('h2', null, '连接你的 API-MRI'),
-      h('p', null, '在侧栏检查连接、吞吐、工具调用与模型指纹。'),
+      h('h2', null, '正在准备 API-MRI'),
+      h('p', {role:'status','aria-live':'polite'}, runtime?.phase==='downloading'
+        ? `首次下载运行程序 · ${Math.floor((runtime.downloaded_bytes||0)/1024/1024)} / ${Math.ceil((runtime.total_bytes||0)/1024/1024)} MB`
+        : runtime?.phase==='extracting'?'正在解压运行程序…':runtime?.phase==='starting'?'正在启动工作台…'
+        :runtime?.phase==='error'?runtime.error:'首次打开会下载运行程序，以后自动启动。'),
+      runtime?.phase==='downloading' && h('progress',{value:runtime.downloaded_bytes||0,max:runtime.total_bytes||1,'aria-label':'运行程序下载进度',style:{width:'100%',accentColor:'#738365',marginBottom:20}}),
+      runtime?.phase==='error' && h('button',{type:'button',className:'api-mri-companion__connect',onClick:()=>{automaticDone.current=false;setRuntimeRetry(v=>v+1);}},'重试自动启动'),
+      h('details',{className:'api-mri-companion__launch'},h('summary',null,'连接已有服务'),
       h('form', { onSubmit: connect },
         h('label', { htmlFor: inputId }, '服务地址'),
         h('div', { className: 'api-mri-companion__form' },
@@ -114,7 +148,7 @@ export function Workbench({ visible = true }) {
             placeholder: DEFAULT_BACKEND, 'aria-invalid': !!error, 'aria-describedby': error ? `${inputId}-error` : undefined }),
           h('button', { className: 'api-mri-companion__connect', type: 'submit', disabled: !hostOrigin }, '连接'))),
       (error || !hostOrigin) && h('p', { className: 'api-mri-companion__error', id: `${inputId}-error`, role: 'alert' }, error || '请使用 DSH 桌面版，或在回环地址上打开 DSH Web。'),
-      h(LaunchHelp, { origin: hostOrigin, open: true }))
+      h(LaunchHelp, { origin: hostOrigin, open: false })))
       : h('div', { className: 'api-mri-companion__frame-wrap' },
         h('iframe', { key: connection.id, ref: frame, className: 'api-mri-companion__frame', src: connection.origin,
           title: 'API-MRI 工作台', sandbox: 'allow-scripts allow-same-origin allow-downloads allow-forms allow-popups allow-popups-to-escape-sandbox',

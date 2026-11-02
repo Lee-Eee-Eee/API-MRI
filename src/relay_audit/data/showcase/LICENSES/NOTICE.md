@@ -1,5 +1,7 @@
 # 经典作品来源与许可
 
+2026-11-02：models.dev元数据采用MIT，完整许可见`models.dev-LICENSE.txt`。three.js r160与OrbitControls采用MIT，源码、许可、固定版本和SHA-256置于`../runtime/`。未授再分发许可的原作不随包保存；预览时按固定公开地址读取到有上限的内存缓存。
+
 本目录于 2026-10-31 收集。`assets/` 中的 24 个 SVG 保持上游原始字节，未调整颜色、裁切、修复或补画。
 
 ## Nebius cookbook：19 个 SVG

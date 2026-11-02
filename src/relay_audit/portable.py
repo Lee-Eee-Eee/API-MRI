@@ -263,7 +263,7 @@ class PortableServer:
         bootstrap = _request_json(self.url + "/api/bootstrap")
         opener = _loopback_opener()
         sizes: dict[str, int] = {}
-        for asset in ("/", "/app.js", "/app.css", "/showcase.js"):
+        for asset in ("/", "/app.js", "/app.css", "/showcase.js", "/capabilities.js"):
             with opener.open(self.url + asset, timeout=5) as response:
                 sizes[asset] = len(response.read())
                 if response.status != 200 or sizes[asset] == 0:

@@ -2,12 +2,12 @@
 
 API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧命令 `relay-audit` 仍可使用。
 
-连接一个大模型 API，检查它的响应过程、工具调用与模型指纹。MRI 也借用了磁共振的含义：把服务拆成几个可观察的切面，查看每一项证据。
+连接一个大模型 API，检查它的响应过程、工具协议与模型指纹。MRI 也借用了磁共振的含义：把服务拆成几个可观察的切面，查看每一项证据。
 
 | 检查 | 能看到什么 | 默认预算 |
 | --- | --- | --- |
 | 连接与速度 | 请求成功与错误、首正文等待、完整耗时、流式间隔、服务端用量对应的全程输出速率 | 2 请求，256 输出配额 |
-| 工具调用 | 指定工具及参数、结果回填、自主选用、无需工具的回答 | 至多 4 请求，512 输出配额 |
+| 工具协议 | 指定工具及参数、结果回填、自主选用、无需工具的回答 | 至多 4 请求，512 输出配额 |
 | 模型指纹 | 与 132 个公开参考标签的距离、逐探针贡献、排名轨迹和删题敏感性 | 32 请求，512 输出配额 |
 | 经典题试作 | 鹈鹕骑自行车等题目的 SVG / HTML、图形预览、用量与耗时 | 1 请求，默认 2,048 输出上限 |
 
@@ -21,13 +21,15 @@ API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧�
 
 ## 开始使用
 
-**Windows 用户：** 在 [Releases](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest) 下载 `API-MRI-0.8.0-windows-x64.zip`，完整解压后双击 `API-MRI.exe`。无需安装 Python。浏览器打开工作台，另有一个小窗口用于打开页面和退出程序。使用与升级步骤见[便携版指南](docs/portable.md)。
+**Windows 用户：** 在 [Releases](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest) 下载 `API-MRI-0.9.0-windows-x64.zip`，完整解压后双击 `API-MRI.exe`。无需安装 Python。浏览器打开工作台，另有一个小窗口用于打开页面和退出程序。使用与升级步骤见[便携版指南](docs/portable.md)。
 
 安装后点击“试用示例”，即可查看流式时间线和工具调用结果。示例使用本地合成响应；模型指纹示例从参考分布合成，两者均不调用模型 API。
 
-**DSH 用户：** 安装 [Better Sidebar 插件](dsh-plugin/README.md)，在侧栏连接已启动的 API-MRI。Windows 便携版与源码版都可作为后端；Release 同时提供 `dsh-api-mri-0.8.0.tgz` 和插件发现页索引。
+**DSH 用户：** 安装 [Better Sidebar 插件](dsh-plugin/README.md)，Windows x64首次打开页签时自动下载、校验并启动运行程序，随后自动连接；也可手动连接已有服务。
 
-**只想看作品：** 打开“示例馆”，可浏览 82 份离线作品、273 份按需在线原图与其他原作链接，按模型并排查看。当前62道题覆盖空间绘图、动画机构、科学可视化、游戏与物理模拟。浏览不发模型请求；试作前展示单次请求与输出上限。每份作品保留提示、出处和已知参数。[来源与使用方法](docs/classic-examples.md)
+**只想看作品：** “示例馆”默认展示42道有充分对照的题目，统一名称并按发布日期排序，模型与运行档位分开选择。SVG、HTML和WebGL原作在页内按需预览，保留提示、出处和已知参数。[来源与方法](docs/classic-examples.md)
+
+**想了解能力：** “能力参考”汇集带出处的公开成绩，逐条列出指标、版本、推理配置和Harness，另设六大评测入口。[数据与方法](docs/capability-reference.md)
 
 ![API-MRI 示例馆](docs/images/showcase-v08.jpg)
 

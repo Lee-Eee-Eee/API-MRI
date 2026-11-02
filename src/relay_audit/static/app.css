@@ -2484,3 +2484,25 @@ circle.illustration-sage {
 }
 
 @media (max-width: 720px) { .showcase .showcase-filters { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
+.showcase .showcase-filters { grid-template-columns: minmax(130px,.8fr) minmax(190px,1.2fr) minmax(150px,.9fr); row-gap: 12px; }
+.showcase-filters > label { font-size: 12px; display:flex; align-items:center; gap:7px; }
+.showcase-variant {display:flex;align-items:center;gap:10px;padding:0 22px 10px;}
+.showcase-variant label {font-size:11px;color:var(--muted);flex:none;}
+.showcase-variant select {min-width:0;flex:1;font-size:12px;min-height:32px;background:transparent;}
+.capability-controls {display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:24px;max-width:850px;}
+.capability-controls select,.capability-controls input {width:100%;}
+.capability-heading {display:flex;align-items:baseline;justify-content:space-between;gap:20px;margin:24px 0 10px;}
+.capability-heading h2 {font-size:25px;font-weight:550;}
+.capability-heading span {color:var(--muted);font-size:12px;}
+.capability-table-wrap {overflow-x:auto;margin:20px 0 32px;}
+.capability-table {width:100%;border-collapse:collapse;text-align:left;font-size:13px;}
+.capability-table th {font-weight:500;color:var(--muted);background:#e8e8dc;}
+.capability-table th,.capability-table td {padding:13px 14px;border-bottom:1px solid var(--border);vertical-align:top;}
+.capability-table td:first-child {font-weight:550;}
+.capability-table a,.benchmark-directory a {color:var(--copper,#98482e);}
+.benchmark-directory {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:40px;}
+.benchmark-directory article {padding:22px 0;border-top:2px solid #adb49c;}
+.benchmark-directory h3 {font-size:18px;margin:6px 0 10px;}
+.benchmark-directory p {font-size:13px;margin:6px 0;line-height:1.7;}
+.benchmark-category {font-size:11px;color:var(--muted);}
+@media(max-width:720px){.showcase .showcase-filters,.capability-controls {grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;}.benchmark-directory{grid-template-columns:1fr;}.capability-table{min-width:550px;}}

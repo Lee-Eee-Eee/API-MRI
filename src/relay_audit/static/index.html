@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="/app.css" />
     <script src="/app.js" defer></script>
     <script src="/showcase.js" defer></script>
+    <script src="/capabilities.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">跳到主要内容</a>
@@ -53,7 +54,7 @@
         <a href="#tools" class="nav-link" data-view="tools"
           ><svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M8 4H4v6h4v10h12V10h-5V4h-4M8 7h7M8 13h8" /></svg
-          >工具调用</a
+          >工具协议</a
         >
         <a href="#identity" class="nav-link" data-view="identity"
           ><svg viewBox="0 0 24 24" aria-hidden="true">
@@ -70,6 +71,7 @@
         >
       </nav>
       <nav class="nav-secondary" aria-label="记录与研究">
+        <a href="#capabilities" class="nav-link" data-view="capabilities"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9h4v11M10 20V4h4v16M16 20V12h4v8" /></svg>能力参考</a>
         <a href="#history" class="nav-link" data-view="history"
           ><svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 5v5h5M4.5 9a8 8 0 1 1 0 7M12 7v5l3 2" /></svg
@@ -206,7 +208,7 @@
                 ><input
                   id="include-tools"
                   type="checkbox"
-                />同时检查工具调用</label
+                />同时检查工具协议</label
               >
               <p id="tool-settings-note" class="field-help" hidden>
                 检查工具选择、参数格式和结果回填，使用合成数据。
@@ -421,6 +423,14 @@
           <div id="report-container" hidden></div>
         </section>
       </div>
+      <section id="capabilities-view" hidden aria-label="模型能力参考">
+        <div class="capability-controls">
+          <div class="field"><label for="capability-model">模型</label><select id="capability-model"><option>正在读取…</option></select></div>
+          <div class="field"><label for="capability-query">查找模型</label><input id="capability-query" type="search" placeholder="如 Claude、GPT、DeepSeek" /></div>
+        </div>
+        <div id="capability-scores" aria-live="polite"></div>
+        <div id="benchmark-directory" class="benchmark-directory"></div>
+      </section>
       <section id="showcase-view" class="showcase" hidden aria-label="经典题与公开作品">
         <div id="showcase-load-error" class="notice error" role="alert" hidden>
           <span id="showcase-load-error-text"></span>
@@ -430,7 +440,9 @@
         <div class="showcase-toolbar showcase-filters">
           <div class="field"><label for="showcase-category">题型</label><select id="showcase-category"><option value="">全部题型</option><option>空间关系</option><option>结构与语义</option><option>动画与机构</option><option>科学可视化</option><option>交互与模拟</option></select></div>
           <div class="field"><label for="showcase-model-search">查找模型</label><input id="showcase-model-search" type="search" placeholder="如 Claude、DeepSeek、Qwen" /></div>
-          <label><input id="showcase-bundled-only" type="checkbox" /> 只看可直接预览的作品</label>
+          <div class="field"><label for="showcase-order">模型排序</label><select id="showcase-order"><option value="release">最新发布优先</option><option value="name">按模型名称</option></select></div>
+          <label><input id="showcase-bundled-only" type="checkbox" checked /> 可在页内预览</label>
+          <label><input id="showcase-small-tasks" type="checkbox" /> 包含少量对照题</label>
         </div>
         <div class="showcase-toolbar">
           <div class="field">
@@ -444,12 +456,14 @@
           <article id="showcase-work-left" class="showcase-work">
             <label class="sr-only" for="showcase-left">左侧作品</label>
             <select id="showcase-left" class="showcase-model" disabled><option>正在读取作品…</option></select>
+            <div id="showcase-left-variants" class="showcase-variant" hidden><label for="showcase-left-variant">运行档位</label><select id="showcase-left-variant"></select></div>
             <div id="showcase-stage-left" class="showcase-stage" aria-live="polite"><p>正在读取作品。</p></div>
             <div id="showcase-caption-left" class="showcase-caption"></div>
           </article>
           <article id="showcase-work-right" class="showcase-work">
             <label class="sr-only" for="showcase-right">右侧作品</label>
             <select id="showcase-right" class="showcase-model" disabled><option>正在读取作品…</option></select>
+            <div id="showcase-right-variants" class="showcase-variant" hidden><label for="showcase-right-variant">运行档位</label><select id="showcase-right-variant"></select></div>
             <div id="showcase-stage-right" class="showcase-stage" aria-live="polite"><p>正在读取作品。</p></div>
             <div id="showcase-caption-right" class="showcase-caption"></div>
           </article>

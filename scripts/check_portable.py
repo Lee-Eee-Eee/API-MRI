@@ -380,7 +380,7 @@ class Checker:
                 "GUI model bank or offline smoke flags invalid")
         require(result.get("reference_packs", 0) >= 1 and all(size > 100 for size in result.get("assets", {}).values()),
                 "GUI resources missing")
-        require(set(result.get("assets", {})) == {"/", "/app.js", "/app.css", "/showcase.js"}, "GUI asset check incomplete")
+        require(set(result.get("assets", {})) == {"/", "/app.js", "/app.css", "/showcase.js", "/capabilities.js"}, "GUI asset check incomplete")
         require(not (data / ".portable-session.json").exists(), "GUI executable left an active session file")
         port = result.get("port")
         require(type(port) is int and 1024 <= port <= 65535, "Invalid GUI smoke port")

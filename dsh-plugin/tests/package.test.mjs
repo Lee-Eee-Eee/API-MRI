@@ -10,7 +10,7 @@ const manifest = JSON.parse(await readFile(new URL('../../package.json', import.
 
 test('official DSH bundle and client manifests select shared host services', async () => {
   assert.equal(manifest.name, 'dsh-api-mri');
-  assert.equal(manifest.version, '0.8.1');
+  assert.equal(manifest.version, '0.9.0');
   assert.equal(manifest.dsh.bundle.patch, './dsh-plugin/cordis.patch.yml');
   assert.deepEqual(manifest.dsh.client, { platform: 'web', inject: ['dsh-better-sidebar'] });
   assert.equal(manifest.peerDependencies['dsh-better-sidebar'], '>=0.28.2 <0.29.0');
@@ -20,7 +20,7 @@ test('official DSH bundle and client manifests select shared host services', asy
   for (const hook of ['preinstall', 'install', 'postinstall', 'prepare']) assert.equal(manifest.scripts[hook], undefined);
   assert.equal(await readFile(new URL('../cordis.patch.yml', import.meta.url), 'utf8'), '- insert:\n    - id: api-mri\n      name: dsh-api-mri\n');
   assert.equal(host.name, manifest.name);
-  assert.equal(host.apply(new Proxy({}, { get() { throw Error('Host service was accessed'); } })), undefined);
+  assert.deepEqual(host.inject, ['webServer','connection']);
 });
 
 test('checked-in browser factory registers one disposable BetterSidebar tab', async () => {

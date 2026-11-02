@@ -18,6 +18,19 @@
   const number = (value, digits = 0) => typeof value === "number" && Number.isFinite(value)
     ? value.toLocaleString("zh-CN", { maximumFractionDigits: digits, minimumFractionDigits: digits }) : "—";
   const date = (value) => value ? String(value).slice(0, 10) : "未记录";
+  const identity = (item) => item.identity || {id:item.model, name:item.model, original_label:item.model};
+  function sorted(items) {
+    return [...items].sort((a,b) => {
+      if ($('showcase-order').value === 'name') return identity(a).name.localeCompare(identity(b).name, 'en');
+      return (identity(b).release_date || '').localeCompare(identity(a).release_date || '')
+        || identity(a).name.localeCompare(identity(b).name, 'en');
+    });
+  }
+  function matches(item) {
+    const query = $('showcase-model-search').value.trim().toLowerCase();
+    return (!$('showcase-bundled-only').checked || item.preview_available)
+      && (!query || `${identity(item).name} ${item.model} ${item.reported_settings?.model_id || ''}`.toLowerCase().includes(query));
+  }
   function link(label, href, cls) {
     const element = node("a", cls, label);
     try {
@@ -94,7 +107,7 @@
       if (!value.tasks.some((item) => item.id === state.task)) state.task = value.tasks[0].id;
       $("showcase-task").disabled = false;
       const bundled = value.examples.filter((item) => item.asset).length;
-      $("showcase-collection-summary").textContent = `${value.tasks.length} 道题 · ${new Set(value.examples.map(e => e.model)).size} 个来源模型标签 · ${bundled} 份离线作品 · ${value.examples.filter(e => e.remote_preview_url).length} 份在线原图 · ${value.examples.length} 条记录`;
+      $("showcase-collection-summary").textContent = `${value.tasks.filter(t=>t.default_visible).length} 道对照题 · ${new Set(value.examples.map(e => identity(e).id)).size} 个模型名称 · ${value.examples.filter(e=>e.preview_available).length} 份页内预览`;
       const previous = report();
       $("showcase-visible-summary").textContent = $("showcase-collection-summary").textContent;
       refreshChoices(false);
@@ -107,10 +120,7 @@
     } finally { state.loading = false; updateControls(); }
   }
   function selections() {
-    const query = $("showcase-model-search").value.trim().toLowerCase();
-    const items = state.catalog.examples.filter((item) => item.task_id === state.task
-      && (!$("showcase-bundled-only").checked || item.asset)
-      && (!query || `${item.model} ${item.reported_settings?.model_id || ""}`.toLowerCase().includes(query)));
+    const items = sorted(state.catalog.examples.filter((item) => item.task_id === state.task && matches(item)));
     const value = report();
     return { items, trial: value?.task?.id === state.task ? value : null };
   }
@@ -122,19 +132,14 @@
       option.value = "__trial__";
       select.append(option);
     }
-    for (const [bundled, label] of [[true, "随项目提供"], [false, "查看原站作品"]]) {
-      const subset = items.filter((item) => Boolean(item.asset) === bundled);
-      if (!subset.length) continue;
-      const group = node("optgroup");
-      group.label = label;
-      subset.forEach((item) => {
-        const suffix = item.asset && /-[123ab]\.svg$/i.test(item.asset) ? ` · ${item.asset.split("/").pop().match(/-([123ab])\.svg$/i)[1]}` : "";
-        const mode = item.reported_settings?.configuration_label;
-        const option = node("option", null, item.model + suffix + (mode ? ` · ${mode}` : ""));
+    if (items.length) {
+      const unique = [...new Map([...items].reverse().map(e=>[identity(e).id,e])).values()].reverse();
+      unique.forEach((item) => {
+        const info = identity(item);
+        const option = node("option", null, `${info.name} · ${info.release_date || '日期未收录'}`);
         option.value = item.id;
-        group.append(option);
+        select.append(option);
       });
-      select.append(group);
     }
     if (!select.options.length) {
       const option = node("option", null, "尚未打包作品");
@@ -143,9 +148,25 @@
       select.disabled = true;
     } else {
       select.disabled = false;
-      if (Array.from(select.options).some((item) => item.value === selected)) select.value = selected;
+      const chosen = items.find(e=>e.id===selected);
+      const representative = chosen && items.find(e=>identity(e).id===identity(chosen).id);
+      if (Array.from(select.options).some((item) => item.value === (representative?.id || selected))) select.value = representative?.id || selected;
       else select.selectedIndex = 0;
     }
+    populateVariants(side, selected);
+  }
+  function populateVariants(side, selected) {
+    const root=$('showcase-'+side+'-variants'), select=$('showcase-'+side+'-variant');
+    const base=state.catalog.examples.find(e=>e.id===$('showcase-'+side).value);
+    const items=base ? selections().items.filter(e=>identity(e).id===identity(base).id) : [];
+    select.replaceChildren(...items.map((e,i)=>{
+      const settings=e.reported_settings || {};
+      const parts=[identity(e).variant,settings.configuration_label,settings.reasoning_effort,settings.harness].filter(Boolean);
+      const seen=new Set(), labels=parts.filter(x=>{const key=String(x).toLowerCase();if(seen.has(key))return false;seen.add(key);return true;});
+      const option=node('option',null,labels.join(' · ')||`样本 ${i+1}`);option.value=e.id;return option;
+    }));
+    root.hidden=items.length<2;
+    if(items.some(e=>e.id===selected))select.value=selected;
   }
   function selectTask(id, { rightTrial = false } = {}) {
     if (!state.catalog?.tasks.some((item) => item.id === id)) return;
@@ -164,8 +185,8 @@
     $("showcase-work-right").hidden = !compare;
     $("showcase-view").querySelector(".showcase-gallery").classList.toggle("single-work", !compare);
     const preferred = {
-      left: id === "pelican-svg" ? "bbinwang-qwen3-8-27b-ud-q4-k-xl" : "",
-      right: rightTrial ? "__trial__" : id === "pelican-svg" ? "nebius-kimi-k2-5-a" : available.items[1]?.id || "",
+      left: available.items[0]?.id || '',
+      right: rightTrial ? "__trial__" : available.items.find(e=>identity(e).id !== identity(available.items[0] || {}).id)?.id || available.items[1]?.id || '',
     };
     for (const side of ["left", "right"]) {
       populateSelect(side, preferred[side]);
@@ -182,6 +203,8 @@
     details.append(summary);
     const data = node("dl", "showcase-source-data");
     pairRow(data, "作者", example.source?.author || example.source?.repository || "未记录");
+    pairRow(data, '原始模型标签', example.model);
+    if (identity(example).release_date) pairRow(data, '模型发布（models.dev）', identity(example).release_date);
     pairRow(data, "生成日期", date(example.generated_at));
     if (example.source?.published_at) pairRow(data, "发表日期", date(example.source.published_at));
     if (example.source?.snapshot_at) pairRow(data, "代码快照", date(example.source.snapshot_at));
@@ -246,7 +269,8 @@
     const stage = $("showcase-stage-" + side), caption = $("showcase-caption-" + side);
     caption.replaceChildren();
     stage.setAttribute("aria-busy", "false");
-    const id = $("showcase-" + side).value;
+    const baseId = $("showcase-" + side).value;
+    const id = baseId === '__trial__' ? baseId : $('showcase-'+side+'-variant').value || baseId;
     if (id === "__trial__") { renderTrialPreview(side); return; }
     const example = state.catalog.examples.find((item) => item.id === id);
     if (!example) {
@@ -256,7 +280,7 @@
       stage.replaceChildren(empty);
       return;
     }
-    if (!example.asset) {
+    if (!example.preview_available) {
       const external = node("div", "showcase-external");
       const detail = example.reported_outcome === "no_svg_returned" ? "原作者记录了未返回图形的这次运行。" : "作品与完整运行记录保存在原作者页面。";
       external.append(node("h3", null, example.model), node("p", null, detail), link("查看原作 ↗", example.artifact_url || example.source?.url));
@@ -278,11 +302,12 @@
     try {
       let data = state.assets.get(example.id);
       if (!data) {
-        data = await bridge().request("/api/showcase/examples/" + encodeURIComponent(example.id));
+        data = await bridge().request("/api/showcase/examples/" + encodeURIComponent(example.id) + (example.asset ? '' : '/original'));
         state.assets.set(example.id, data);
+        if(state.assets.size>24)state.assets.delete(state.assets.keys().next().value);
       }
       if (revision !== state.requests[side]) return;
-      if (typeof data.source !== "string") throw new Error("作品没有可读取的 SVG 源码。");
+      if (typeof data.source !== "string") throw new Error("作品没有可读取的源码。");
       const line = node("div", "showcase-caption-line");
       line.append(node("span", null, `${example.source?.author || example.source?.repository || "公开作品"} · ${date(example.generated_at || example.source?.snapshot_at || example.source?.published_at)}`));
       if (example.format === "html") {
@@ -427,15 +452,14 @@
   function refreshChoices(render = true) {
     if (!state.catalog) return;
     const category = $("showcase-category").value;
-    const query = $("showcase-model-search").value.trim().toLowerCase();
-    const matching = state.catalog.examples.filter(e => (!$("showcase-bundled-only").checked || e.asset)
-      && (!query || `${e.model} ${e.reported_settings?.model_id || ""}`.toLowerCase().includes(query)));
-    const choices = state.catalog.tasks.filter(t => (!category || t.category === category) && matching.some(e => e.task_id === t.id));
+    const matching = state.catalog.examples.filter(matches);
+    const choices = state.catalog.tasks.filter(t => ($('showcase-small-tasks').checked || t.default_visible)
+      && (!category || t.category === category) && matching.some(e => e.task_id === t.id));
     state.noMatches = !choices.length;
     $("showcase-task").disabled = !choices.length;
     $("showcase-task").replaceChildren(...choices.map(t => {
       const works = matching.filter(e => e.task_id === t.id);
-      const option = node("option", null, `${t.title} · ${new Set(works.map(e => e.model)).size} 标签`); option.value = t.id; return option;
+      const option = node("option", null, `${t.title} · ${new Set(works.map(e => identity(e).id)).size} 模型`); option.value = t.id; return option;
     }));
     if (choices.length) {
       const id = choices.some(t => t.id === state.task) ? state.task : choices[0].id;
@@ -453,7 +477,12 @@
   $("showcase-model-search").addEventListener("input", () => refreshChoices());
   $("showcase-bundled-only").addEventListener("change", () => refreshChoices());
   $("showcase-category").addEventListener("change", () => refreshChoices());
-  for (const side of ["left", "right"]) $("showcase-" + side).addEventListener("change", () => renderSelected(side));
+  $('showcase-order').addEventListener('change', () => refreshChoices());
+  $('showcase-small-tasks').addEventListener('change', () => refreshChoices());
+  for (const side of ["left", "right"]) {
+    $("showcase-" + side).addEventListener("change", () => {populateVariants(side);renderSelected(side);});
+    $('showcase-'+side+'-variant').addEventListener('change',()=>renderSelected(side));
+  }
   $("showcase-form").addEventListener("submit", (event) => { event.preventDefault(); plan(); });
   for (const event of ["input", "change"]) $("showcase-form").addEventListener(event, invalidate);
   $("showcase-start").addEventListener("click", start);

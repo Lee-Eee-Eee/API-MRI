@@ -531,7 +531,11 @@ def _report(records):
                 "content_event_gaps_ms": _percentiles([gap for row in stream_ok for gap in row["timing"]["content_event_gaps_ms"]]),
                 "characters_per_second": _percentiles([row["metrics"]["characters_per_second"] for row in stream_ok]),
                 "truncated_samples": sum(row["finish_reason"] in {"length", "max_tokens"} for row in streams)},
-            "tools": tools, "requests": request_rows},
+            "tools": tools, "requests": request_rows,
+            "tool_harness": {"name": "API-MRI minimal tool loop", "version": 1,
+                "protocol": "OpenAI-compatible Chat Completions", "executor": "synthetic lookup table",
+                "prompt_policy": "fixed", "repair_attempts": 0, "parallel_execution": False,
+                "scope": "model + API adapter + fixed executor and result feedback"}},
         "collection": {"planned_requests": len(_stages(config)), "completed_requests": len(rows), "cancelled": cancelled,
             "stop_code": finish["stop_code"], "failure": failure},
         "cost": _cost(rows, config, manifest["synthetic"]),
@@ -540,7 +544,7 @@ def _report(records):
             "output_tokens_per_second": "供应商返回的completion_tokens÷完整响应秒数，可能包含推理tokens。",
             "visible_decode_tokens_per_second": "标准SSE不提供首块token数，精确正文解码速率保留未知。",
             "content_event_gaps_ms": "相邻非空正文事件的接收间隔；一个事件可能含多个tokens。",
-            "tools": "指定调用、自主选工具、不调用及读取结果分别判分，全部使用合成表。"}}
+            "tools": "固定最小Harness：指定调用、自主选择、不调用及读取结果分别判分。当前结果同时受模型、API协议转换和回填策略影响。"}}
 
 
 def _event_content_length(event):

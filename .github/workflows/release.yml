@@ -90,12 +90,14 @@ jobs:
       - name: Pack DSH plugin and install index
         shell: pwsh
         run: |
+          python -X utf8 scripts/prepare_dsh_runtime.py --release-dir build/portable-release
+          if ($LASTEXITCODE -ne 0) { throw 'DSH runtime manifest failed' }
           npm pack --ignore-scripts --pack-destination build/portable-release
           if ($LASTEXITCODE -ne 0) { throw 'DSH tarball build failed' }
           $publishedAt = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
           node dsh-plugin/market-index.mjs --commit "$env:GITHUB_SHA" --published-at "$publishedAt" --out build/portable-release/api-mri-dsh-index.json
           if ($LASTEXITCODE -ne 0) { throw 'DSH index build failed' }
-          $extraAssets = @(Get-ChildItem build/portable-release/*.tgz) + @(Get-Item build/portable-release/api-mri-dsh-index.json)
+          $extraAssets = @(Get-ChildItem build/portable-release/*.tgz) + @(Get-Item build/portable-release/api-mri-dsh-index.json) + @(Get-Item build/portable-release/api-mri-runtime.json)
           foreach ($asset in $extraAssets) {
             $checksum = (Get-FileHash -LiteralPath $asset.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$checksum  $($asset.Name)" | Add-Content -LiteralPath build/portable-release/SHA256SUMS.txt -Encoding ascii
@@ -113,6 +115,7 @@ jobs:
             build/portable-release/*.zip
             build/portable-release/*.tgz
             build/portable-release/api-mri-dsh-index.json
+            build/portable-release/api-mri-runtime.json
             build/portable-release/SHA256SUMS.txt
           if-no-files-found: error
       - name: Publish release assets
@@ -134,7 +137,7 @@ jobs:
             $existing = $existingJson | ConvertFrom-Json
             if (-not $existing.isDraft) { throw 'A published release already exists; its assets will not be replaced' }
             if ($existing.targetCommitish -ne $env:GITHUB_SHA) { throw 'The existing draft targets a different commit; inspect it before retrying' }
-            $uploadNames = @((Get-ChildItem build/portable-release/*.zip).Name) + @((Get-ChildItem build/portable-release/*.tgz).Name) + @('api-mri-dsh-index.json', 'SHA256SUMS.txt')
+            $uploadNames = @((Get-ChildItem build/portable-release/*.zip).Name) + @((Get-ChildItem build/portable-release/*.tgz).Name) + @('api-mri-dsh-index.json', 'api-mri-runtime.json', 'SHA256SUMS.txt')
             foreach ($asset in $existing.assets) {
               if ($asset.name -in $uploadNames) { throw "Draft already contains $($asset.name); existing assets will not be replaced" }
             }
@@ -142,7 +145,7 @@ jobs:
             gh release create "$releaseTag" --repo "$env:GITHUB_REPOSITORY" --target "$env:GITHUB_SHA" --title "API-MRI $releaseTag" --notes-file $notes --draft
             if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed' }
           }
-          gh release upload "$releaseTag" build/portable-release/*.zip build/portable-release/*.tgz build/portable-release/api-mri-dsh-index.json build/portable-release/SHA256SUMS.txt --repo "$env:GITHUB_REPOSITORY"
+          gh release upload "$releaseTag" build/portable-release/*.zip build/portable-release/*.tgz build/portable-release/api-mri-dsh-index.json build/portable-release/api-mri-runtime.json build/portable-release/SHA256SUMS.txt --repo "$env:GITHUB_REPOSITORY"
           if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed' }
           gh release edit "$releaseTag" --repo "$env:GITHUB_REPOSITORY" --draft=false --latest
           if ($LASTEXITCODE -ne 0) { throw 'Assets uploaded, but publishing the draft failed' }

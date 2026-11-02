@@ -1,6 +1,6 @@
 {
   "name": "dsh-api-mri",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "API-MRI workspace for DSH Better Sidebar",
   "type": "module",
   "main": "dsh-plugin/lib/index.js",

@@ -660,6 +660,29 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
 
         return list_showcase()
 
+    @app.get('/api/capability-reference')
+    def model_capabilities():
+        from .model_reference import capability_reference
+        return capability_reference()
+
+    @app.get('/capabilities.js')
+    def capabilities_javascript():
+        return FileResponse(STATIC / 'capabilities.js', media_type='text/javascript')
+
+    @app.get('/api/showcase/examples/{example_id}/original')
+    def original_showcase(example_id: str):
+        from .showcase import list_showcase
+        from .showcase_preview import read_original
+        try:
+            entry = next(e for e in list_showcase()['examples'] if e['id'] == example_id)
+            if entry.get('asset'):
+                raise ValueError('请读取离线作品。')
+            return {'example': entry, 'source': read_original(entry)}
+        except StopIteration:
+            raise HTTPException(404, '未找到作品。') from None
+        except Exception:
+            raise HTTPException(502, '原站作品暂时无法读取，可重试或查看出处。') from None
+
     @app.get("/api/showcase/examples/{example_id}")
     def showcase_example(example_id: str):
         from .showcase import list_showcase, showcase_asset
@@ -674,14 +697,17 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
     @app.get("/api/showcase/examples/{example_id}/preview")
     def public_showcase_preview(example_id: str):
         from .showcase import list_showcase, showcase_asset
+        from .showcase_preview import read_original, prepare_html
         try:
             entry = next(e for e in list_showcase()["examples"] if e["id"] == example_id)
             if entry["format"] != "html":
                 raise ValueError
-            source = showcase_asset(example_id).read_bytes().decode("utf-8")
+            source = showcase_asset(example_id).read_bytes().decode("utf-8") if entry.get('asset') else read_original(entry)
         except (StopIteration, ValueError, OSError, KeyError):
             raise HTTPException(404, "没有可预览的HTML原作。") from None
-        return isolated_showcase_html(source)
+        except Exception:
+            raise HTTPException(502, '原站作品暂时无法读取。') from None
+        return isolated_showcase_html(prepare_html(source), module_data=True)
 
     @app.get("/api/runs/{identifier}/showcase-preview")
     def showcase_preview(identifier: str):
@@ -698,13 +724,13 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
             raise HTTPException(404, "本次运行没有可预览的HTML作品。") from None
         return isolated_showcase_html(source)
 
-    def isolated_showcase_html(source: str):
+    def isolated_showcase_html(source: str, *, module_data=False):
         ancestors = "'self'" + (" " + " ".join(allowed_frames) if allowed_frames else "")
         # Both HTTP CSP and the parent iframe enforce an opaque origin. This
         # boundary also applies when the preview URL is opened as a top page.
         return HTMLResponse(source, headers={
             "Content-Security-Policy": (
-                "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; "
+                "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'" + (" data:; " if module_data else "; ") +
                 "style-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; "
                 "frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'; "
                 f"frame-ancestors {ancestors}"),
