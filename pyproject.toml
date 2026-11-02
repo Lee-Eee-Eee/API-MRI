@@ -8,18 +8,14 @@ version = "0.9.0"
 description = "Budgeted API service diagnostics, tool calling checks and model fingerprint evidence"
 requires-python = ">=3.10"
 dependencies = [
-  "inspect-ai==0.3.278",
-  "model-equality-testing==0.0.2",
   "numpy>=1.26,<3",
-  "torch==2.8.0",
-  "tqdm>=4.66,<5",
-  "transformers>=4.45,<5",
   "scipy>=1.11,<2",
   "httpx>=0.27,<1",
   "requests>=2.32,<3",
 ]
 
 [project.optional-dependencies]
+research = ["inspect-ai==0.3.278", "model-equality-testing==0.0.2", "torch==2.8.0", "tqdm>=4.66,<5", "transformers>=4.45,<5"]
 api = ["openai>=3.4,<4"]
 ui = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
 dev = ["pytest>=8,<10", "httpx>=0.27,<1"]

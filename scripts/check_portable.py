@@ -175,6 +175,10 @@ class Checker:
         require(manifest.get("user_data_included") is False, "Build manifest must exclude user data")
         self.default_data_files()
         self.version = manifest["version"]
+        self.profile = manifest.get('profile','research')
+        if self.profile=='core':
+            for module in ('torch','inspect_ai','transformers','model_equality_testing'):
+                require(not (self.bundle/'_internal'/module).exists(), f'Unexpected research dependency: {module}')
         return {"version": self.version, "executables": {
             path.name: {"bytes": path.stat().st_size, "sha256": digest(path)} for path in (self.cli, self.gui)},
             "default_data_has_user_files": False}
@@ -401,6 +405,12 @@ class Checker:
         require(not list((data / "runs").glob("*")), "GUI startup unexpectedly created model jobs")
         return {**result, "process_exited": True, "listening_port_closed": True, "unicode_data_path": True}
 
+    def research_guard(self) -> dict:
+        result=subprocess.run([str(self.cli),'demo','--out',str(self.out/'optional research')],cwd=self.out,env=self.env,
+            stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,encoding='utf8',errors='replace',timeout=30)
+        require(result.returncode!=0 and '研究扩展' in result.stderr, 'Missing dependency must have an actionable message')
+        return {'research_runtime_included':False,'default_checks_available':True}
+
     def run(self) -> int:
         try:
             self.check("bundle_metadata", self.metadata)
@@ -412,7 +422,10 @@ class Checker:
             self.check("identify_replay", self.identify_replay)
             self.check("fingerprint_screening_and_replay", lambda: self.fingerprint("screening"))
             self.check("fingerprint_full_and_replay", lambda: self.fingerprint("full"))
-            self.check("inspect_met_demo", self.inspect_met)
+            if self.profile=='research':
+                self.check("inspect_met_demo", self.inspect_met)
+            else:
+                self.check('optional_research_guard',self.research_guard)
             self.check("gui_executable_start_and_stop", self.gui_smoke)
             self.check("default_data_remains_clean", lambda: {"files": self.default_data_files(), "user_data_included": False})
             self.results["status"] = "passed"

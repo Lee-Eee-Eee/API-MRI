@@ -53,7 +53,7 @@ jobs:
         run: |
           python -c "import platform; assert platform.python_version() == '3.12.16'"
           python -m pip install -r requirements-lock.txt
-          python -m pip install --no-deps -e '.[api,ui,dev]'
+          python -m pip install --no-deps -e '.[research,api,ui,dev]'
           python -m pip install -r scripts/requirements-build.txt
           python -m pip check
           python -c "import torch; assert torch.version.cuda is None and '+cpu' in torch.__version__"
@@ -80,7 +80,18 @@ jobs:
       - name: Tests
         run: python -X utf8 -m pytest tests -q
       - name: Build portable bundle
-        run: python -X utf8 scripts/build_portable.py --out build/portable-release
+        shell: pwsh
+        run: |
+          python -m venv .core-venv
+          & .core-venv/Scripts/python.exe -m pip install -r requirements-core-lock.txt -r scripts/requirements-build.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Core dependency installation failed' }
+          & .core-venv/Scripts/python.exe -m pip install --no-deps --no-build-isolation -e '.[ui]'
+          if ($LASTEXITCODE -ne 0) { throw 'Core project installation failed' }
+          & .core-venv/Scripts/python.exe -m pip check
+          & .core-venv/Scripts/python.exe -X utf8 -m pytest tests/test_features_and_data.py tests/test_model_reference.py tests/test_showcase.py tests/test_web_showcase_embed.py tests/test_service_quality.py tests/test_identification.py -q
+          if ($LASTEXITCODE -ne 0) { throw 'Core-only feature tests failed' }
+          & .core-venv/Scripts/python.exe -X utf8 scripts/build_portable.py --profile core --out build/portable-release
+          if ($LASTEXITCODE -ne 0) { throw 'Core build failed' }
       - name: Test packaged executables without Python on PATH
         shell: pwsh
         run: |

@@ -15,6 +15,7 @@ def test_aliases_join_vendor_names_but_preserve_configuration_and_snapshots():
     assert a['release_date']=='2026-09-22'
     assert model_identity('Claude Haiku 4.5')['id']==model_identity('anthropic/claude-haiku-4.5')['id']
     assert model_identity('GPT-5.5 high')['variant']=='high'
+    assert model_identity('Opus 4.8')['id']==model_identity('Claude-Opus-4.8')['id']
     assert model_identity('GPT-5.5')['id'] != model_identity('GPT-5.6-Sol')['id']
     assert model_identity('unlisted-new-model')['release_date'] is None
     assert model_identity('Qwen3.6-27B-PRISM-PRO-DQ-agent')['id'] != model_identity('Qwen3.6-27B-PRISM-PRO-DQ-code')['id']

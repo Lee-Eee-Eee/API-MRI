@@ -44,7 +44,8 @@ def model_identity(label: str) -> dict:
         'claudeopus45': 'anthropic/claude-opus-4-5-20251101',
         'claudesonnet45': 'anthropic/claude-sonnet-4-5-20250929'}
     if model is None and name_key(plain) in aliases:
-        model = next((m for m in reference()['models'] if m['id'] == aliases[name_key(plain)]), None)
+        target = aliases[name_key(plain)]
+        model = _index().get(name_key(target)) or next((m for m in reference()['models'] if m['id'] == target), None)
     if model is None:
         stripped = re.sub(r'\s+(?:high|max|medium|low)$', '', plain, flags=re.I)
         model = _index().get(name_key(stripped))

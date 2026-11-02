@@ -31,7 +31,7 @@ API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧�
 
 **想了解能力：** “能力参考”汇集带出处的公开成绩，逐条列出指标、版本、推理配置和Harness，另设六大评测入口。[数据与方法](docs/capability-reference.md)
 
-![API-MRI 示例馆](docs/images/showcase-v08.jpg)
+![API-MRI 示例馆](docs/images/showcase-v09.jpg)
 
 以下是源码安装方式，适合修改代码或在 Linux / macOS 使用。
 
@@ -43,44 +43,26 @@ API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧�
 git clone https://github.com/Lee-Eee-Eee/API-MRI.git
 cd API-MRI
 py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
-.\.venv\Scripts\python.exe -m pip install -e ".[api,ui,dev]"
+.\.venv\Scripts\python.exe -m pip install -e ".[ui]"
 .\.venv\Scripts\api-mri.exe ui
 ```
 
-若已安装 Python 3.11，把 `py -3.12` 改为 `py -3.11`。以上命令直接使用虚拟环境里的程序，无需修改 PowerShell 执行策略。
+### Linux / macOS
 
-### Linux / macOS · 终端
-
-```bash
+```sh
 git clone https://github.com/Lee-Eee-Eee/API-MRI.git
 cd API-MRI
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-```
-
-Linux 安装 CPU 版 Torch：
-
-```bash
-python -m pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
-```
-
-macOS 使用对应平台的 PyPI 版本：
-
-```bash
-python -m pip install torch==2.8.0
-```
-
-接着安装并启动：
-
-```bash
-python -m pip install -e '.[api,ui,dev]'
+python -m pip install -e '.[ui]'
 api-mri ui
 ```
 
-在浏览器打开 **http://127.0.0.1:8765**，保留启动终端，按 `Ctrl+C` 停止。工作台只接受本机访问；端口冲突时加 `--port 8766`。已进行的平台测试见[验证记录](docs/validation.md)，Linux/macOS 的安装路径不等于已完成对应平台验证。
+在浏览器打开 **http://127.0.0.1:8765**，保留终端，按Ctrl+C停止。端口冲突时加`--port 8766`。
+
+进阶双端点MET比较与Inspect采集另装`.[research,ui]`。Windows/Linux研究环境可先从PyTorch官方CPU索引安装`torch==2.8.0`，再安装研究扩展。开发测试使用`.[research,api,ui,dev]`。默认便携包包含日常检查，进阶入口由已安装的研究扩展提供。
+
+[轻量运行与资料更新](docs/data-updates.md)说明指纹、效果例题、模型资料与榜单的维护节奏。参考库内可查看当前快照日期；每周候选资料包只更新数据，不替换检测代码。
 
 ## 已有版本的升级
 
@@ -91,7 +73,7 @@ Windows PowerShell：
 ```powershell
 git pull
 .\.venv\Scripts\python.exe -m pip uninstall -y relay-audit
-.\.venv\Scripts\python.exe -m pip install -e ".[api,ui,dev]"
+.\.venv\Scripts\python.exe -m pip install -e ".[ui]"
 .\.venv\Scripts\api-mri.exe ui
 ```
 
@@ -100,7 +82,7 @@ Linux/macOS 在已激活虚拟环境的终端中：
 ```bash
 git pull
 python -m pip uninstall -y relay-audit
-python -m pip install -e '.[api,ui,dev]'
+python -m pip install -e '.[ui]'
 api-mri ui
 ```
 

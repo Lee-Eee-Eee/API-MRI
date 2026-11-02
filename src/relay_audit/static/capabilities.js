@@ -41,6 +41,14 @@
   }
   $('capability-model').addEventListener('change',render);$('capability-query').addEventListener('input',options);
   document.addEventListener('api-mri:workbench-ready',load);
+  document.addEventListener('api-mri:workbench-ready',async()=>{
+    try {
+      const data=await window.apiMRI.request('/api/data-status');
+      const table=el('table',null,'capability-table'),body=el('tbody');
+      for(const row of data.entries){const tr=el('tr');tr.append(el('td',row.name),el('td',row.date||'日期未记录'),el('td',row.policy));body.append(tr);}
+      table.append(body);$('data-status-table').replaceChildren(table,el('p','指纹分布、效果题目与榜单分别持有版本。资料更新不改变旧记录采用的参考和方法。','muted'));
+    }catch{$('data-status-table').textContent='资料版本暂时无法读取。';}
+  });
   document.addEventListener('api-mri:view',e=>{if(e.detail?.view==='capabilities')load();});
   if(window.apiMRI?.ready())load();
 })();

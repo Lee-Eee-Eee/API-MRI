@@ -262,7 +262,7 @@
   }
   function route(focus = false) {
     const hash = location.hash.slice(1);
-    const target = views[hash] ? hash : "quality";
+    const target = views[hash] && !(hash==='research' && state.hasResearch===false) ? hash : "quality";
     const previous = state.view;
     state.view = target;
     const data = views[target];
@@ -1983,6 +1983,9 @@
       state.token = boot.session_token;
       state.ready = true;
       state.version = boot.version;
+      state.hasResearch = boot.capabilities?.research_extensions !== false;
+      document.querySelector('[data-view="research"]').hidden = !state.hasResearch;
+      if(!state.hasResearch && state.view==='research'){location.hash='quality';route();}
       state.embedOrigins = boot.embedding?.origins || [];
       state.bank = boot.identification_bank || { models: [] };
       state.packs = boot.reference_packs || [];
@@ -1996,7 +1999,7 @@
       $("connection-label").textContent = "已连接";
       renderPacks();
       renderLibrary();
-      initResearch();
+      if(state.hasResearch) initResearch();
       document.dispatchEvent(new CustomEvent("api-mri:workbench-ready"));
       if (pendingEmbedHello) acknowledgeEmbed(pendingEmbedHello);
       await loadHistory();

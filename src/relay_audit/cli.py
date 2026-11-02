@@ -138,6 +138,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "demo" and args.repeats < 2:
         parser.error("repeats至少2。")
     try:
+        if args.command in {'demo','lab','collect','run','compare','plan'}:
+            from .features import require_research
+            require_research()
         from .study import attach_study, redact_study, validate_study
 
         study = validate_study(json.loads(args.study.read_text(encoding="utf-8"))) if getattr(args, "study", None) else {}

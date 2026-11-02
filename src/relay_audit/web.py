@@ -101,6 +101,9 @@ def validate_job(payload: Any, *, library_dir: Path | None = None) -> dict:
     if not isinstance(payload, dict):
         raise ValueError("请求应为JSON对象。")
     mode = payload.get("mode")
+    if mode in {'demo','lab','live','offline'}:
+        from .features import require_research
+        require_research()
     settings = _analysis_settings(payload)
     clean = {"mode": mode, **settings.model_dump()}
     if mode in {"showcase", "showcase_demo", "showcase_offline"}:
@@ -665,6 +668,11 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
         from .model_reference import capability_reference
         return capability_reference()
 
+    @app.get('/api/data-status')
+    def local_data_status():
+        from .data_registry import data_status
+        return data_status()
+
     @app.get('/capabilities.js')
     def capabilities_javascript():
         return FileResponse(STATIC / 'capabilities.js', media_type='text/javascript')
@@ -739,7 +747,11 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
 
     @app.get("/api/bootstrap")
     def bootstrap():
-        from .lab import list_scenarios
+        from .features import research_available
+        scenarios=[]
+        if research_available():
+            from .lab import list_scenarios
+            scenarios=list_scenarios()
         from .probes import list_probes
         from .fingerprint import list_reference_packs
         from .identification import load_identification_bank
@@ -751,9 +763,10 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
 
         return {"version": __version__, "session_token": session_token, "probes": list_probes(),
                 "embedding": {"origins": list(allowed_frames)},
-                "scenarios": list_scenarios(), "reference_packs": list_reference_packs(library_path),
+                "scenarios": scenarios, "reference_packs": list_reference_packs(library_path),
                 "identification_bank": identification_bank,
-                "capabilities": {"modes": ["showcase", "showcase_demo", "showcase_offline", "service", "service_demo", "service_offline", "identify", "identify_demo", "identify_offline", "fingerprint", "fingerprint_demo", "fingerprint_offline", "demo", "lab", "live", "offline"], "protocol": "Chat Completions", "local_only": True}}
+                "capabilities": {"research_extensions": research_available(),
+                    "modes": ["showcase", "showcase_demo", "showcase_offline", "service", "service_demo", "service_offline", "identify", "identify_demo", "identify_offline", "fingerprint", "fingerprint_demo", "fingerprint_offline"] + (["demo", "lab", "live", "offline"] if research_available() else []), "protocol": "Chat Completions", "local_only": True}}
 
     @app.get("/api/runs")
     def runs():

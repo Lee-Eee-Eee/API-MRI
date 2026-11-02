@@ -29,7 +29,7 @@
   function matches(item) {
     const query = $('showcase-model-search').value.trim().toLowerCase();
     return (!$('showcase-bundled-only').checked || item.preview_available)
-      && (!query || `${identity(item).name} ${item.model} ${item.reported_settings?.model_id || ''}`.toLowerCase().includes(query));
+      && (!query || `${identity(item).id} ${identity(item).name} ${item.model} ${item.reported_settings?.model_id || ''}`.toLowerCase().includes(query));
   }
   function link(label, href, cls) {
     const element = node("a", cls, label);
