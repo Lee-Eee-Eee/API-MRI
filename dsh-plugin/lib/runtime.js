@@ -5,9 +5,41 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { request as httpsRequest, Agent as HttpsAgent } from 'node:https';
+import { Readable } from 'node:stream';
 const exec = promisify(execFile);
 const VERSION = '0.9.0';
 class RuntimeError extends Error {}
+
+export function runtimeFetch(url,options={}) {
+  if(new URL(url).protocol!=='https:')return fetch(url,options);
+  // Per-request proxy support, without replacing DSH's global dispatcher.
+  const agent=new HttpsAgent({proxyEnv:process.env});
+  return new Promise((resolve,reject)=>{
+    const req=httpsRequest(url,{method:'GET',agent,signal:options.signal},res=>{
+      const headers=new Headers();
+      for(const [key,value] of Object.entries(res.headers))if(value!==undefined)headers.set(key,Array.isArray(value)?value.join(', '):String(value));
+      res.once('close',()=>agent.destroy());
+      resolve(new Response(Readable.toWeb(res),{status:res.statusCode,headers}));
+    });
+    req.once('error',e=>{agent.destroy();reject(e);});req.end();
+  });
+}
+
+async function trustedResponse(url,fetcher) {
+  let response;
+  for(let i=0;i<4;i++) {
+    const u=new URL(url);
+    if(u.protocol!=='https:' || !['github.com','release-assets.githubusercontent.com','objects.githubusercontent.com'].includes(u.hostname))
+      throw new Error('下载跳转来源无效。');
+    response=await fetcher(url,{redirect:'manual',signal:AbortSignal.timeout(900000)});
+    if([301,302,303,307,308].includes(response.status)){
+      const next=response.headers.get('location');await response.body?.cancel();if(!next)throw new Error('下载跳转为空。');url=new URL(next,url).href;continue;
+    }
+    return response;
+  }
+  throw new Error('下载跳转过多。');
+}
 
 export function validateRuntime(value) {
   const expected=`https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v${VERSION}/API-MRI-${VERSION}-windows-x64.zip`;
@@ -19,7 +51,8 @@ export function validateRuntime(value) {
 
 export function safeEnvironment(base=process.env) {
   const env={};
-  for(const key of ['SystemRoot','SYSTEMROOT','WINDIR','PATH','Path','PATHEXT','TEMP','TMP','LOCALAPPDATA','APPDATA','USERPROFILE'])
+  for(const key of ['SystemRoot','SYSTEMROOT','WINDIR','PATH','Path','PATHEXT','TEMP','TMP','LOCALAPPDATA','APPDATA','USERPROFILE',
+    'HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','NO_PROXY','http_proxy','https_proxy','all_proxy','no_proxy','SSL_CERT_FILE','SSL_CERT_DIR','REQUESTS_CA_BUNDLE'])
     if(base[key])env[key]=base[key];
   env.PYTHONUTF8='1'; return env;
 }
@@ -32,17 +65,9 @@ export function validEmbedOrigin(value) {
   throw new Error('DSH 来源无效。');
 }
 
-export async function downloadRuntime(spec, destination, progress, fetcher=fetch) {
+export async function downloadRuntime(spec, destination, progress, fetcher=runtimeFetch) {
   validateRuntime(spec);
-  let url=spec.url, response;
-  for(let i=0;i<4;i++) {
-    const u=new URL(url);
-    if(u.protocol!=='https:' || !['github.com','release-assets.githubusercontent.com','objects.githubusercontent.com'].includes(u.hostname))
-      throw new Error('下载跳转来源无效。');
-    response=await fetcher(url,{redirect:'manual',signal:AbortSignal.timeout(120000)});
-    if([301,302,303,307,308].includes(response.status)){const next=response.headers.get('location'); await response.body?.cancel();if(!next)throw new Error('下载跳转为空。');url=new URL(next,url).href;continue;}
-    break;
-  }
+  const response=await trustedResponse(spec.url,fetcher);
   if(response?.status!==200 || !response.body)throw new Error('无法下载运行程序，请重试。');
   const hash=createHash('sha256'), stream=createWriteStream(destination,{flags:'wx'});let size=0;
   stream.on('error',()=>{});
@@ -81,7 +106,7 @@ try {
 `;
 
 export function createRuntimeManager({root, platform=process.platform, arch=process.arch, manifestUrl=new URL('./runtime-manifest.json',import.meta.url),
-  fetcher=fetch, spawnChild=spawn, run=exec}={}) {
+  fetcher=runtimeFetch, spawnChild=spawn, run=exec}={}) {
   root ||= path.join(process.env.LOCALAPPDATA || path.join(homedir(),'.local','share'),'API-MRI','dsh-runtime');
   let state={phase:'idle',version:VERSION}, pending, child, disposed=false;
   const snapshot=()=>({...state});
@@ -91,7 +116,7 @@ export function createRuntimeManager({root, platform=process.platform, arch=proc
     let supplied=JSON.parse(await readFile(manifestUrl,'utf8'));
     if(supplied.sha256===null) {
       const url=`https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v${VERSION}/api-mri-runtime.json`;
-      const meta=await fetcher(url,{redirect:'follow',signal:AbortSignal.timeout(30000)});
+      const meta=await trustedResponse(url,fetcher);
       if(!meta.ok || Number(meta.headers.get('content-length')||0)>16384)throw new Error('此版本尚未发布运行包。');
       const text=await meta.text();if(text.length>16384)throw new Error('运行清单过大。');
       supplied=JSON.parse(text);

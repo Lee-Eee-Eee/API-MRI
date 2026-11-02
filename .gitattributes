@@ -11,3 +11,4 @@
 src/relay_audit/data/showcase/assets/*.svg -text -whitespace
 
 src/relay_audit/data/showcase/assets/*.html -text -whitespace
+src/relay_audit/data/showcase/runtime/*.js -text -whitespace

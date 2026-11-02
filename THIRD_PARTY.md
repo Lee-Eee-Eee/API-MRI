@@ -1,5 +1,7 @@
 # 复用与许可
 
+0.9增加models.dev的MIT元数据和three.js r160 / OrbitControls运行库。许可、固定来源与摘要位于`data/showcase/LICENSES/`和`data/showcase/runtime/`。其他公开原作按需读入内存预览，未加入发布包；公开成绩按原始发布页面保存数值和运行条件。
+
 本项目的新增适配、证据记录和报告代码采用MIT许可。源码安装通过包管理器取得依赖；Windows 便携版另附运行依赖、组件清单与许可原文，保存在包内 `licenses/`。各组件按其原许可分发。
 
 | 项目 | 本版使用 | 原始来源及许可 |

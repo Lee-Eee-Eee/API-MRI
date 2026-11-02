@@ -35,8 +35,9 @@ def original_url(example: dict) -> str | None:
 
 @lru_cache(maxsize=16)
 def _download(url: str) -> bytes:
-    # Redirects are forbidden; no cookies, credentials, proxy environment or models.
-    with httpx.Client(timeout=httpx.Timeout(20, connect=8), follow_redirects=False, trust_env=False) as client:
+    # Respect the user's HTTPS proxy / CA configuration for public originals.
+    # Redirects, cookies and application credentials are not forwarded.
+    with httpx.Client(timeout=httpx.Timeout(20, connect=8), follow_redirects=False, trust_env=True) as client:
         with client.stream('GET', url, headers={'User-Agent': 'API-MRI-public-preview/0.9'}) as response:
             response.raise_for_status()
             if response.status_code != 200:

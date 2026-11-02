@@ -274,7 +274,10 @@ class Checker:
                 and rows[0].get("origin") == "public_source_demo" and rows[-1].get("reason") == "completed",
                 "Showcase evidence contains a model request or an incomplete public example")
         published = report.get("published_example", {})
-        require(published.get("id") in bundled and published == bundled[published["id"]],
+        # UI annotations are computed from the separate model metadata snapshot.
+        # Every original catalog field, source byte and SHA remains exact.
+        original = {key: value for key, value in published.items() if key not in {"identity", "preview_available"}}
+        require(published.get("id") in bundled and original == bundled[published["id"]],
                 "Showcase demo did not use a packaged catalog example")
         artifact = report.get("artifact", {})
         require(artifact.get("format") == "svg" and artifact.get("format_valid") is True

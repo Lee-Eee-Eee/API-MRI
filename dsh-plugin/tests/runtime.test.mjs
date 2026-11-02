@@ -15,6 +15,7 @@ test('runtime pins version, repository, digest, size, and embed origin',()=>{
   assert.equal(validEmbedOrigin('dsh-app://app'),'dsh-app://app');
   for(const origin of ['null','https://evil.test','dsh-app://evil','http://127.0.0.1:99999'])assert.throws(()=>validEmbedOrigin(origin));
   assert.deepEqual(safeEnvironment({PATH:'test',OPENAI_API_KEY:'never-copy',DSH_TOKEN:'never-copy'}),{PATH:'test',PYTHONUTF8:'1'});
+  assert.equal(safeEnvironment({HTTPS_PROXY:'http://127.0.0.1:1234',OPENAI_API_KEY:'never-copy'}).HTTPS_PROXY,'http://127.0.0.1:1234');
 });
 
 test('download streams exact bytes, rejects tampering and off-host redirects',async()=>{

@@ -10,7 +10,7 @@
     "./package.json": "./package.json"
   },
   "engines": {
-    "node": ">=20",
+    "node": ">=22.21",
     "dsh": ">=0.2.1-rc.1 <0.3.0"
   },
   "dsh": {

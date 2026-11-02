@@ -37,7 +37,7 @@ Windows保存位置：`%LOCALAPPDATA%\API-MRI\dsh-runtime`。版本号子目录�
 
 ## 密钥与预览
 
-Key在工作台内填写。安装器不读取DSH账号、会话和模型配置。启动后端时仅传Windows运行所需环境变量，不继承API Key环境变量。安装与看作品不调用模型。
+Key在工作台内填写。安装器不读取DSH账号、会话和模型配置。启动后端时保留Windows运行、代理与CA设置，不继承API Key环境变量。安装与看作品不调用模型。自动下载使用Node 22.21及以上的代理支持；当前DSH桌面版自带兼容Node。
 
 宿主路由复用DSH的`connection.requestRejection()`。父页面与工作台握手仅传随机nonce和版本。作品置于没有同源、网络和弹窗权限的沙箱；three.js r160与OrbitControls随包提供。
 
