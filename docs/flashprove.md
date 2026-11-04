@@ -8,7 +8,7 @@ FlashProve值得加入研究，但现阶段适合做**有供应商配合的证�
 
 供应商先把一组权重和计算配置固定为一个承诺ID，再为每次请求生成密码学证明。用户持有自己的请求、回答token编号、承诺ID及公开参数，用CPU验证回答与已承诺计算的关系。生成证明需要供应商掌握权重；验证方不需要权重。这里的“指纹”是密码学承诺，与API-MRI从短回答分布估计候选型号的统计指纹含义不同。[承诺、证明与验证](https://github.com/anthropics/FlashProve/blob/9e2bdd8ff5bf9c62f18263d7dac189b0400b260c/guide/what-is-proved.md)
 
-一个有效证明只约束指定token位置和接受策略。默认的`exact-match`要求这些token符合已承诺整数模型的贪心选择；`clipped-gap`允许分值落在事先接受的容差内，验证器输出`WITHIN LIMITS`。后者可以接纳其他模型产生的回答，不能在界面中显示成“模型身份已证实”。[两种策略](https://github.com/anthropics/FlashProve/blob/9e2bdd8ff5bf9c62f18263d7dac189b0400b260c/guide/known-limits.md)
+一个有效证明只约束指定token位置和接受策略。`exact-match`要求这些token符合已承诺整数模型的贪心选择；`clipped-gap`允许分值落在事先接受的容差内，验证器输出`WITHIN LIMITS`。后者可以接纳其他模型产生的回答，不能在界面中显示成“模型身份已证实”。[两种策略](https://github.com/anthropics/FlashProve/blob/9e2bdd8ff5bf9c62f18263d7dac189b0400b260c/guide/known-limits.md)
 
 承诺ID本身也没有“Claude”“GPT”等商业名称的含义。被测中转商可以给便宜模型生成自己的承诺。用户必须在调用前，从中转商控制之外的可信渠道取得承诺ID和配置，并核对型号、量化与策略；否则验证通过只表明它兑现了自己的那份承诺。[验证前的输入](https://github.com/anthropics/FlashProve/blob/9e2bdd8ff5bf9c62f18263d7dac189b0400b260c/guide/verify-a-proof.md)
 

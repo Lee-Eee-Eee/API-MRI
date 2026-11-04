@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "checkedAt": "2026-11-04T01:49:28.476Z",
-  "pluginVersion": "0.9.1",
+  "checkedAt": "2026-11-04T02:13:36.780Z",
+  "pluginVersion": "0.9.2",
   "isolatedProfile": true,
   "privateConfigurationRead": false,
   "realModelCalls": 0,
@@ -25,5 +25,28 @@
     "sameUrl": true,
     "samePid": true
   },
-  "ownedProcessesStopped": true
+  "ownedProcessesStopped": true,
+  "desktopProfileUpdated": true,
+  "firstInstallCheck": {
+    "checkedAt": "2026-11-04T02:13:01.599Z",
+    "version": "0.9.2",
+    "freshInstall": true,
+    "automaticPort": true,
+    "embedding": true,
+    "dshModelUi": true,
+    "seconds": 139.9,
+    "realModelCalls": 0,
+    "status": "passed"
+  },
+  "release": {
+    "version": "0.9.2",
+    "workflowRun": 41757908457,
+    "status": "success",
+    "pluginTests": 54,
+    "pythonTests": 493,
+    "coreTests": 273,
+    "portableChecks": 12,
+    "archiveBytes": 79338337,
+    "archiveSha256": "25440a096177ca0186c16dd876c7df890f00995b5b238f98f73cb1961ea432e2"
+  }
 }
