@@ -25,7 +25,7 @@ API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧�
 
 安装后点击“试用示例”，即可查看流式时间线和工具调用结果。示例使用本地合成响应；模型指纹示例从参考分布合成，两者均不调用模型 API。
 
-**DSH 用户：** 从[原生左栏入口](dsh-plugin/README.md)打开API-MRI，直接选择DSH已配置的模型，核对预算后测试，无需再填地址和Key。Windows x64自动安装运行程序。0.9.1源码包含这一接入；已发布0.9.0插件包仍使用Better Sidebar右栏入口。
+**DSH 用户：** 安装[0.9.2插件包](dsh-plugin/README.md)，从原生左栏打开API-MRI。进入后自动启动，直接选择DSH已配置模型，无需再填地址和Key。
 
 **只想看作品：** “示例馆”默认展示42道有充分对照的题目，统一名称并按发布日期排序，模型与运行档位分开选择。SVG、HTML和WebGL原作在页内按需预览，保留提示、出处和已知参数。[来源与方法](docs/classic-examples.md)
 

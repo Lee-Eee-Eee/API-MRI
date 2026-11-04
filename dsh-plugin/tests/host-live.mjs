@@ -1,5 +1,5 @@
 /** Real, isolated DSH Host startup check. No GUI and no model generation.
- * node dsh-plugin/tests/host-live.mjs [--out result.json]
+ * node dsh-plugin/tests/host-live.mjs [--plugin-root installed-package] [--out result.json]
  */
 import { mkdtemp, mkdir, readFile, writeFile, symlink, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -7,7 +7,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
-const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const pluginArg = process.argv.indexOf('--plugin-root');
+const source = pluginArg >= 0 ? path.resolve(process.argv[pluginArg + 1])
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const manifest = JSON.parse(await readFile(path.join(source, 'package.json'), 'utf8'));
 const version = manifest.version;
 const realLocal = path.join(process.env.USERPROFILE, 'AppData', 'Local');

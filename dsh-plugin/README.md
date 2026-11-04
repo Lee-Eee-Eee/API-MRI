@@ -4,30 +4,28 @@
 
 ## 安装与打开
 
-当前源码直接使用DSH原生入口，无需Better Sidebar。Windows x64首次打开时自动安装运行程序。
+0.9.2使用DSH原生入口，无需Better Sidebar。Windows x64首次打开时自动安装运行程序。
 
-在[源码](https://github.com/Lee-Eee-Eee/API-MRI)目录构建，然后安装到桌面版。将下方路径换成自己的源码目录：
+下载[插件包](https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v0.9.2/dsh-api-mri-0.9.2.tgz)，在PowerShell安装到桌面版：
 
 ```powershell
-cd C:\代码\API-MRI
-npm run build:dsh
-& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\代码\API-MRI"
+& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\下载目录\dsh-api-mri-0.9.2.tgz"
 ```
 
 在DSH左侧栏点击 **API-MRI**。第一次打开自动下载Windows运行包、核对SHA-256、解压并启动；页面显示下载进度。以后复用已安装版本，自动启动并连接。运行包包含Python与CPU分析依赖，大小以进度条为准。
 
 工作台默认选择「DSH 已配置模型」，选型号后核对计划，再点击开始检测。地址和Key由DSH处理。「刷新」重新读取模型目录，不调用模型。连接与速度、工具协议、模型指纹及示例试作共用此入口；「手动接口」可另测其他服务。
 
-本轮0.9.1改动已进入源码，运行包待发布。检测走DSH模型适配器，报告保留这条调用路径。不支持的指定工具或推理参数会单列显示；指纹需要该型号明确提供关闭思考的档位。
+检测走DSH模型适配器，报告保留这条调用路径。不支持的指定工具或推理参数会单列显示；指纹需要该型号明确提供关闭思考的档位。
 
-[已发布的0.9.0插件包](https://github.com/Lee-Eee-Eee/API-MRI/releases/tag/v0.9.0)仍使用Better Sidebar右栏入口，依赖Better Sidebar 0.28.2。原生左栏改动尚未发布新版Release。
+0.9.0旧插件包使用Better Sidebar右栏；升级到0.9.2后从原生左栏进入。
 
 无需另下便携版。已有API-MRI服务时，也可以填写地址手动连接。macOS/Linux暂用[源码启动](../README.md#开始使用)，然后手动连接。
 
 DSH Web使用`web` profile：
 
 ```sh
-dsh plugin --profile web add ./API-MRI
+dsh plugin --profile web add ./dsh-api-mri-0.9.2.tgz
 ```
 
 Web地址须为回环地址，可附端口。桌面来源固定为`dsh-app://app`。HTTPS Web页面连接HTTP后端会受到浏览器混合内容限制；这种部署连接自行配置的HTTPS后端。
@@ -59,6 +57,8 @@ npm pack --ignore-scripts
 ```
 
 构建仅需Node.js，没有安装钩子。React与原生侧栏扩展接口由DSH提供。Release CI在便携包验收后运行`scripts/prepare_dsh_runtime.py`，写入该ZIP的摘要和大小，再打插件tarball。源码占位清单通过对应版本Release解析。
+
+开发时可在源码目录运行`npm run build:dsh`，再用`dsh plugin --profile desktop add <源码目录>`链接。安装已发布插件包时直接使用上面的`.tgz`命令。
 
 自己的发现页索引由`dsh-plugin/market-index.mjs`生成，固定到发布提交，随Release提供；未提交第三方插件市场。
 

@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export function createMarketIndex({ commit, publishedAt, version = '0.9.1' }) {
+export function createMarketIndex({ commit, publishedAt, version = '0.9.2' }) {
   if (!/^[a-f0-9]{40}$/.test(commit) || /^0{40}$/.test(commit)) throw new Error('Use an existing lowercase 40-character release commit.');
   if (!Number.isSafeInteger(publishedAt) || publishedAt <= 0) throw new Error('publishedAt must be Unix seconds.');
   if (!/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(version)) throw new Error('Use an exact SemVer version.');
