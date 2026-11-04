@@ -19,7 +19,7 @@ import xml.etree.ElementTree as ET
 
 import httpx
 
-from .fingerprint import _append, _clean
+from .fingerprint import _append, _clean, _transport_info, _adapter_unsupported
 from .records import content_hash
 from .service_quality import _config as _service_config, _http_error, _usage
 
@@ -33,7 +33,7 @@ FORMATS = {"svg", "html"}
 LICENSES = {"MIT", "Apache-2.0", "CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0", "BSD-2-Clause", "BSD-3-Clause", "ISC"}
 TRANSPORT_ERRORS = {"request_cancelled", "request_timeout", "network_error", "response_size_limit",
                     "invalid_utf8_response", "unsupported_content_encoding"}
-HEADER_NAMES = ("content-type", "content-encoding", "x-request-id", "request-id", "retry-after")
+HEADER_NAMES = ("content-type", "content-encoding", "x-request-id", "request-id", "retry-after", "x-api-mri-transport")
 
 
 def _task_valid(task: dict, *, saved: bool = False) -> bool:
@@ -318,7 +318,17 @@ def _report(records: list[dict]) -> dict:
                     "finish_reason": None, "reasoning_returned": False, "reasoning_characters": 0, "error": "request_cancelled"}
     reason = finish["reason"]
     requests = int(response is not None and origin == "api_trial" and response["attempt_started"])
+    transport = _transport_info([response] if response else [])
+    unsupported = None
+    if transport and response:
+        try:
+            unsupported = _adapter_unsupported({**response, "raw_response": json.loads(response.get("body_text", ""))})
+        except (ValueError, TypeError, RecursionError):
+            pass
+    if transport and unsupported:
+        transport["unsupported"] = [unsupported]
     return {"schema": SCHEMA, "kind": "showcase", "origin": origin, "public_source_demo": origin == "public_source_demo",
+            **({"transport": transport} if transport else {}),
             "synthetic": False, "status": "cancelled" if reason == "cancelled" else "completed" if reason == "completed"
                 else "partial" if reason in {"truncated", "invalid_output"} else "failed",
             "created_at": manifest["created_at"], "candidate": config["candidate"], "task": task,
@@ -333,7 +343,9 @@ def _report(records: list[dict]) -> dict:
                            "stop_reason": reason, "stop_code": reason,
                            "failure": None if reason == "cancelled" else observed["error"]},
             "records_file": "showcase_records.jsonl",
-            "interpretation": "公开作品与本次试作分别留档；图形外观不用于模型身份判定。"}
+            "interpretation": "公开作品与本次试作分别留档；图形外观不用于模型身份判定。"
+                + (" " + transport["note"] if transport else "")
+                + (" DSH 适配器不支持本次请求参数，未生成试作内容。" if unsupported else "")}
 
 
 def _write(out: Path, report: dict) -> None:

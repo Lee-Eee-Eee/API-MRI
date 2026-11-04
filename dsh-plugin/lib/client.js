@@ -109,9 +109,37 @@ function startupCommands(dshOrigin) {
   };
 }
 
+/** Bind one trusted workbench frame to the host's non-secret model directory. */
+function createModelConnector({ eventTarget, targetWindow, targetOrigin, nonce, hostOrigin, request }) {
+  const origin = parseLocalOrigin(targetOrigin);
+  let disposed = false, listening = false;
+  const post = value => { if (!disposed) targetWindow.postMessage({ ...value, nonce }, origin); };
+  async function catalog() {
+    try { post({ type: 'api-mri:dsh:catalog', ...await request('models') }); }
+    catch { post({ type: 'api-mri:dsh:catalog', models: [], error: '暂时无法读取 DSH 模型，请刷新目录。' }); }
+  }
+  async function receive(event) {
+    if (disposed || event.source !== targetWindow || event.origin !== origin || event.data?.nonce !== nonce) return;
+    const data = event.data;
+    if (data.type === 'api-mri:dsh:refresh') return catalog();
+    if (data.type !== 'api-mri:dsh:lease' || typeof data.requestId !== 'string' || !/^[A-Za-z0-9_-]{8,80}$/.test(data.requestId)) return;
+    try {
+      const value = await request('lease', { model: data.model, maxRequests: data.maxRequests,
+        maxOutputTokens: data.maxOutputTokens, embedOrigin: hostOrigin });
+      post({ type: 'api-mri:dsh:lease-result', requestId: data.requestId, candidate: value.candidate });
+    } catch (error) {
+      post({ type: 'api-mri:dsh:lease-result', requestId: data.requestId, error: error.message || '无法创建 DSH 调用授权。' });
+    }
+  }
+  return {
+    start() { if (disposed || listening) return; listening = true; eventTarget.addEventListener('message', receive); void catalog(); },
+    dispose() { disposed = true; if (listening) eventTarget.removeEventListener('message', receive); listening = false; },
+  };
+}
+
 
 const name = 'dsh-api-mri';
-const inject = ['betterSidebar'];
+const inject = ['slots'];
 
 const h = React.createElement;
 const CSS = `
@@ -170,12 +198,17 @@ function Workbench({ visible = true }) {
     let stopped=false, timer;
     const base=new URL(document.baseURI);base.search='';base.hash='';
     if(!base.pathname.endsWith('/'))base.pathname+='/';
-    const url=new URL('api-mri/runtime',base);
+    const url=new URL('api/api-mri/runtime',base);
     async function poll(first=false){
       try {
-        const res=await fetch(url,{method:first?'POST':'GET',credentials:'same-origin',signal:AbortSignal.timeout(15000),headers:first?{'Content-Type':'application/json'}:{},body:first?'{}':undefined});
-        if(!res.ok)throw new Error('当前插件未提供自动启动，请更新 Release 插件包。');
-        const info=await res.json();if(stopped)return;setRuntime(info);
+        const res=await fetch(url,{method:first?'POST':'GET',credentials:'same-origin',signal:AbortSignal.timeout(15000),headers:first?{'Content-Type':'application/json'}:{},body:first?JSON.stringify({embedOrigin:hostOrigin}):undefined});
+        const info=await res.json().catch(()=>null);
+        if(!res.ok)throw new Error(res.status===404?'DSH 尚未载入 API-MRI，请重新打开 DSH 后重试。'
+          :res.status===401||res.status===403?'DSH 连接授权已更新，请重新打开插件。'
+          :typeof info?.error==='string'?info.error:'自动启动未完成，请重试。');
+        if(stopped)return;
+        if(!info || typeof info.phase!=='string')throw new Error('DSH 返回的启动状态不完整，请重试。');
+        setRuntime(info);
         if(info.phase==='ready'){
           automaticDone.current=true;
           const origin=parseLocalOrigin(info.url);setAddress(origin);attempt.current+=1;
@@ -192,19 +225,30 @@ function Workbench({ visible = true }) {
   React.useEffect(() => {
     // After a failed attempt only the explicit reconnect action creates a new attempt.
     if (!connection || state === 'error' || !visible || !frame.current?.contentWindow) return undefined;
-    let handshake;
+    let handshake, connector;
     try {
+      const targetWindow = frame.current.contentWindow, nonce = createNonce(window.crypto);
+      const base=new URL(document.baseURI);base.search='';base.hash='';
+      if(!base.pathname.endsWith('/'))base.pathname+='/';
+      connector = createModelConnector({ eventTarget: window, targetWindow, targetOrigin: connection.origin, nonce, hostOrigin,
+        request: async (path, body) => {
+          const response = await fetch(new URL(`api/api-mri/${path}`,base), { credentials:'same-origin', cache:'no-store',
+            ...(body ? { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) } : {}) });
+          const value=await response.json();
+          if(!response.ok)throw new Error(typeof value.error==='string'?value.error:'无法读取 DSH 模型。');
+          return value;
+        } });
       handshake = createHandshake({
         eventTarget: window,
-        targetWindow: frame.current.contentWindow,
+        targetWindow,
         targetOrigin: connection.origin,
-        nonce: createNonce(window.crypto),
-        onReady: ({ version: readyVersion }) => { setVersion(readyVersion); setState('ready'); setError(''); },
+        nonce,
+        onReady: ({ version: readyVersion }) => { setVersion(readyVersion); setState('ready'); setError(''); connector.start(); },
         onTimeout: () => { setState('error'); setError('没有收到 API-MRI 的连接响应。请确认程序已启动，并允许当前 DSH 地址嵌入。'); }
       });
       handshake.start();
     } catch (cause) { setState('error'); setError(cause.message); }
-    return () => handshake?.dispose();
+    return () => { handshake?.dispose(); connector?.dispose(); };
   }, [connection, visible, loadGeneration]);
 
   function connect(event) {
@@ -243,7 +287,7 @@ function Workbench({ visible = true }) {
       h('h2', null, '正在准备 API-MRI'),
       h('p', {role:'status','aria-live':'polite'}, runtime?.phase==='downloading'
         ? `首次下载运行程序 · ${Math.floor((runtime.downloaded_bytes||0)/1024/1024)} / ${Math.ceil((runtime.total_bytes||0)/1024/1024)} MB`
-        : runtime?.phase==='extracting'?'正在解压运行程序…':runtime?.phase==='starting'?'正在启动工作台…'
+        : runtime?.phase==='checking'?'正在检查已安装的程序…':runtime?.phase==='extracting'?'正在解压运行程序…':runtime?.phase==='starting'?'正在启动工作台…'
         :runtime?.phase==='error'?runtime.error:'首次打开会下载运行程序，以后自动启动。'),
       runtime?.phase==='downloading' && h('progress',{value:runtime.downloaded_bytes||0,max:runtime.total_bytes||1,'aria-label':'运行程序下载进度',style:{width:'100%',accentColor:'#738365',marginBottom:20}}),
       runtime?.phase==='error' && h('button',{type:'button',className:'api-mri-companion__connect',onClick:()=>{automaticDone.current=false;setRuntimeRetry(v=>v+1);}},'重试自动启动'),
@@ -271,10 +315,12 @@ function Workbench({ visible = true }) {
 }
 
 function apply(ctx) {
-  ctx.effect(() => ctx.betterSidebar.registerTab({
-    id: 'api-mri:workbench', title: 'API-MRI', single: true, order: 60,
-    icon: h(Mark, {}), component: ({ visible }) => h(Workbench, { visible })
-  }));
+  ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+    name: 'sidebar.panellist', id: 'api-mri', label: 'API-MRI', order: 60,
+  }, () => h(Mark, { size: 16 })));
+  ctx.slots.inject('main', () => ctx.slots.register({
+    name: 'main', key: 'api-mri', inject: () => ({}),
+  }, Workbench));
 }
 
     return { name, inject, apply };

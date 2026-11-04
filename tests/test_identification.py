@@ -31,6 +31,18 @@ def reply(text="1", **extra):
     return {"raw_response": raw, "http_status": 200, "error": None, "elapsed_seconds": .1}
 
 
+def test_dsh_unsupported_probe_is_adapter_evidence_not_model_identity(small_bank, monkeypatch, tmp_path):
+    row = {"raw_response": {"error": {"code": "unsupported_parameter", "message": "reasoning control is unavailable"}},
+           "http_status": 422, "error": "http_422", "elapsed_seconds": .01,
+           "response_headers": {"x-api-mri-transport": "dsh-adapter"}}
+    monkeypatch.setattr(ident.fp, "_call", lambda *a, **k: row)
+    report = ident.run_identification(payload(), tmp_path / "dsh")
+    assert report["status"] == "insufficient_evidence" and report["identity_decision"] == "abstained"
+    assert report["cost"]["real_requests"] == 1
+    assert report["transport"]["unsupported"] == ["unsupported_parameter"]
+    assert any("DSH 适配器不支持" in note for note in report["notes"])
+
+
 def test_normalizer_and_distance():
     cell = {"normalize_as": "integer", "lang": "zh", "answer_space": "integer 1-100"}
     assert ident.normalize_answer("四十二", cell) == ("42", "valid")

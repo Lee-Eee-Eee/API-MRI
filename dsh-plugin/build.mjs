@@ -20,7 +20,7 @@ export async function build({ outDir = path.join(folder, 'lib') } = {}) {
   await mkdir(outDir, { recursive: true });
   await writeFile(path.join(outDir, 'client.js'), browser);
   await writeFile(path.join(outDir, 'index.js'), host);
-  for (const file of ['runtime.js', 'runtime-manifest.json']) await writeFile(path.join(outDir,file),await readFile(path.join(folder,'src',file)));
+  for (const file of ['runtime.js', 'runtime-manifest.json', 'model-bridge.js', 'dsh-adapter.js']) await writeFile(path.join(outDir,file),await readFile(path.join(folder,'src',file)));
   return { browser, host };
 }
 

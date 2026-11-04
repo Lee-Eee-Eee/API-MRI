@@ -2421,6 +2421,13 @@ circle.illustration-sage {
 .showcase-trial-title p { color: var(--muted); font-size: 12px; margin-top: 5px; }
 .showcase-trial-body { min-width: 0; }
 .showcase-form-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 145px; gap: 16px; }
+.dsh-model-picker{display:flex;align-items:center;gap:10px;min-width:0;}
+.dsh-model-picker select{flex:1;min-width:0;}
+.dsh-model-picker .text-button{flex:none;margin:0;}
+.dsh-source-row{display:flex;flex-wrap:wrap;gap:12px 18px;}
+.dsh-source-row>.field:first-child{flex:0 1 190px;}
+.dsh-source-row>.field:last-child{flex:1 1 240px;}
+.showcase-form-grid:has(>[hidden]){grid-template-columns:145px;}
 .showcase .field { min-width: 0; }
 .showcase .field input, .showcase .field select { width: 100%; min-height: 40px; }
 .showcase-form-grid .field { margin-bottom: 0; }

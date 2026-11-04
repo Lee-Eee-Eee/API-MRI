@@ -53,6 +53,27 @@ def run(tmp_path, data=None, status=200, **changes):
     return result, calls
 
 
+def test_dsh_transport_is_preserved_in_trial_report_and_replay(catalog, tmp_path):
+    def handler(request):
+        return httpx.Response(200, headers={"x-api-mri-transport": "dsh-adapter"}, json=response())
+    result = showcase.run_showcase(config(), tmp_path / "run", transport=httpx.MockTransport(handler))
+    assert result["transport"]["kind"] == "dsh-adapter"
+    assert "DSH" in result["interpretation"]
+    assert "x-api-mri-transport" in evidence(tmp_path)
+    replayed = showcase.replay_showcase(showcase.parse_showcase_records(evidence(tmp_path)), tmp_path / "replayed")
+    assert replayed == result
+
+
+def test_dsh_unsupported_trial_parameter_is_explained_as_adapter_limit(catalog, tmp_path):
+    def handler(request):
+        return httpx.Response(422, headers={"x-api-mri-transport": "dsh-adapter"},
+            json={"error": {"code": "unsupported_parameter", "message": "response format unavailable"}})
+    result = showcase.run_showcase(config(), tmp_path / "run", transport=httpx.MockTransport(handler))
+    assert result["transport"]["unsupported"] == ["unsupported_parameter"]
+    assert "适配器不支持" in result["interpretation"]
+    assert showcase.replay_showcase(showcase.parse_showcase_records(evidence(tmp_path)), tmp_path / "replayed") == result
+
+
 def evidence(tmp_path):
     return (tmp_path / "run" / "showcase_records.jsonl").read_text(encoding="utf-8")
 

@@ -74,6 +74,34 @@ def test_plan_is_network_free_redacted_and_caps_the_whole_plan():
     assert limited["maximum_requests"] == 0
 
 
+@pytest.mark.parametrize("marked", [False, True])
+def test_dsh_adapter_refusal_is_not_a_model_tool_failure_and_replays(tmp_path, marked):
+    headers = {"x-api-mri-transport": "dsh-adapter"} if marked else {}
+    def handler(request):
+        body = json.loads(request.content)
+        if isinstance(body.get("tool_choice"), dict):
+            return httpx.Response(422, headers=headers, json={"error": {"code": "unsupported_parameter", "message": "tool_choice"}})
+        if "Reply exactly HELLO" in body["messages"][0]["content"]:
+            message = {"content": "HELLO"}
+        else:
+            message = {"content": None, "tool_calls": [{"id": "fixture-call", "type": "function", "function": {
+                "name": "lookup_sample", "arguments": '{"sample_id":"MRI-17","field":"temperature"}'}}]}
+        return httpx.Response(200, headers=headers, json={"choices": [{"message": message, "finish_reason": "stop"}]})
+    result = run_service_quality(config(checks=["tools"], candidate={"api_base": "http://127.0.0.1:4567/v1",
+        "model": "dsh:provider:model", "api_key": KEY}), tmp_path / "run", transport=httpx.MockTransport(handler))
+    tools = result["service_quality"]["tools"]
+    assert tools["tool_forced"]["status"] == ("unsupported" if marked else "error")
+    assert tools["tool_roundtrip"]["status"] == "skipped"
+    assert tools["tool_auto"]["status"] == tools["tool_no_call"]["status"] == "passed"
+    assert ("transport" in result) == marked
+    if marked:
+        assert result["transport"]["basis"] == "response_header"
+        assert "DSH" in result["definitions"]["transport"]
+        assert tools["tool_roundtrip"]["reason"] == "adapter_does_not_support_forced_call"
+    replayed = replay_service_quality(rows(tmp_path), tmp_path / "replayed")
+    assert replayed == result
+
+
 @pytest.mark.parametrize("changes", [
     {"samples": True}, {"max_tokens": 0}, {"timeout": 301}, {"checks": [["stream"]]},
     {"checks": []}, {"budget": {"max_requests": 33}}, {"unknown": 1},

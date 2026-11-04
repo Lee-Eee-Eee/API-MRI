@@ -5,9 +5,20 @@ import { mkdtemp, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
-import { validateRuntime, validEmbedOrigin, safeEnvironment, downloadRuntime, createRuntimeManager } from '../src/runtime.js';
+import { validateRuntime, validEmbedOrigin, runtimeRequestOrigin, safeEnvironment, downloadRuntime, createRuntimeManager } from '../src/runtime.js';
 const bytes=Buffer.alloc(2048,42);
-const spec={version:'0.9.0',url:'https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v0.9.0/API-MRI-0.9.0-windows-x64.zip',sha256:createHash('sha256').update(bytes).digest('hex'),size_bytes:bytes.length};
+const spec={version:'0.9.1',url:'https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v0.9.1/API-MRI-0.9.1-windows-x64.zip',sha256:createHash('sha256').update(bytes).digest('hex'),size_bytes:bytes.length};
+
+test('authenticated desktop bridge may omit Origin, Web must match the requested embed origin',()=>{
+  assert.equal(runtimeRequestOrigin({}, {embedOrigin:'dsh-app://app'}),'dsh-app://app');
+  assert.equal(runtimeRequestOrigin({origin:'http://127.0.0.1:3088'}, {embedOrigin:'http://127.0.0.1:3088'}),'http://127.0.0.1:3088');
+  for(const [headers,payload] of [
+    [{},{}], [{},{embedOrigin:'http://127.0.0.1:3088'}],
+    [{origin:'http://127.0.0.1:3088'},{embedOrigin:'dsh-app://app'}],
+    [{origin:'https://evil.test'},{embedOrigin:'dsh-app://app'}],
+    [{},{embedOrigin:'dsh-app://evil'}],
+  ])assert.throws(()=>runtimeRequestOrigin(headers,payload));
+});
 
 test('runtime pins version, repository, digest, size, and embed origin',()=>{
   assert.equal(validateRuntime(spec),spec);
@@ -29,15 +40,15 @@ test('download streams exact bytes, rejects tampering and off-host redirects',as
 
 test('installed runtime starts once, reports ready URL, and owns its child only',async()=>{
   const root=await mkdtemp(path.join(tmpdir(),'api-mri-runtime-'));
-  const target=path.join(root,'0.9.0');await mkdir(path.join(target,'API-MRI-0.9.0-windows-x64'),{recursive:true});
-  await writeFile(path.join(target,'API-MRI-0.9.0-windows-x64','API-MRI.exe'),'fixture');
+  const target=path.join(root,'0.9.1');await mkdir(path.join(target,'API-MRI-0.9.1-windows-x64'),{recursive:true});
+  await writeFile(path.join(target,'API-MRI-0.9.1-windows-x64','API-MRI.exe'),'fixture');
   await writeFile(path.join(target,'runtime-receipt.json'),JSON.stringify(spec));
   const manifest=path.join(root,'manifest.json');await writeFile(manifest,JSON.stringify(spec));
-  await mkdir(path.join(root,'data'));await writeFile(path.join(root,'data','.portable-session.json'),JSON.stringify({port:19765,token:'ab'.repeat(32)}));
+  await mkdir(path.join(root,'data'));await writeFile(path.join(root,'data','.portable-session.json'),JSON.stringify({version:spec.version,installation_id:'fixture-install',port:19765,token:'ab'.repeat(32)}));
   let starts=0,kills=0,args;
   const manager=createRuntimeManager({root,platform:'win32',arch:'x64',manifestUrl:manifest,
     spawnChild(exe,argv,options){starts++;args=argv;assert.equal(options.windowsHide,true);const child=new EventEmitter();child.kill=()=>kills++;return child;},
-    fetcher:async(url)=>new Response(JSON.stringify(String(url).endsWith('bootstrap')?{version:'0.9.0',embedding:{origins:['dsh-app://app']}}:{}))});
+    fetcher:async(url)=>starts?new Response(JSON.stringify(String(url).endsWith('bootstrap')?{version:'0.9.1',embedding:{origins:['dsh-app://app']}}:{version:spec.version,installation_id:'fixture-install'})):new Response(null,{status:503})});
   await manager.start('dsh-app://app');await manager.start('dsh-app://app');
   for(let i=0;i<40&&manager.snapshot().phase!=='ready';i++)await new Promise(r=>setTimeout(r,10));
   assert.equal(starts,1);assert.equal(manager.snapshot().url,'http://127.0.0.1:19765');
@@ -62,19 +73,104 @@ function fixtureZip(name,content) {
 test('fresh Windows install verifies and extracts the ZIP before starting; traversal never escapes', {skip:process.platform!=='win32'},async()=>{
   for(const malicious of [false,true]) {
     const root=await mkdtemp(path.join(tmpdir(),'api-mri-fresh-'));
-    const payload=Buffer.alloc(2048,37),zip=fixtureZip(malicious?'../escaped.exe':'API-MRI-0.9.0-windows-x64/API-MRI.exe',payload);
+    const payload=Buffer.alloc(2048,37),zip=fixtureZip(malicious?'../escaped.exe':'API-MRI-0.9.1-windows-x64/API-MRI.exe',payload);
     const fixture={...spec,sha256:createHash('sha256').update(zip).digest('hex'),size_bytes:zip.length};
     const manifest=path.join(root,'manifest.json');await writeFile(manifest,JSON.stringify(fixture));
-    await mkdir(path.join(root,'data'));await writeFile(path.join(root,'data','.portable-session.json'),JSON.stringify({port:19765,token:'ac'.repeat(32)}));
+    await mkdir(path.join(root,'data'));await writeFile(path.join(root,'data','.portable-session.json'),JSON.stringify({version:spec.version,installation_id:'fixture-install',port:19765,token:'ac'.repeat(32)}));
     let starts=0;
     const manager=createRuntimeManager({root,manifestUrl:manifest,
       spawnChild(){starts++;const c=new EventEmitter();c.kill=()=>{};return c;},
-      fetcher:async(url)=>String(url).endsWith('.zip')?new Response(zip):new Response(JSON.stringify(String(url).endsWith('bootstrap')?{version:'0.9.0',embedding:{origins:['dsh-app://app']}}:{}))});
+      fetcher:async(url)=>String(url).endsWith('.zip')?new Response(zip):starts?new Response(JSON.stringify(String(url).endsWith('bootstrap')?{version:'0.9.1',embedding:{origins:['dsh-app://app']}}:{version:spec.version,installation_id:'fixture-install'})):new Response(null,{status:503})});
     await manager.start('dsh-app://app');
     for(let i=0;i<600&&!['error','ready'].includes(manager.snapshot().phase);i++)await new Promise(r=>setTimeout(r,50));
     if(malicious){assert.equal(manager.snapshot().phase,'error');assert.equal(starts,0);}
     else{assert.equal(manager.snapshot().phase,'ready');assert.equal(starts,1);
-      assert.deepEqual(await readFile(path.join(root,'0.9.0','API-MRI-0.9.0-windows-x64','API-MRI.exe')),payload);}
+      assert.deepEqual(await readFile(path.join(root,'0.9.1','API-MRI-0.9.1-windows-x64','API-MRI.exe')),payload);}
     manager.dispose();
   }
+});
+
+async function installedFixture(manifestSpec=spec) {
+  const root=await mkdtemp(path.join(tmpdir(),'api-mri-reopen-'));
+  const installed=path.join(root,spec.version,`API-MRI-${spec.version}-windows-x64`);
+  await mkdir(installed,{recursive:true});await writeFile(path.join(installed,'API-MRI.exe'),'fixture');
+  await writeFile(path.join(root,spec.version,'runtime-receipt.json'),JSON.stringify({version:spec.version,sha256:spec.sha256}));
+  const manifest=path.join(root,'manifest.json');await writeFile(manifest,JSON.stringify(manifestSpec));
+  await mkdir(path.join(root,'data'));
+  await writeFile(path.join(root,'data','.portable-session.json'),JSON.stringify({version:spec.version,installation_id:'reopen-fixture',port:19766,token:'ad'.repeat(32)}));
+  return {root,manifestUrl:manifest,platform:'win32',arch:'x64',pollMs:2,startupTimeoutMs:100};
+}
+function healthResponse(url) {
+  return new Response(JSON.stringify(String(url).endsWith('bootstrap')
+    ?{version:spec.version,embedding:{origins:['dsh-app://app']}}
+    :{version:spec.version,installation_id:'reopen-fixture'}));
+}
+async function waitPhase(manager,phase) {
+  for(let i=0;i<100&&manager.snapshot().phase!==phase;i++)await new Promise(resolve=>setTimeout(resolve,2));
+  assert.equal(manager.snapshot().phase,phase,manager.snapshot().error);
+}
+
+test('unbound source manifest starts a verified local install while GitHub is unavailable',async()=>{
+  const fixture=await installedFixture({...spec,sha256:null,size_bytes:null});let starts=0;
+  const manager=createRuntimeManager({...fixture,
+    fetcher:async url=>{assert.equal(new URL(url).protocol,'http:','local installed runtime must not need Release metadata');return starts?healthResponse(url):new Response(null,{status:503});},
+    spawnChild(){starts++;const child=new EventEmitter();child.kill=()=>{};return child;},
+  });
+  try {await manager.start('dsh-app://app');await waitPhase(manager,'ready');assert.equal(starts,1);}
+  finally {manager.dispose();}
+});
+
+test('an authenticated healthy instance is reused without spawning or owning its process',async()=>{
+  const fixture=await installedFixture();
+  const manager=createRuntimeManager({...fixture,fetcher:async url=>healthResponse(url),spawnChild(){assert.fail('healthy instance must be reused');}});
+  await manager.start('dsh-app://app');await waitPhase(manager,'ready');
+  assert.equal(manager.snapshot().reused,true);assert.equal(manager.snapshot().url,'http://127.0.0.1:19766');
+  manager.dispose();assert.equal(manager.snapshot().phase,'closed');
+});
+
+test('a launcher that exits zero after forwarding to a live instance is successful',async()=>{
+  const fixture=await installedFixture();let starts=0,kills=0;
+  const manager=createRuntimeManager({...fixture,
+    fetcher:async url=>{if(!starts)return new Response(null,{status:503});await new Promise(resolve=>setImmediate(resolve));return healthResponse(url);},
+    spawnChild(){starts++;const child=new EventEmitter();child.kill=()=>kills++;queueMicrotask(()=>child.emit('exit',0));return child;},
+  });
+  await manager.start('dsh-app://app');await waitPhase(manager,'ready');
+  assert.equal(manager.snapshot().reused,true);manager.dispose();assert.equal(kills,0);
+});
+
+test('reopening rechecks cached readiness and ignores an older owned process exit',async()=>{
+  const fixture=await installedFixture();let healthy=false,starts=0,kills=0;
+  const manager=createRuntimeManager({...fixture,
+    fetcher:async url=>healthy?healthResponse(url):new Response(null,{status:503}),
+    spawnChild(){starts++;healthy=true;const child=new EventEmitter();child.kill=()=>{kills++;queueMicrotask(()=>child.emit('exit',1));};return child;},
+  });
+  try {
+    await manager.start('dsh-app://app');await waitPhase(manager,'ready');healthy=false;
+    assert.equal((await manager.status()).phase,'idle');
+    await manager.start('dsh-app://app');await waitPhase(manager,'ready');
+    assert.equal(starts,2);assert.equal(kills,1);assert.equal(manager.snapshot().error,null);
+  }finally{manager.dispose();}
+});
+
+test('startup timeout kills only its owned process and a later retry can become ready',async()=>{
+  const fixture=await installedFixture();let starts=0,kills=0;
+  const manager=createRuntimeManager({...fixture,startupTimeoutMs:12,
+    fetcher:async url=>starts>=2?healthResponse(url):new Response(null,{status:503}),
+    spawnChild(){starts++;const child=new EventEmitter();child.kill=()=>{kills++;queueMicrotask(()=>child.emit('exit',1));};return child;},
+  });
+  try {
+    await manager.start('dsh-app://app');await waitPhase(manager,'error');
+    assert.match(manager.snapshot().error,/超时/);assert.equal(kills,1);
+    await manager.start('dsh-app://app');await waitPhase(manager,'ready');assert.equal(starts,2);
+  }finally{manager.dispose();}
+});
+
+test('a port returning a different authenticated identity is never accepted as ready',async()=>{
+  const fixture=await installedFixture();let starts=0;
+  const manager=createRuntimeManager({...fixture,
+    fetcher:async()=>new Response(JSON.stringify({version:spec.version,installation_id:'different-installation'})),
+    spawnChild(){starts++;const child=new EventEmitter();child.kill=()=>{};queueMicrotask(()=>child.emit('exit',1));return child;},
+  });
+  try {await manager.start('dsh-app://app');await waitPhase(manager,'error');assert.equal(starts,1);}
+  finally{manager.dispose();}
 });

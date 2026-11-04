@@ -21,6 +21,24 @@ def payload(base="https://api.example.invalid/v1", **extra):
     return {"reference_pack": PACK, "profile": "full", "candidate": {"api_base": base, "model": "custom-model-alias", "api_key": KEY}, **extra}
 
 
+def test_dsh_adapter_unsupported_parameters_keep_evidence_without_identity_claim(tmp_path, monkeypatch):
+    import httpx
+    original = httpx.Client
+    calls = []
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(422, headers={"x-api-mri-transport": "dsh-adapter"},
+            json={"error": {"code": "unsupported_parameter", "message": "reasoning control is unavailable"}})
+    monkeypatch.setattr(httpx, "Client", lambda **kwargs: original(**kwargs, transport=httpx.MockTransport(handler)))
+    report = fp.run_fingerprint(payload("http://127.0.0.1:4567/v1"), tmp_path / "dsh")
+    assert calls and report["status"] == "insufficient_evidence"
+    assert report["transport"]["unsupported"] == ["unsupported_parameter"]
+    assert "DSH 适配器不支持" in report["fingerprint"]["verdict_explanation"]
+    evidence = tmp_path / "dsh" / "fingerprint_records.jsonl"
+    assert KEY not in evidence.read_text(encoding="utf-8")
+    assert fp.replay_fingerprint(PACK, evidence, tmp_path / "replayed") == report
+
+
 @pytest.fixture
 def server():
     _, data = fp._load_pack(PACK)

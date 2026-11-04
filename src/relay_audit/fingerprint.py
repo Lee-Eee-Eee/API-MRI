@@ -338,7 +338,7 @@ def _call(client: httpx.Client, config: dict, key: str, body: dict, secrets: tup
                            json=body) as response:
             status = response.status_code
             response_headers = {name: response.headers[name][:200] for name in
-                                ("x-api2d-cache", "x-cache", "cf-cache-status") if name in response.headers}
+                                ("x-api2d-cache", "x-cache", "cf-cache-status", "x-api-mri-transport") if name in response.headers}
             chunks, size = [], 0
             for chunk in response.iter_bytes():
                 # httpx read timeouts are idle timeouts. Check the whole request
@@ -355,8 +355,8 @@ def _call(client: httpx.Client, config: dict, key: str, body: dict, secrets: tup
                     raise ValueError("response_size_limit")
                 chunks.append(chunk)
             if error:
-                return {"http_status": status, "raw_response": None, "error": error,
-                        "elapsed_seconds": round(time.monotonic() - started, 6)}
+                return _clean({"http_status": status, "raw_response": None, "error": error, "response_headers": response_headers,
+                               "elapsed_seconds": round(time.monotonic() - started, 6)}, secrets)
             content = b"".join(chunks).decode("utf-8", errors="replace")
             try:
                 raw = json.loads(content, parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
@@ -373,6 +373,24 @@ def _call(client: httpx.Client, config: dict, key: str, body: dict, secrets: tup
         error = "response_size_limit"
     return _clean({"http_status": status, "raw_response": raw, "error": error, "response_headers": response_headers,
                    "elapsed_seconds": round(time.monotonic() - started, 6)}, secrets)
+
+
+def _transport_info(rows: list[dict]) -> dict | None:
+    if any(isinstance(row.get("response_headers"), dict)
+           and row["response_headers"].get("x-api-mri-transport") == "dsh-adapter" for row in rows):
+        return {"kind": "dsh-adapter", "basis": "response_header",
+                "note": "调用路径记录为 DSH 模型适配器；时延包含本地桥接、适配和上游服务处理。"}
+    return None
+
+
+def _adapter_unsupported(row: dict) -> str | None:
+    """A bridge capability refusal describes the adapter, not model quality."""
+    if row.get("http_status") != 422 or not _transport_info([row]):
+        return None
+    raw = row.get("raw_response")
+    error = raw.get("error") if isinstance(raw, dict) else None
+    code = error.get("code") if isinstance(error, dict) else None
+    return code if isinstance(code, str) and re.fullmatch(r"unsupported_[a-z_]{1,80}", code) else None
 
 
 def run_fingerprint(payload: dict, out: Path, progress: Callable | None = None,
@@ -701,6 +719,14 @@ def _evaluate(meta: dict, data: dict, records: list[dict]) -> dict:
                   "upstream_verdict": scored["verdict"] if scored else None, "upstream_statistics": scored,
                   "integrity_note": "参考文件与记录哈希校验通过；哈希用于复算一致性，不认证响应的真实来源。"},
               "artifacts": ["report.json", "report.md", "prompts.csv", "fingerprint_records.jsonl"]}
+    transport = _transport_info(requests)
+    if transport:
+        report["transport"] = transport
+        report["fingerprint"]["verdict_explanation"] += " " + transport["note"]
+        unsupported = sorted({code for row in requests if (code := _adapter_unsupported(row))})
+        if unsupported:
+            report["transport"]["unsupported"] = unsupported
+            report["fingerprint"]["verdict_explanation"] += " DSH 适配器不支持本次探针参数，未取得可比回答。"
     if manifest["synthetic"] and manifest.get("demo_variant") in {"match", "different", "incomplete"}:
         report["fingerprint"]["demo_variant"] = manifest["demo_variant"]
     return report

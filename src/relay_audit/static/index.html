@@ -130,7 +130,9 @@
         <section class="setup" aria-labelledby="setup-title">
           <h2 id="setup-title">待测 API</h2>
           <form id="check-form">
-            <div class="field">
+            <div id="api-source-field" class="field" hidden><label for="api-source">模型来源</label><select id="api-source"><option value="dsh">DSH 已配置模型</option><option value="manual" selected>手动接口</option></select></div>
+            <div id="api-dsh-field" class="field" hidden><label for="api-dsh-model">DSH 模型</label><div class="dsh-model-picker"><select id="api-dsh-model" disabled><option value="">正在读取…</option></select><button id="api-dsh-refresh" type="button" class="text-button">刷新</button></div><small id="api-dsh-note">经 DSH 模型适配器调用</small></div>
+            <div id="api-manual-base" class="field">
               <label for="api-base">API 地址</label
               ><input
                 id="api-base"
@@ -141,7 +143,7 @@
                 spellcheck="false"
               /><small>OpenAI Chat Completions 兼容接口</small>
             </div>
-            <div class="field">
+            <div id="api-manual-model" class="field">
               <label for="api-model">接口模型名</label
               ><input
                 id="api-model"
@@ -153,7 +155,7 @@
                 spellcheck="false"
               />
             </div>
-            <div class="field">
+            <div id="api-manual-key" class="field">
               <label for="api-key">API Key</label>
               <div class="password-field">
                 <input
@@ -483,9 +485,13 @@
           </div>
           <div class="showcase-trial-body">
             <form id="showcase-form">
+              <div class="dsh-source-row">
+                <div id="showcase-source-field" class="field" hidden><label for="showcase-source">模型来源</label><select id="showcase-source"><option value="dsh">DSH 已配置模型</option><option value="manual" selected>手动接口</option></select></div>
+                <div id="showcase-dsh-field" class="field" hidden><label for="showcase-dsh-model">DSH 模型</label><div class="dsh-model-picker"><select id="showcase-dsh-model" disabled><option value="">正在读取…</option></select><button id="showcase-dsh-refresh" type="button" class="text-button">刷新</button></div><small id="showcase-dsh-note">经 DSH 模型适配器调用</small></div>
+              </div>
               <div class="showcase-form-grid">
-                <div class="field"><label for="showcase-api-base">API 地址</label><input id="showcase-api-base" type="url" placeholder="https://…/v1" autocomplete="off" spellcheck="false" required /></div>
-                <div class="field"><label for="showcase-api-model">接口模型名</label><input id="showcase-api-model" type="text" maxlength="200" placeholder="该接口接受的模型名" autocomplete="off" spellcheck="false" required /></div>
+                <div id="showcase-manual-base" class="field"><label for="showcase-api-base">API 地址</label><input id="showcase-api-base" type="url" placeholder="https://…/v1" autocomplete="off" spellcheck="false" required /></div>
+                <div id="showcase-manual-model" class="field"><label for="showcase-api-model">接口模型名</label><input id="showcase-api-model" type="text" maxlength="200" placeholder="该接口接受的模型名" autocomplete="off" spellcheck="false" required /></div>
                 <div class="field"><label for="showcase-max-tokens">输出上限</label><select id="showcase-max-tokens"><option value="1024">1,024 tokens</option><option value="2048" selected>2,048 tokens</option><option value="4096">4,096 tokens</option></select></div>
               </div>
               <div class="showcase-form-actions">
@@ -503,7 +509,7 @@
               <p id="showcase-plan-endpoint" class="showcase-endpoint"></p>
               <p id="showcase-plan-note" class="field-help"></p>
               <div class="showcase-confirm-row">
-                <div class="field"><label for="showcase-api-key">API Key</label><input id="showcase-api-key" type="password" minlength="8" maxlength="4096" autocomplete="new-password" spellcheck="false" aria-describedby="showcase-key-note" /><small id="showcase-key-note">提交后清空。</small></div>
+                <div id="showcase-manual-key" class="field"><label for="showcase-api-key">API Key</label><input id="showcase-api-key" type="password" minlength="8" maxlength="4096" autocomplete="new-password" spellcheck="false" aria-describedby="showcase-key-note" /><small id="showcase-key-note">提交后清空。</small></div>
                 <button id="showcase-start" class="button primary" type="button" disabled>发送 1 次请求</button>
               </div>
             </div>

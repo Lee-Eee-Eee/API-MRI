@@ -10,20 +10,49 @@ const manifest = JSON.parse(await readFile(new URL('../../package.json', import.
 
 test('official DSH bundle and client manifests select shared host services', async () => {
   assert.equal(manifest.name, 'dsh-api-mri');
-  assert.equal(manifest.version, '0.9.0');
+  assert.equal(manifest.version, '0.9.1');
   assert.equal(manifest.dsh.bundle.patch, './dsh-plugin/cordis.patch.yml');
-  assert.deepEqual(manifest.dsh.client, { platform: 'web', inject: ['dsh-better-sidebar'] });
-  assert.equal(manifest.peerDependencies['dsh-better-sidebar'], '>=0.28.2 <0.29.0');
+  assert.deepEqual(manifest.dsh.client, { platform: 'web', inject: ['@deepseek-ai/dsh-client-ui-slots'] });
+  assert.equal(manifest.peerDependencies['dsh-better-sidebar'], undefined);
   assert.equal(manifest.peerDependencies.react, '^18.2.0');
   assert.equal(manifest.dependencies, undefined);
   assert.equal(manifest.optionalDependencies, undefined);
   for (const hook of ['preinstall', 'install', 'postinstall', 'prepare']) assert.equal(manifest.scripts[hook], undefined);
   assert.equal(await readFile(new URL('../cordis.patch.yml', import.meta.url), 'utf8'), '- insert:\n    - id: api-mri\n      name: dsh-api-mri\n');
   assert.equal(host.name, manifest.name);
-  assert.deepEqual(host.inject, ['webServer','connection']);
+  assert.deepEqual(host.inject, ['webServer','connection','llm']);
 });
 
-test('checked-in browser factory registers one disposable BetterSidebar tab', async () => {
+test('host authenticates model directory and leases before accessing configured models', async () => {
+  const routes = new Map(), disposers = []; let denied = true, directoryReads = 0;
+  host.apply({ effect(fn) { disposers.push(fn()); },
+    connection: { requestRejection() { return denied ? 'forbidden' : undefined; } },
+    webServer: { register(route) { routes.set(route.path, route); return () => routes.delete(route.path); } },
+    llm: { listProviders() { directoryReads++; return [{id:'provider',name:'Configured provider'}]; },
+      async listModels() { return [{provider:'provider',id:'model',name:'Configured model',apiKey:'must-not-leak'}]; },
+      stream() { assert.fail('Listing and authorizing must not call a model'); } },
+  });
+  async function call(path, method='GET', body) {
+    let status, value;
+    const req = {method,headers:{},async *[Symbol.asyncIterator]() {if(body)yield Buffer.from(JSON.stringify(body));}};
+    const res = {writeHead(s) {status=s;},end(text) {value=JSON.parse(text);}};
+    await routes.get(path).handler(req,res); return {status,value};
+  }
+  try {
+    assert.equal((await call('/api/api-mri/models')).status,403);
+    assert.equal((await call('/api/api-mri/lease','POST',{})).status,403); assert.equal(directoryReads,0);
+    denied=false;
+    const catalog=await call('/api/api-mri/models');
+    assert.equal(catalog.status,200);assert.equal(catalog.value.models.length,1);
+    assert.ok(!JSON.stringify(catalog.value).includes('must-not-leak'));
+    const lease=await call('/api/api-mri/lease','POST',{embedOrigin:'dsh-app://app',model:'dsh:provider:model',maxRequests:1,maxOutputTokens:32});
+    assert.equal(lease.status,200);assert.equal(lease.value.candidate.model,'dsh:provider:model');
+    assert.match(lease.value.candidate.api_key,/^[a-f0-9]{64}$/);
+    assert.equal((await call('/api/api-mri/lease','POST',{embedOrigin:'https://evil.test'})).status,400);
+  } finally {disposers.reverse().forEach(dispose=>dispose?.());}
+});
+
+test('checked-in browser factory registers a disposable native navigation entry and main panel', async () => {
   const source = await readFile(new URL('../lib/client.js', import.meta.url), 'utf8');
   let registration;
   const React = { createElement: (type, props, ...children) => ({ type, props, children }) };
@@ -32,17 +61,22 @@ test('checked-in browser factory registers one disposable BetterSidebar tab', as
   assert.equal(registration.id, manifest.name);
   const client = registration.factory(id => { assert.equal(id, 'react'); return React; });
   assert.equal(client.name, manifest.name);
-  assert.deepEqual([...client.inject], ['betterSidebar']);
-  let tab, effects = 0, disposed = 0, cleanup;
-  client.apply({ effect(effect) { effects++; cleanup = effect(); },
-    betterSidebar: { registerTab(value) { tab = value; return () => disposed++; } } });
-  assert.equal(effects, 1);
-  assert.equal(tab.id, 'api-mri:workbench');
-  assert.equal(tab.single, true);
-  assert.equal(tab.title, 'API-MRI');
-  assert.equal(typeof tab.component, 'function');
-  assert.equal(tab.component({ visible: false }).props.visible, false);
-  cleanup(); assert.equal(disposed, 1);
+  assert.deepEqual([...client.inject], ['slots']);
+  const registrations = [], cleanup = [];
+  let disposed = 0;
+  client.apply({ slots: {
+    inject(name, effect) { cleanup.push(effect()); },
+    register(value, component) { registrations.push({ ...value, component }); return () => disposed++; },
+  }});
+  assert.equal(registrations.length, 2);
+  const nav = registrations.find(r => r.name === 'sidebar.panellist');
+  const panel = registrations.find(r => r.name === 'main');
+  assert.equal(nav.id, 'api-mri');
+  assert.equal(nav.label, 'API-MRI');
+  assert.equal(nav.component().props.size, 16);
+  assert.equal(panel.key, nav.id);
+  assert.equal(typeof panel.component, 'function');
+  cleanup.forEach(dispose => dispose()); assert.equal(disposed, 2);
   let stateIndex = 0;
   const states = ['http://127.0.0.1:8767', { origin: 'http://127.0.0.1:8767', id: 1 }, 'ready', '', 0, '0.8.0'];
   React.useId = () => 'test-address';
@@ -50,8 +84,7 @@ test('checked-in browser factory registers one disposable BetterSidebar tab', as
   React.useRef = () => ({ current: null });
   React.useEffect = () => {};
   window.location = { origin: 'http://127.0.0.1:3088' };
-  const view = tab.component({ visible: true });
-  const tree = view.type(view.props);
+  const tree = panel.component({ visible: true });
   function findFrame(node) {
     if (!node || typeof node !== 'object') return null;
     if (node.type === 'iframe') return node;
@@ -70,8 +103,7 @@ test('checked-in browser factory registers one disposable BetterSidebar tab', as
     window.location = location;
     stateIndex = 0;
     React.useState = () => [[states[0], null, 'idle', '', 0, ''][stateIndex++], () => {}];
-    const setup = tab.component({ visible: true });
-    return setup.type(setup.props);
+    return panel.component({ visible: true });
   }
   function findButton(node, text) {
     if (!node || typeof node !== 'object') return null;

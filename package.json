@@ -1,7 +1,7 @@
 {
   "name": "dsh-api-mri",
-  "version": "0.9.0",
-  "description": "API-MRI workspace for DSH Better Sidebar",
+  "version": "0.9.1",
+  "description": "API-MRI workspace in the native DSH sidebar",
   "type": "module",
   "main": "dsh-plugin/lib/index.js",
   "exports": {
@@ -16,10 +16,9 @@
   "dsh": {
     "manifestVersion": 1,
     "bundle": { "patch": "./dsh-plugin/cordis.patch.yml" },
-    "client": { "platform": "web", "inject": ["dsh-better-sidebar"] }
+    "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-slots"] }
   },
   "peerDependencies": {
-    "dsh-better-sidebar": ">=0.28.2 <0.29.0",
     "react": "^18.2.0"
   },
   "scripts": {

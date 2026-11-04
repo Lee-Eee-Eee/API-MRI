@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_BACKEND, STORAGE_KEY, parseLocalOrigin, readSavedOrigin, saveOrigin,
-  createNonce, createHandshake, startupCommands, DESKTOP_ORIGIN, parseDshOrigin, hostOriginForLocation } from '../src/core.js';
+  createNonce, createHandshake, createModelConnector, startupCommands, DESKTOP_ORIGIN, parseDshOrigin, hostOriginForLocation } from '../src/core.js';
 
 test('DSH host accepts only the fixed desktop origin and existing local Web origins', () => {
   for (const input of ['dsh-app://app', 'dsh-app://app/']) assert.equal(parseDshOrigin(input), DESKTOP_ORIGIN);
@@ -146,4 +146,29 @@ test('timeout is finite and malformed version never crosses callback', () => {
   const badVersion = harness(); badVersion.channel.start();
   badVersion.receive({ data: { type: 'api-mri:ready', nonce: badVersion.nonce, version: '<script>alert(1)</script>' } });
   assert.deepEqual(badVersion.ready, [{ version: '' }]);
+});
+
+test('configured-model connector checks frame identity and nonce before granting bounded calls', async () => {
+  const listeners = new Set(), sent = [], calls = [];
+  const targetWindow = { postMessage: (data, origin) => sent.push({ data, origin }) };
+  const nonce = 'ac'.repeat(24), origin = DEFAULT_BACKEND;
+  const connector = createModelConnector({ nonce, targetWindow, targetOrigin: origin, hostOrigin: DESKTOP_ORIGIN,
+    eventTarget: { addEventListener: (_, fn) => listeners.add(fn), removeEventListener: (_, fn) => listeners.delete(fn) },
+    request: async (path, body) => { calls.push({ path, body }); return path === 'models'
+      ? { models: [{ id:'dsh:p:m', label:'Model', provider:'p', model:'m' }], apiBase:'http://127.0.0.1:12345/v1' }
+      : { candidate:{api_base:'http://127.0.0.1:12345/v1',model:'dsh:p:m',api_key:'short-lived-test-only'} }; },
+  });
+  const dispatch = async event => { for (const listener of listeners) await listener(event); };
+  connector.start(); await Promise.resolve();
+  assert.equal(calls.length, 1); assert.equal(sent[0].data.type, 'api-mri:dsh:catalog');
+  const event = { source:targetWindow, origin, data:{type:'api-mri:dsh:lease',nonce,requestId:'abcd1234',model:'dsh:p:m',maxRequests:2,maxOutputTokens:32} };
+  await dispatch({...event,source:{}}); await dispatch({...event,origin:'http://evil.test'});
+  await dispatch({...event,data:{...event.data,nonce:'wrong'}});
+  assert.equal(calls.length, 1);
+  await dispatch(event);
+  assert.deepEqual(calls[1],{path:'lease',body:{model:'dsh:p:m',maxRequests:2,maxOutputTokens:32,embedOrigin:DESKTOP_ORIGIN}});
+  assert.equal(sent[1].data.type,'api-mri:dsh:lease-result');
+  assert.equal(sent[1].data.nonce,nonce); assert.equal(sent[1].origin,origin);
+  connector.dispose(); assert.equal(listeners.size,0);
+  await dispatch(event); assert.equal(calls.length,2);
 });

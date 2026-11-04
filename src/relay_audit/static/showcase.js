@@ -60,7 +60,7 @@
     $("showcase-start").disabled = locked() || !state.plan;
     $("showcase-to-trial").disabled = !state.catalog || state.noMatches;
     $("showcase-plan-button").hidden = Boolean(state.plan);
-    $("showcase-api-key").disabled = locked();
+    $("showcase-api-key").disabled = locked() || bridge()?.usesDSH?.("showcase");
   }
   function invalidate() {
     state.plan = null;
@@ -72,11 +72,7 @@
     updateControls();
   }
   function payload(withKey = false) {
-    const candidate = {
-      api_base: $("showcase-api-base").value.trim(),
-      model: $("showcase-api-model").value.trim(),
-    };
-    if (withKey) candidate.api_key = $("showcase-api-key").value.trim();
+    const candidate = bridge().candidate(withKey, "showcase");
     return {
       mode: "showcase", task_id: state.task, candidate,
       max_tokens: Number($("showcase-max-tokens").value),
@@ -85,6 +81,7 @@
     };
   }
   function fillConnection() {
+    if (bridge()?.usesDSH?.() || bridge()?.usesDSH?.("showcase")) return;
     const connection = bridge()?.connection?.();
     if (!connection) return;
     if (!$("showcase-api-base").value) $("showcase-api-base").value = connection.api_base || "";
@@ -362,7 +359,7 @@
       if (revision !== state.revision || signature !== JSON.stringify(payload())) return;
       state.plan = result; state.signature = signature;
       $("showcase-plan-summary").textContent = `${result.task.title} · ${result.candidate.model} · 1 次请求 · 输出上限 ${number(result.maximum_requested_output_tokens)} tokens`;
-      $("showcase-plan-endpoint").textContent = result.candidate.api_base;
+      $("showcase-plan-endpoint").textContent = bridge().usesDSH("showcase") ? "经 DSH 模型适配器调用" : result.candidate.api_base;
       $("showcase-plan-note").textContent = result.cost_note;
       $("showcase-plan").hidden = false;
       $("showcase-plan-title").tabIndex = -1;
@@ -374,7 +371,7 @@
     if (locked()) return;
     if (!state.plan || state.signature !== JSON.stringify(payload())) { invalidate(); error("配置已改变，请重新核对计划。"); return; }
     const key = $("showcase-api-key");
-    if (!key.value.trim() || !key.reportValidity()) { error("请填写这次请求使用的 API Key。"); key.focus(); return; }
+    if (!bridge().usesDSH("showcase") && (!key.value.trim() || !key.reportValidity())) { error("请填写这次请求使用的 API Key。"); key.focus(); return; }
     const value = payload(true);
     key.value = "";
     state.localBusy = true; error(""); updateControls();
@@ -486,19 +483,21 @@
   $("showcase-form").addEventListener("submit", (event) => { event.preventDefault(); plan(); });
   for (const event of ["input", "change"]) $("showcase-form").addEventListener(event, invalidate);
   $("showcase-start").addEventListener("click", start);
-  $("showcase-change-plan").addEventListener("click", () => { invalidate(); $("showcase-api-base").focus(); });
+  const focusConnection = () => $(bridge()?.usesDSH?.("showcase") ? "showcase-dsh-model" : "showcase-api-base").focus({ preventScroll: true });
+  $("showcase-change-plan").addEventListener("click", () => { invalidate(); focusConnection(); });
   $("showcase-cancel").addEventListener("click", cancel);
   $("showcase-reload").addEventListener("click", loadCatalog);
   $("showcase-to-trial").addEventListener("click", () => {
     fillConnection();
     $("showcase-trial").scrollIntoView({ behavior: reducedMotion.matches ? "instant" : "smooth", block: "start" });
-    $("showcase-api-base").focus({ preventScroll: true });
+    focusConnection();
   });
   $("showcase-copy-prompt").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(task()?.prompt || ""); bridge()?.toast("提示已复制。"); }
     catch { bridge()?.toast("复制失败，可在提示中选取文本。"); }
   });
   document.addEventListener("api-mri:workbench-ready", () => { state.locked = bridge().locked(); loadCatalog(); });
+  document.addEventListener("api-mri:dsh-catalog", () => { invalidate(); updateControls(); });
   document.addEventListener("api-mri:view", (event) => {
     if (event.detail?.view === "showcase") { fillConnection(); if (!state.catalog) loadCatalog(); }
   });

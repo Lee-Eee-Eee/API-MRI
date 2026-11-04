@@ -23,8 +23,13 @@
     pairPlan: null,
     pairSignature: null,
     embedOrigins: [],
+    embedNonce: null,
+    embedOrigin: null,
+    dsh: null,
     version: "",
   };
+  const dshCandidates = new WeakSet();
+  const dshLeases = new Map();
   const views = {
     quality: {
       title: "连接与速度",
@@ -212,6 +217,8 @@
     return "连接未完成，请重试。";
   }
   async function api(path, body) {
+    if (path === "/api/runs" && body?.candidate && dshCandidates.has(body.candidate))
+      body = await authorizeDSH(body);
     const opts = { headers: { Accept: "application/json" }, cache: "no-store" };
     if (body !== undefined) {
       opts.method = "POST";
@@ -251,6 +258,7 @@
       "import-submit",
     ].forEach((id) => ($(id).disabled = locked));
     $("update-library").disabled = locked;
+    updateDshControls(locked);
     window.API_MRI_SHOWCASE?.setLocked(locked);
   }
   function closeMenu() {
@@ -346,13 +354,92 @@
     $("run-cost-note").textContent = "查看计划不会调用模型。";
     showError("");
   }
+  const dshPrefix = (scope = "main") => scope === "showcase" ? "showcase" : "api";
+  function usesDSH(scope = "main") {
+    return Boolean(state.dsh && $(dshPrefix(scope) + "-source").value === "dsh");
+  }
+  function dshCandidate(scope = "main") {
+    const model = $(dshPrefix(scope) + "-dsh-model").value;
+    if (!state.dsh?.models.some(entry => entry.id === model)) throw new Error("请选择一个 DSH 已配置模型。");
+    const value = { api_base: state.dsh.apiBase, model };
+    dshCandidates.add(value);
+    return value;
+  }
+  function selectedCandidate(withKey = false, scope = "main") {
+    if (usesDSH(scope)) return dshCandidate(scope);
+    const prefix = scope === "showcase" ? "showcase-api" : "api";
+    const value = { api_base: $(prefix + "-base").value.trim(), model: $(prefix + "-model").value.trim() };
+    if (withKey) value.api_key = $(prefix + "-key").value.trim();
+    return value;
+  }
+  function updateDshControls(locked = !state.ready || state.busy || Boolean(state.running) || state.updateRunning) {
+    for (const scope of ["main", "showcase"]) {
+      const prefix = dshPrefix(scope), active = usesDSH(scope);
+      $(prefix + "-source-field").hidden = !state.dsh;
+      $(prefix + "-dsh-field").hidden = !active;
+      $(prefix + "-source").disabled = locked;
+      $(prefix + "-dsh-model").disabled = locked || !active;
+      $(prefix + "-dsh-model").required = active;
+      $(prefix + "-dsh-refresh").disabled = locked;
+      const manual = scope === "showcase" ? "showcase-api" : "api";
+      for (const kind of ["base", "model", "key"]) {
+        $(prefix + "-manual-" + kind).hidden = active;
+        $(manual + "-" + kind).disabled = active;
+        if (kind !== "key") $(manual + "-" + kind).required = !active;
+      }
+      if (scope === "showcase") $("showcase-form").classList.toggle("dsh-active", active);
+    }
+  }
+  function updateDshCatalog(value) {
+    let url;
+    try { url = new URL(value.apiBase); } catch { return; }
+    if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !url.port || Number(url.port) < 1 || url.username || url.password || url.search || url.hash || url.pathname.replace(/\/$/, "") !== "/v1") return;
+    if (!Array.isArray(value.models) || value.models.length > 1000) return;
+    const models = [], ids = new Set();
+    for (const row of value.models) {
+      if (!row || typeof row.id !== "string" || !row.id || row.id.length > 200 || /[\x00-\x1f]/.test(row.id) || ids.has(row.id)) return;
+      if (![row.label, row.provider, row.model].every(v => typeof v === "string" && v.length <= 300 && !/[\x00-\x1f]/.test(v))) return;
+      ids.add(row.id); models.push({ id: row.id, label: row.label, provider: row.provider, model: row.model });
+    }
+    const first = !state.dsh;
+    state.dsh = { apiBase: url.href.replace(/\/$/, ""), models };
+    for (const scope of ["main", "showcase"]) {
+      const prefix = dshPrefix(scope), select = $(prefix + "-dsh-model"), previous = select.value;
+      select.replaceChildren(...models.map(row => {
+        const option = el("option", "", row.label || row.model);
+        option.value = row.id; return option;
+      }));
+      if (!models.length) { const option = el("option", "", "尚无已配置模型"); option.value = ""; select.append(option); }
+      if (ids.has(previous)) select.value = previous;
+      if (first) $(prefix + "-source").value = "dsh";
+      $(prefix + "-dsh-note").textContent = models.length ? "经 DSH 模型适配器调用" : "在 DSH 中配置模型后，点击刷新。";
+    }
+    updateDshControls(); invalidatePlan();
+    document.dispatchEvent(new CustomEvent("api-mri:dsh-catalog"));
+  }
+  function refreshDshCatalog() {
+    if (!state.embedNonce || !state.embedOrigin) return;
+    window.parent.postMessage({ type: "api-mri:dsh:refresh", nonce: state.embedNonce }, state.embedOrigin);
+  }
+  async function authorizeDSH(payload) {
+    if (!state.embedNonce || !state.embedOrigin || !state.embedOrigins.includes(state.embedOrigin) || !state.dsh) throw new Error("DSH 连接已更新，请重新打开工作台。");
+    const plan = await api("/api/plan", payload);
+    const [maxRequests, maxOutputTokens] = payload.mode === "showcase"
+      ? [plan.maximum_requests, plan.maximum_requested_output_tokens] : planNumbers(plan, payload.mode);
+    if (![maxRequests, maxOutputTokens].every(v => Number.isSafeInteger(v) && v > 0) || maxRequests > 128 || maxOutputTokens > 65536)
+      throw new Error("DSH 单轮检测上限为 128 次请求、65,536 输出配额；请缩小本次计划。");
+    const requested = { api_base: payload.candidate.api_base, model: payload.candidate.model };
+    const requestId = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, "0")).join("");
+    const candidate = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { dshLeases.delete(requestId); reject(new Error("DSH 调用授权超时，请重试。")); }, 15000);
+      dshLeases.set(requestId, { resolve, reject, timer, requested });
+      window.parent.postMessage({ type: "api-mri:dsh:lease", nonce: state.embedNonce, requestId,
+        model: requested.model, maxRequests, maxOutputTokens }, state.embedOrigin);
+    });
+    return { ...payload, candidate };
+  }
   function candidate(withKey = false) {
-    const v = {
-      api_base: $("api-base").value.trim(),
-      model: $("api-model").value.trim(),
-    };
-    if (withKey) v.api_key = $("api-key").value.trim();
-    return v;
+    return selectedCandidate(withKey);
   }
   function payload(withKey = false) {
     const c = candidate(withKey),
@@ -478,7 +565,7 @@
   }
   async function preparePlan() {
     if (state.busy || state.running) return;
-    if (!$("api-base").reportValidity() || !$("api-model").reportValidity())
+    if (usesDSH() ? !$("api-dsh-model").reportValidity() : !$("api-base").reportValidity() || !$("api-model").reportValidity())
       return;
     showError("");
     setBusy(true);
@@ -506,9 +593,9 @@
   async function startPlanned() {
     if (!state.plan || state.planSignature !== signature(payload(false)))
       return showError("配置已改变，请重新查看计划。");
-    if (!$("api-key").value.trim())
+    if (!usesDSH() && !$("api-key").value.trim())
       return showError("填写本次运行使用的 API Key。");
-    if (!$("api-key").reportValidity()) return;
+    if (!usesDSH() && !$("api-key").reportValidity()) return;
     await submitRun(payload(true));
   }
   async function demo() {
@@ -998,8 +1085,10 @@
       s.append(el("p", "score-note", "API-MRI 固定工具定义、提示、执行器与回填方式，使用合成表。结果反映当前模型、接入路径和这一回路的配合情况；DSH 等 Harness 的执行策略另测。"));
     }
     appendUsage(root, r);
+    if (r.transport?.note) root.append(el("p", "score-note", r.transport.note));
     detail(root, "请求详情与测量定义", {
       requests,
+      transport: r.transport,
       definitions: r.definitions,
       collection: r.collection,
       cost: r.cost,
@@ -1015,6 +1104,7 @@
         failed: "未通过",
         error: "请求失败",
         skipped: "未执行",
+        unsupported: "不支持",
       }[v] || "—"
     );
   }
@@ -1063,6 +1153,8 @@
         missing_tool_call: "没有返回工具调用",
         roundtrip_not_available: "前序工具调用未完成",
         unsupported: "接口不支持该参数",
+        adapter_does_not_support_forced_call: "DSH适配器不支持指定工具调用",
+        unsupported_parameter: "DSH适配器不支持该参数",
         valid: "格式和取值符合要求",
         cancelled: "已停止",
       }[value] || text(value)
@@ -2132,20 +2224,56 @@
     if (!state.ready) { pendingEmbedHello = event; return; }
     pendingEmbedHello = null;
     if (!state.embedOrigins.includes(event.origin)) return;
+    if (state.embedNonce !== event.data.nonce) {
+      for (const pending of dshLeases.values()) { clearTimeout(pending.timer); pending.reject(new Error("DSH 连接已更新，请重新开始检测。")); }
+      dshLeases.clear(); state.dsh = null;
+      for (const scope of ["main", "showcase"]) $(dshPrefix(scope) + "-source").value = "manual";
+      updateDshControls(); invalidatePlan();
+      document.dispatchEvent(new CustomEvent("api-mri:dsh-catalog"));
+    }
+    state.embedNonce = event.data.nonce;
+    state.embedOrigin = event.origin;
     event.source.postMessage({ type: "api-mri:ready", nonce: event.data.nonce, version: state.version }, event.origin);
   }
   window.addEventListener("message", (event) => {
-    if (window.parent === window || event.source !== window.parent || event.data?.type !== "api-mri:hello") return;
-    if (typeof event.data.nonce !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(event.data.nonce)) return;
-    acknowledgeEmbed(event);
+    if (window.parent === window || event.source !== window.parent) return;
+    if (event.data?.type === "api-mri:hello") {
+      if (typeof event.data.nonce !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(event.data.nonce)) return;
+      acknowledgeEmbed(event); return;
+    }
+    if (!state.ready || !state.embedNonce || !state.embedOrigins.includes(event.origin) || event.origin !== state.embedOrigin || event.data?.nonce !== state.embedNonce) return;
+    if (event.data.type === "api-mri:dsh:catalog") updateDshCatalog(event.data);
+    if (event.data.type === "api-mri:dsh:lease-result") {
+      const pending = dshLeases.get(event.data.requestId);
+      if (!pending) return;
+      clearTimeout(pending.timer); dshLeases.delete(event.data.requestId);
+      if (event.data.error) { pending.reject(new Error(String(event.data.error).slice(0, 300))); return; }
+      const candidate = event.data.candidate;
+      if (!candidate || candidate.api_base !== pending.requested.api_base || candidate.model !== pending.requested.model ||
+          typeof candidate.api_key !== "string" || candidate.api_key.length < 8 || candidate.api_key.length > 4096 || /\s/.test(candidate.api_key)) {
+        pending.reject(new Error("DSH 返回的调用授权不匹配，请重新开始检测。")); return;
+      }
+      pending.resolve({ api_base: candidate.api_base, model: candidate.model, api_key: candidate.api_key });
+    }
   });
+  for (const scope of ["main", "showcase"]) {
+    const prefix = dshPrefix(scope);
+    $(prefix + "-source").addEventListener("change", () => {
+      $(scope === "showcase" ? "showcase-api-key" : "api-key").value = "";
+      updateDshControls();
+    });
+    $(prefix + "-dsh-refresh").addEventListener("click", refreshDshCatalog);
+  }
   window.apiMRI = Object.freeze({
     request: api,
     submit: submitRun,
     toast,
     ready: () => state.ready,
     locked: () => !state.ready || state.busy || Boolean(state.running) || state.updateRunning,
-    connection: () => ({ api_base: $("api-base").value, model: $("api-model").value }),
+    connection: () => { try { return selectedCandidate(false); } catch { return {}; } },
+    candidate: selectedCandidate,
+    usesDSH,
+    dsh: () => state.dsh ? { available: true, models: state.dsh.models.map(row => ({ ...row })) } : { available: false, models: [] },
   });
   window.addEventListener("hashchange", () => route(true));
   window.addEventListener("resize", () => {

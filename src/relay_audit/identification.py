@@ -387,6 +387,8 @@ def _report(bank: dict, config: dict, records: list[dict]) -> dict:
     observed, invalid = {}, Counter()
     by_id = {c["id"]: c for c in bank["cells"]}
     requests = [r for r in records if r["type"] == "request"]
+    transport = fp._transport_info(requests)
+    unsupported = sorted({code for row in requests if (code := fp._adapter_unsupported(row))})
     for row in requests:
         value, status = _sample(row, by_id[row["cell_id"]])
         if status == "valid":
@@ -425,6 +427,7 @@ def _report(bank: dict, config: dict, records: list[dict]) -> dict:
     return {"schema": SCHEMA, "kind": "identification", "synthetic": records[0].get("synthetic", False),
         "status": status, "identity_decision": "abstained", "probability": None,
         "bank": _bank_summary(bank), "candidate": config["candidate"], "budget": config["budget"],
+        **({"transport": {**transport, **({"unsupported": unsupported} if unsupported else {})}} if transport else {}),
         "ranking": ranking[:20], "family_ranking": sorted(families.values(), key=lambda f: (f["distance"], f["family"]))[:10],
         "coverage": {"completed_cells": completed, "valid_answers": sum(map(lambda c: sum(c.values()), observed.values())),
                      "compared_candidates": len(ranking), "candidate_count": len(config["candidate_models"]),
@@ -454,7 +457,9 @@ def _report(bank: dict, config: dict, records: list[dict]) -> dict:
                   "排名稳定性采用逐个完整单元留出复算；单元数不足时保持未知，不能替代独立验证集。",
                   "家族按作者family_guess合并，展示各家族最接近的标签距离；不代表模型谱系证明。",
                   "未收录、更新、动态路由或服务配置变化都可能导致库外结果。",
-                  "已完成回答同时比较全部候选；复算不再次发送模型请求。"]}
+                  "已完成回答同时比较全部候选；复算不再次发送模型请求。"]
+                  + ([transport["note"]] if transport else [])
+                  + (["DSH 适配器不支持本次探针参数，未取得可比回答。"] if unsupported else [])}
 
 
 def markdown_identification_report(report: dict) -> str:

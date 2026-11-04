@@ -20,7 +20,7 @@ from uuid import uuid4
 
 import httpx
 
-from .fingerprint import _append, _clean
+from .fingerprint import _append, _clean, _transport_info, _adapter_unsupported
 from .records import content_hash
 
 SCHEMA = "api-mri-service/1"
@@ -28,7 +28,7 @@ DEFAULT_BUDGET = {"max_requests": 6, "max_output_tokens": 768}
 MAX_RESPONSE_BYTES = 64 * 1024
 MAX_EVENTS = 512
 MAX_RECORDS_BYTES = 6 * 1024 * 1024
-HEADER_NAMES = ("content-type", "x-request-id", "request-id", "x-api2d-cache", "x-cache", "cf-cache-status", "retry-after")
+HEADER_NAMES = ("content-type", "x-request-id", "request-id", "x-api2d-cache", "x-cache", "cf-cache-status", "retry-after", "x-api-mri-transport")
 TRANSPORT_ERRORS = {"request_cancelled", "request_timeout", "network_error", "response_size_limit", "invalid_stream_response"}
 HALTING_ERRORS = {"authentication_error", "permission_error", "rate_limited", "network_error", "request_timeout", "response_size_limit"}
 TOOL = {"type": "function", "function": {"name": "lookup_sample", "description": "Read one value from the local synthetic sample table.",
@@ -387,6 +387,8 @@ def _redact_result(value, secrets):
 
 def _tool_check(row: dict) -> dict:
     """Validate exactly one call before executing the local fixture."""
+    if unsupported := _adapter_unsupported(row):
+        return {"status": "unsupported", "reason": unsupported}
     if row.get("error"):
         return {"status": "error", "reason": row["error"]}
     raw = row.get("raw_response")
@@ -415,6 +417,8 @@ def _tool_check(row: dict) -> dict:
 
 
 def _assessment(stage, row, receipt=None):
+    if stage.startswith("tool_") and (unsupported := _adapter_unsupported(row)):
+        return {"status": "unsupported", "reason": unsupported}
     if stage in {"tool_forced", "tool_auto"}:
         checked = _tool_check(row)
         return {name: checked[name] for name in ("status", "reason")}
@@ -496,6 +500,7 @@ def _report(records):
     manifest, finish = records[0], records[-1]
     config = manifest["config"]
     rows = [row for row in records if row["type"] == "request"]
+    transport = _transport_info(rows)
     streams = [row for row in rows if row["stage"] == "stream"]
     successful = [row for row in rows if not row.get("error")]
     stream_ok = [row for row in streams if not row.get("error")]
@@ -506,6 +511,8 @@ def _report(records):
             tools[stage] = {**matches[0]["assessment"], "request_index": matches[0]["sequence"] - 1}
         else:
             tools[stage] = {"status": "skipped", "reason": "not_selected" if "tools" not in config["checks"] else "not_reached_or_dependency_failed"}
+            if stage == "tool_roundtrip" and tools.get("tool_forced", {}).get("status") == "unsupported":
+                tools[stage]["reason"] = "adapter_does_not_support_forced_call"
     request_rows = []
     for row in rows:
         request_rows.append({"index": row["sequence"] - 1, "stage": row["stage"], "http_status": row["http_status"], "error": row["error"],
@@ -516,6 +523,7 @@ def _report(records):
     cancelled = finish["stop_code"] == "cancelled"
     return {"schema": SCHEMA, "kind": "service_quality", "status": "cancelled" if cancelled else "partial" if failure or finish["stop_code"].startswith("budget_") else "completed",
         "synthetic": manifest["synthetic"], "candidate": config["candidate"], "checks": config["checks"], "created_at": manifest["created_at"],
+        **({"transport": transport} if transport else {}),
         "service_quality": {"connection": {"attempted_requests": len(rows), "http_successes": sum(row["http_status"] is not None and 200 <= row["http_status"] < 300 for row in rows),
                 "successful_requests": len(successful), "success_rate": len(successful) / len(rows) if rows else None,
                 "errors": dict(Counter(row["error"] for row in rows if row["error"])),
@@ -544,7 +552,8 @@ def _report(records):
             "output_tokens_per_second": "供应商返回的completion_tokens÷完整响应秒数，可能包含推理tokens。",
             "visible_decode_tokens_per_second": "标准SSE不提供首块token数，精确正文解码速率保留未知。",
             "content_event_gaps_ms": "相邻非空正文事件的接收间隔；一个事件可能含多个tokens。",
-            "tools": "固定最小Harness：指定调用、自主选择、不调用及读取结果分别判分。当前结果同时受模型、API协议转换和回填策略影响。"}}
+            "tools": "固定最小Harness：指定调用、自主选择、不调用及读取结果分别判分。当前结果同时受模型、API协议转换和回填策略影响。",
+            **({"transport": transport["note"]} if transport else {})}}
 
 
 def _event_content_length(event):

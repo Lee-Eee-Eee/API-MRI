@@ -2,18 +2,18 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-export function createMarketIndex({ commit, publishedAt, version = '0.9.0' }) {
+export function createMarketIndex({ commit, publishedAt, version = '0.9.1' }) {
   if (!/^[a-f0-9]{40}$/.test(commit) || /^0{40}$/.test(commit)) throw new Error('Use an existing lowercase 40-character release commit.');
   if (!Number.isSafeInteger(publishedAt) || publishedAt <= 0) throw new Error('publishedAt must be Unix seconds.');
   if (!/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(version)) throw new Error('Use an exact SemVer version.');
   return {
     format: 1,
     title: { en: 'API-MRI', zh: 'API-MRI' },
-    description: { en: 'API-MRI companion for DSH Better Sidebar.', zh: 'API-MRI 的 DSH Better Sidebar 插件。' },
+    description: { en: 'API-MRI workspace with a native DSH sidebar entry.', zh: '从DSH原生左栏打开API-MRI工作台。' },
     metadata: { categories: { tools: { title: { en: 'Tools', zh: '工具' } } }, labels: {}, sortKeys: {} },
     plugins: [{
       name: 'dsh-api-mri', title: { en: 'API-MRI', zh: 'API-MRI' },
-      description: { en: 'Connect API-MRI to your DSH sidebar.', zh: '在侧栏连接 API-MRI，检查 API 服务与模型指纹。' },
+      description: { en: 'Open the API-MRI workspace from the native DSH sidebar.', zh: '从原生左栏打开API-MRI，检查API服务与模型指纹。' },
       author: 'API-MRI contributors', homepage: 'https://github.com/Lee-Eee-Eee/API-MRI',
       repository: { url: 'https://github.com/Lee-Eee-Eee/API-MRI' },
       metadata: { category: 'tools', keywords: ['api', 'evaluation', 'fingerprint'], labels: [], sortKeys: {} },

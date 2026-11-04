@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 import { request as httpsRequest, Agent as HttpsAgent } from 'node:https';
 import { Readable } from 'node:stream';
 const exec = promisify(execFile);
-const VERSION = '0.9.0';
+const VERSION = '0.9.1';
 class RuntimeError extends Error {}
 
 export function runtimeFetch(url,options={}) {
@@ -65,6 +65,18 @@ export function validEmbedOrigin(value) {
   throw new Error('DSH 来源无效。');
 }
 
+// Desktop's authenticated protocol bridge strips Origin. Web requests keep it.
+// Call only after connection.requestRejection has accepted the host request.
+export function runtimeRequestOrigin(headers, payload) {
+  const origin = validEmbedOrigin(payload?.embedOrigin);
+  if (headers.origin) {
+    if (origin !== validEmbedOrigin(headers.origin)) throw new Error('DSH 来源不一致。');
+  } else if (origin !== 'dsh-app://app') {
+    throw new Error('Web 请求缺少来源。');
+  }
+  return origin;
+}
+
 export async function downloadRuntime(spec, destination, progress, fetcher=runtimeFetch) {
   validateRuntime(spec);
   const response=await trustedResponse(spec.url,fetcher);
@@ -106,27 +118,49 @@ try {
 `;
 
 export function createRuntimeManager({root, platform=process.platform, arch=process.arch, manifestUrl=new URL('./runtime-manifest.json',import.meta.url),
-  fetcher=runtimeFetch, spawnChild=spawn, run=exec}={}) {
+  fetcher=runtimeFetch, spawnChild=spawn, run=exec, pollMs=500, startupTimeoutMs=90000}={}) {
   root ||= path.join(process.env.LOCALAPPDATA || path.join(homedir(),'.local','share'),'API-MRI','dsh-runtime');
   let state={phase:'idle',version:VERSION}, pending, child, disposed=false;
   const snapshot=()=>({...state});
-  const update=v=>{state={...state,...v};};
+  const update=v=>{if(!disposed)state={...state,...v};};
+  const target=path.join(root,VERSION),exe=path.join(target,`API-MRI-${VERSION}-windows-x64`,'API-MRI.exe');
+  async function receiptForInstalled() {
+    try {
+      const value=JSON.parse(await readFile(path.join(target,'runtime-receipt.json'),'utf8'));
+      if(value.version===VERSION && /^[a-f0-9]{64}$/.test(value.sha256 || '') && (await stat(exe)).isFile())return value;
+    }catch{}
+    return null;
+  }
+  async function liveInstance(origin) {
+    try {
+      const record=JSON.parse(await readFile(path.join(root,'data','.portable-session.json'),'utf8'));
+      if(record.version!==VERSION || !Number.isInteger(record.port) || record.port<1024 || record.port>65535
+        || !/^[a-f0-9]{64}$/.test(record.token || '') || typeof record.installation_id!=='string')return null;
+      const url=`http://127.0.0.1:${record.port}`;
+      const identity=await fetcher(url+'/api/portable/instance',{headers:{'X-API-MRI-Instance':record.token},signal:AbortSignal.timeout(2000)});
+      if(!identity.ok)return null;
+      const owner=await identity.json();
+      if(owner.version!==VERSION || owner.installation_id!==record.installation_id)return null;
+      const response=await fetcher(url+'/api/bootstrap',{signal:AbortSignal.timeout(2000)}),bootstrap=await response.json();
+      return response.ok && bootstrap.version===VERSION && bootstrap.embedding?.origins?.includes(origin)?url:null;
+    }catch{return null;}
+  }
   async function install() {
     if(platform!=='win32'||arch!=='x64')throw new RuntimeError('自动安装目前提供 Windows x64 运行包；可连接自行部署的 API-MRI。');
     let supplied=JSON.parse(await readFile(manifestUrl,'utf8'));
+    const installed=await receiptForInstalled();
+    // A linked development package has an unbound source manifest. Rebuilding
+    // it must not make a previously verified local install depend on GitHub.
+    if(installed && (supplied.sha256===null || validateRuntime(supplied).sha256===installed.sha256))return exe;
     if(supplied.sha256===null) {
       const url=`https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v${VERSION}/api-mri-runtime.json`;
       const meta=await trustedResponse(url,fetcher);
-      if(!meta.ok || Number(meta.headers.get('content-length')||0)>16384)throw new Error('此版本尚未发布运行包。');
+      if(!meta.ok || Number(meta.headers.get('content-length')||0)>16384)throw new RuntimeError('此版本尚未发布运行包，且没有可复用的已安装程序。');
       const text=await meta.text();if(text.length>16384)throw new Error('运行清单过大。');
       supplied=JSON.parse(text);
     }
     const spec=validateRuntime(supplied);
-    const target=path.join(root,VERSION),exe=path.join(target,`API-MRI-${VERSION}-windows-x64`,'API-MRI.exe');
-    try {
-      const receipt=JSON.parse(await readFile(path.join(target,'runtime-receipt.json'),'utf8'));
-      if(receipt.sha256===spec.sha256 && (await stat(exe)).isFile())return exe;
-    }catch{}
+    if(installed?.sha256===spec.sha256)return exe;
     await mkdir(root,{recursive:true});
     const stage=path.join(root,`.install-${randomBytes(8).toString('hex')}`),archive=stage+'.zip';
     if(path.dirname(path.resolve(stage))!==path.resolve(root) || !path.basename(stage).startsWith('.install-'))throw new Error('安装目录无效。');
@@ -141,7 +175,15 @@ export function createRuntimeManager({root, platform=process.platform, arch=proc
       if(!(await stat(stagedExe)).isFile())throw new Error('运行包缺少程序入口。');
       const {writeFile}=await import('node:fs/promises');
       await writeFile(path.join(stage,'runtime-receipt.json'),JSON.stringify({version:VERSION,sha256:spec.sha256}));
-      // Do not replace an existing installation or remove paths from the archive.
+      // Preserve an incomplete or superseded installation while repairing it.
+      // All moved directories are immediate children of our fixed cache root.
+      if(path.dirname(path.resolve(target))!==path.resolve(root))throw new Error('安装目录无效。');
+      try {
+        await stat(target);
+        const previous=path.join(root,`.previous-${VERSION}-${randomBytes(8).toString('hex')}`);
+        if(path.dirname(path.resolve(previous))!==path.resolve(root))throw new Error('备份目录无效。');
+        await rename(target,previous);
+      }catch(e){if(e.code!=='ENOENT')throw e;}
       await rename(stage,target);
       return exe;
     }finally{
@@ -150,40 +192,46 @@ export function createRuntimeManager({root, platform=process.platform, arch=proc
   }
   async function start(origin) {
     origin=validEmbedOrigin(origin);
+    if(disposed)throw new RuntimeError('插件已关闭。');
+    if(state.embed_origin && state.embed_origin!==origin && (pending || state.phase==='ready'))throw new RuntimeError('运行程序已绑定另一 DSH 来源。');
     if(pending)return snapshot();
-    if(state.phase==='ready') {
-      if(state.embed_origin!==origin)throw new Error('运行程序已绑定另一 DSH 来源，请重启插件后连接。');
-      return snapshot();
-    }
+    update({phase:'checking',embed_origin:origin,error:null});
     pending=(async()=>{
+      const existing=await liveInstance(origin);
+      if(existing){update({phase:'ready',url:existing,reused:true});return;}
+      const previousChild=child;child=null;previousChild?.kill();
       const exe=await install();if(disposed)return;
-      update({phase:'starting',embed_origin:origin});
+      update({phase:'starting',embed_origin:origin,reused:false,url:null});
       // Each plugin runtime owns its process and data. Port 0 avoids accidentally
       // terminating or changing an independently started API-MRI workbench.
-      child=spawnChild(exe,['--headless','--no-browser','--port','0','--data-dir',path.join(root,'data'),'--embed-origin',origin],
+      const launched=spawnChild(exe,['--headless','--no-browser','--port','0','--data-dir',path.join(root,'data'),'--embed-origin',origin],
         {windowsHide:true,stdio:'ignore',env:safeEnvironment()});
-      child.once('error',()=>update({phase:'error',error:'运行程序无法启动。'}));
-      child.once('exit',()=>{if(!disposed)update({phase:'error',error:'运行程序已退出，可重试。'});child=null;});
-      for(let i=0;i<180;i++) {
+      child=launched;let exited=null,spawnFailed=false;
+      launched.once('error',()=>{if(child===launched){spawnFailed=true;update({phase:'error',error:'运行程序无法启动。'});}});
+      launched.once('exit',code=>{
+        exited=code;
+        if(child!==launched)return;
+        child=null;
+        if(state.phase==='ready')update({phase:'idle',url:null,error:null});
+      });
+      const attempts=Math.max(1,Math.ceil(startupTimeoutMs/Math.max(1,pollMs)));
+      for(let i=0;i<attempts;i++) {
         if(disposed || state.phase==='error')return;
-        try {
-          const record=JSON.parse(await readFile(path.join(root,'data','.portable-session.json'),'utf8'));
-          if(Number.isInteger(record.port) && record.port>=1024 && record.port<=65535 && /^[a-f0-9]+$/.test(record.token || '')) {
-            const url=`http://127.0.0.1:${record.port}`;
-            const identity=await fetcher(url+'/api/portable/instance',{headers:{'X-API-MRI-Instance':record.token},signal:AbortSignal.timeout(2000)});
-            if(!identity.ok)continue;
-            const r=await fetcher(url+'/api/bootstrap',{signal:AbortSignal.timeout(2000)});
-            const b=await r.json();
-            if(r.ok && b.version===VERSION && b.embedding?.origins?.includes(origin)) {
-              update({phase:'ready',url,error:null});return;
-            }
-          }
-        }catch{}
-        await new Promise(resolve=>setTimeout(resolve,500));
+        const url=await liveInstance(origin);
+        if(url){update({phase:'ready',url,error:null,reused:exited===0});return;}
+        if(spawnFailed || exited!==null && (exited!==0 || i>=2)) {
+          update({phase:'error',url:null,error:'运行程序未能就绪，请重试自动启动。'});return;
+        }
+        await new Promise(resolve=>setTimeout(resolve,pollMs));
       }
-      child?.kill();update({phase:'error',error:'启动超时，请重试。'});
+      if(child===launched){child=null;launched.kill();}
+      update({phase:'error',url:null,error:'启动超时，请重试自动启动。'});
     })().catch(e=>update({phase:'error',error:e instanceof RuntimeError?e.message:'下载或启动未完成。检查网络后重试，或连接已启动的 API-MRI。'})).finally(()=>{pending=null;});
     return snapshot();
   }
-  return {snapshot,start,dispose(){disposed=true;child?.kill();}};
+  async function status() {
+    if(state.phase==='ready' && !pending && !await liveInstance(state.embed_origin))update({phase:'idle',url:null,error:null});
+    return snapshot();
+  }
+  return {snapshot,start,status,dispose(){disposed=true;const owned=child;child=null;owned?.kill();state={phase:'closed',version:VERSION};}};
 }

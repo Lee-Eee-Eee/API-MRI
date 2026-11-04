@@ -25,11 +25,13 @@ API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧�
 
 安装后点击“试用示例”，即可查看流式时间线和工具调用结果。示例使用本地合成响应；模型指纹示例从参考分布合成，两者均不调用模型 API。
 
-**DSH 用户：** 安装 [Better Sidebar 插件](dsh-plugin/README.md)，Windows x64首次打开页签时自动下载、校验并启动运行程序，随后自动连接；也可手动连接已有服务。
+**DSH 用户：** 从[原生左栏入口](dsh-plugin/README.md)打开API-MRI，直接选择DSH已配置的模型，核对预算后测试，无需再填地址和Key。Windows x64自动安装运行程序。0.9.1源码包含这一接入；已发布0.9.0插件包仍使用Better Sidebar右栏入口。
 
 **只想看作品：** “示例馆”默认展示42道有充分对照的题目，统一名称并按发布日期排序，模型与运行档位分开选择。SVG、HTML和WebGL原作在页内按需预览，保留提示、出处和已知参数。[来源与方法](docs/classic-examples.md)
 
 **想了解能力：** “能力参考”按榜单展示模型排名，可切换版本与运行条件、搜索型号、展开各推理档位的成绩和出处。[数据与方法](docs/capability-reference.md)
+
+**FlashProve：** 已核读Anthropic的新方案。它要求供应商提供逐请求证明与可信承诺，适合后续增加独立验证扩展。[接入评估与成本](docs/flashprove.md)
 
 ![API-MRI 示例馆](docs/images/showcase-v09.jpg)
 

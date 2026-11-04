@@ -103,3 +103,31 @@ export function startupCommands(dshOrigin) {
     source: `python -m relay_audit.cli ui --embed-origin ${origin}`
   };
 }
+
+/** Bind one trusted workbench frame to the host's non-secret model directory. */
+export function createModelConnector({ eventTarget, targetWindow, targetOrigin, nonce, hostOrigin, request }) {
+  const origin = parseLocalOrigin(targetOrigin);
+  let disposed = false, listening = false;
+  const post = value => { if (!disposed) targetWindow.postMessage({ ...value, nonce }, origin); };
+  async function catalog() {
+    try { post({ type: 'api-mri:dsh:catalog', ...await request('models') }); }
+    catch { post({ type: 'api-mri:dsh:catalog', models: [], error: '暂时无法读取 DSH 模型，请刷新目录。' }); }
+  }
+  async function receive(event) {
+    if (disposed || event.source !== targetWindow || event.origin !== origin || event.data?.nonce !== nonce) return;
+    const data = event.data;
+    if (data.type === 'api-mri:dsh:refresh') return catalog();
+    if (data.type !== 'api-mri:dsh:lease' || typeof data.requestId !== 'string' || !/^[A-Za-z0-9_-]{8,80}$/.test(data.requestId)) return;
+    try {
+      const value = await request('lease', { model: data.model, maxRequests: data.maxRequests,
+        maxOutputTokens: data.maxOutputTokens, embedOrigin: hostOrigin });
+      post({ type: 'api-mri:dsh:lease-result', requestId: data.requestId, candidate: value.candidate });
+    } catch (error) {
+      post({ type: 'api-mri:dsh:lease-result', requestId: data.requestId, error: error.message || '无法创建 DSH 调用授权。' });
+    }
+  }
+  return {
+    start() { if (disposed || listening) return; listening = true; eventTarget.addEventListener('message', receive); void catalog(); },
+    dispose() { disposed = true; if (listening) eventTarget.removeEventListener('message', receive); listening = false; },
+  };
+}
