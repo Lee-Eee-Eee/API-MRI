@@ -1,0 +1,295 @@
+{
+  "topic": "API-MRI指纹来源、新型号与评分协议兼容",
+  "accessed_on": "2026-11-09",
+  "review_method": "原始数据与固定提交静态核读、Zenodo最新版本API核验、现有本地KBF与独立旧公式逐项复算",
+  "execution": {
+    "real_model_calls": 0,
+    "downloaded_model_weights": false,
+    "downloaded_programs_executed": false,
+    "public_data_downloaded": true,
+    "vendor_code_modified": false
+  },
+  "kbf_calibration_reproduction": [
+    {
+      "pack": "deepseek-v4.1-flash_20260911",
+      "recorded_total": 363,
+      "recorded_hamming": 29,
+      "historical_recomputed_hamming": 29,
+      "historical_full_vector_equal": true,
+      "current_recomputed_hamming": 28,
+      "different_probe_index": 210,
+      "reference_value": 1.0,
+      "target_value": 1.1
+    },
+    {
+      "pack": "glm-5.3_20260911",
+      "recorded_total": 372,
+      "recorded_hamming": 27,
+      "historical_recomputed_hamming": 27,
+      "historical_full_vector_equal": true,
+      "current_recomputed_hamming": 26,
+      "different_probe_index": 225,
+      "reference_value": 10.0,
+      "target_value": 9.95
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "PAMELA原库与校准保留，新增模型按固定共同提示采集并留出验证",
+      "basis": "没有同协议的新公开总体数据；模型目录不能替代响应分布。"
+    },
+    {
+      "decision": "KBF28份参考按其可重现计分规则启用；2份显式legacy_absolute_raw",
+      "basis": "全部原始文件及校准不改，target和replay采用同一规则。"
+    },
+    {
+      "decision": "ModelTrace、WhatsMyLLM、hlwy社区数据不混入默认PAMELA库",
+      "basis": "协议或来源链不同；长整数协议增加输出，社区标签缺少端点与逐请求协议。"
+    }
+  ],
+  "sources": [
+    {
+      "id": "FPU-01",
+      "title": "PAMELA原始公开数据及最新版本",
+      "url": "https://zenodo.org/records/21278557",
+      "accessed_on": "2026-11-09",
+      "source_kind": "dataset",
+      "supports": [
+        "数据API许可为CC-BY-4.0；2026-11-09查询versions/latest仍为记录21278557，最后修改日期2026-07-11。",
+        "API-MRI共同库原始采集时间2026-07-06至07-08；10月重建日期不代表重新采样。"
+      ],
+      "license": "CC-BY-4.0",
+      "limits": [
+        "模型、提供方标签来自作者记录，未由本组认证。"
+      ]
+    },
+    {
+      "id": "FPU-02",
+      "title": "PAMELA配置与归一化代码",
+      "url": "https://zenodo.org/records/21278793",
+      "accessed_on": "2026-11-09",
+      "source_kind": "software_archive",
+      "supports": [
+        "最新版本仍为记录21278793，API元数据许可MIT；本次未执行归档代码。"
+      ],
+      "license": "MIT"
+    },
+    {
+      "id": "FPU-03",
+      "title": "KBF当前参考目录与最近变更",
+      "url": "https://github.com/Ooo0ption/KBF/tree/6b4c403def2498cb92b7bd51ad958ddee5b3d06f/probes/reference_202609",
+      "accessed_on": "2026-11-09",
+      "source_kind": "repository_data",
+      "supports": [
+        "目录含28个参考JSON，作者记录日期为2026-09。",
+        "当前提交比原固定68aefbbab879469152aaac9fd988a86c30ee4739仅多一项README修改；原始参考文件未变。"
+      ],
+      "repository_commit": "6b4c403def2498cb92b7bd51ad958ddee5b3d06f",
+      "license": "Apache-2.0",
+      "limits": [
+        "公共参考不等于原厂身份认证；部分文件未记录端点。"
+      ]
+    },
+    {
+      "id": "FPU-04",
+      "title": "KBF原始Flash参考",
+      "url": "https://github.com/Ooo0ption/KBF/blob/6b4c403def2498cb92b7bd51ad958ddee5b3d06f/probes/reference_202609/deepseek-v4.1-flash_20260911.json",
+      "accessed_on": "2026-11-09",
+      "source_kind": "reference_data",
+      "supports": [
+        "作者模型标签deepseek/deepseek-v4.1-flash，提供方标签Novita，生成时间2026-09-11，自测总363、不匹配29。",
+        "在旧absolute-raw公式下完整match_vector及计数逐项重现；half-up公式得到28处不匹配。"
+      ],
+      "repository_commit": "6b4c403def2498cb92b7bd51ad958ddee5b3d06f",
+      "source_sha256": "91bafbe9bf2f8e2182ed93e6aeffb55d0220505dd86467a199672e125113fc9d",
+      "source_bytes": 141262,
+      "license": "Apache-2.0",
+      "limits": [
+        "没有1017版本标记；采样早于官方10月17日升级。"
+      ]
+    },
+    {
+      "id": "FPU-05",
+      "title": "KBF原始GLM5.3参考",
+      "url": "https://github.com/Ooo0ption/KBF/blob/6b4c403def2498cb92b7bd51ad958ddee5b3d06f/probes/reference_202609/glm-5.3_20260911.json",
+      "accessed_on": "2026-11-09",
+      "source_kind": "reference_data",
+      "supports": [
+        "自测总372、不匹配27；旧absolute-raw公式完整重现向量与计数，half-up公式得到26。"
+      ],
+      "repository_commit": "6b4c403def2498cb92b7bd51ad958ddee5b3d06f",
+      "source_sha256": "beed8c61316f5697dff1cb6b5385d10bd3ecbfd0047b437deaa9152e6facd4fb",
+      "source_bytes": 144065,
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "FPU-06",
+      "title": "KBF旧计分实现",
+      "url": "https://github.com/Ooo0ption/KBF/blob/b789b4b7abe119e28ec6260142564b2189ff5449/scripts/kbf_common.py",
+      "accessed_on": "2026-11-09",
+      "source_kind": "source_code",
+      "supports": [
+        "absolute领域直接比较abs(reference-value)<=tolerance，不预先舍入。"
+      ],
+      "repository_commit": "b789b4b7abe119e28ec6260142564b2189ff5449",
+      "source_sha256": "72fa0c5a543951e5e65a30dae7c3911d7f7358dfa34fb32fb2a03e5c55f12ee6",
+      "source_bytes": 43826,
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "FPU-07",
+      "title": "KBF9月计分变更",
+      "url": "https://github.com/Ooo0ption/KBF/blob/df361a373d35120d64b28d9d9974bc7c6709f19f/scripts/kbf_common.py",
+      "accessed_on": "2026-11-09",
+      "source_kind": "source_code",
+      "supports": [
+        "absolute领域先half-up整数舍入，再比较误差。",
+        "Flash的1.0与1.1、GLM的10与9.95在新规则下成为匹配，解释两份校准向量各一位差异。"
+      ],
+      "repository_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f",
+      "source_sha256": "090836b4c58ed6dabe56884bfce2cd54b27d75c14cb185d01c99f06d0ec811e6",
+      "source_bytes": 45620,
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "FPU-08",
+      "title": "DeepSeek官方更新日志",
+      "url": "https://api-docs.deepseek.com/zh-cn/updates/",
+      "accessed_on": "2026-11-09",
+      "source_kind": "vendor_statement",
+      "supports": [
+        "官方记录2026-09-10发布V4.1 Flash；2026-10-17升级到V4.1-Flash-1017，API名称deepseek-flash保持不变。"
+      ],
+      "limits": [
+        "这是供应商公开的版本对应声明，不是逐请求权重证明。"
+      ]
+    },
+    {
+      "id": "FPU-09",
+      "title": "DeepSeek1017发布说明",
+      "url": "https://api-docs.deepseek.com/zh-cn/news/news261017/",
+      "accessed_on": "2026-11-09",
+      "source_kind": "vendor_statement",
+      "supports": [
+        "官方称网页、App、API同步变更至1017版。"
+      ],
+      "limits": [
+        "不能用9月提供方样本替代升级后的同名端点样本。"
+      ]
+    },
+    {
+      "id": "FPU-10",
+      "title": "ModelTrace原始gpt回答",
+      "url": "https://github.com/xqy2006/ModelTrace/blob/6cd4a8ff0f3f4e49d6d6969dd2fbadfa1569fde2/data/gpt_reference.jsonl",
+      "accessed_on": "2026-11-09",
+      "source_kind": "reference_data",
+      "supports": [
+        "8个GPT标签，共288条，记录的provider为codex；每型号36条、12种提示环境。",
+        "原始记录包括提示、system、prefix、采集日期和provider_default温度；本轮只读取记录。"
+      ],
+      "repository_commit": "6cd4a8ff0f3f4e49d6d6969dd2fbadfa1569fde2",
+      "source_sha256": "b87e5630286308fdcec0893b89873635bf274b64a5269f41039eb46e66d3793f",
+      "source_bytes": 2460852,
+      "license": "MIT",
+      "limits": [
+        "协议是长整数序列，不兼容PAMELA单词探针；标签与渠道是作者记录。"
+      ]
+    },
+    {
+      "id": "FPU-11",
+      "title": "ModelTrace原始claude回答",
+      "url": "https://github.com/xqy2006/ModelTrace/blob/6cd4a8ff0f3f4e49d6d6969dd2fbadfa1569fde2/data/claude_reference.jsonl",
+      "accessed_on": "2026-11-09",
+      "source_kind": "reference_data",
+      "supports": [
+        "10个Claude标签，共360条，记录的provider为oaipro；每型号36条、12种提示环境。",
+        "原始记录包括提示、system、prefix、采集日期和provider_default温度；本轮只读取记录。"
+      ],
+      "repository_commit": "6cd4a8ff0f3f4e49d6d6969dd2fbadfa1569fde2",
+      "source_sha256": "13e5a9b266fefb96282e9857a53e3b408146dade66ca6220fa593fdff270d8a8",
+      "source_bytes": 3089059,
+      "license": "MIT",
+      "limits": [
+        "协议是长整数序列，不兼容PAMELA单词探针；标签与渠道是作者记录。"
+      ]
+    },
+    {
+      "id": "FPU-12",
+      "title": "ModelTrace许可",
+      "url": "https://github.com/xqy2006/ModelTrace/blob/6cd4a8ff0f3f4e49d6d6969dd2fbadfa1569fde2/LICENSE",
+      "accessed_on": "2026-11-09",
+      "source_kind": "license",
+      "supports": [
+        "仓库MIT许可。"
+      ],
+      "repository_commit": "6cd4a8ff0f3f4e49d6d6969dd2fbadfa1569fde2",
+      "source_sha256": "238afb57e498990742f84b9ce6167b4e256ac06104a9938ce953bc41c14bea51",
+      "source_bytes": 1064,
+      "license": "MIT"
+    },
+    {
+      "id": "FPU-13",
+      "title": "WhatsMyLLM方法与版本记录",
+      "url": "https://whatsmyllm.com/changelog/",
+      "accessed_on": "2026-11-09",
+      "source_kind": "project_report",
+      "supports": [
+        "页面列出2026.10.3版本、24型号、864条回答，并保留扩库后的独立测试与退化记录。",
+        "采用ModelTrace长整数协议，没有并入API-MRI默认短探针。"
+      ],
+      "limits": [
+        "页面模型身份属于项目标签；新增六个模型数据的单独再分发许可未确认。"
+      ]
+    },
+    {
+      "id": "FPU-14",
+      "title": "hlwy-ai-checker最新社区参考目录",
+      "url": "https://github.com/hanlinwenyuan/hlwy-ai-checker/tree/a5e123547d830bf6361926cfc658ee81b45542e0/baselines",
+      "accessed_on": "2026-11-09",
+      "source_kind": "reference_data",
+      "supports": [
+        "目录共8个社区模型标签；固定中文1至355单整数提示，当前代码温度1.0并含可选随机插词。",
+        "基线JSON含型号、时间、分布及rawData，未保存端点、逐请求参数或提示版本。"
+      ],
+      "repository_commit": "a5e123547d830bf6361926cfc658ee81b45542e0",
+      "license": "LGPL-2.1",
+      "limits": [
+        "不是PAMELA现有提示协议；未纳入默认排名或作官方参考。"
+      ]
+    },
+    {
+      "id": "FPU-15",
+      "title": "社区Sonnet5.5参考",
+      "url": "https://github.com/hanlinwenyuan/hlwy-ai-checker/blob/a5e123547d830bf6361926cfc658ee81b45542e0/baselines/claude-sonnet-5-5.json",
+      "accessed_on": "2026-11-09",
+      "source_kind": "reference_data",
+      "supports": [
+        "文件记录2026-11-09T00:46:28.585Z、200次整数观察。"
+      ],
+      "repository_commit": "a5e123547d830bf6361926cfc658ee81b45542e0",
+      "source_sha256": "7ac4733fcdf198c5b4ad00a91ca8d07830f84a811f0ae5838da35315290134e1",
+      "source_bytes": 5880,
+      "license": "LGPL-2.1",
+      "limits": [
+        "时间和模型名来自文件声明，无逐请求来源证明。"
+      ]
+    },
+    {
+      "id": "FPU-16",
+      "title": "社区DeepSeek1017参考",
+      "url": "https://github.com/hanlinwenyuan/hlwy-ai-checker/blob/a5e123547d830bf6361926cfc658ee81b45542e0/baselines/deepseek-v4.1-flash-1017.json",
+      "accessed_on": "2026-11-09",
+      "source_kind": "reference_data",
+      "supports": [
+        "文件记录2026-10-18T08:17:40.211Z、200次整数观察，调用名称deepseek-flash。"
+      ],
+      "repository_commit": "a5e123547d830bf6361926cfc658ee81b45542e0",
+      "source_sha256": "8408bc560b9abe6daafe90dc42d3ff95b6e7d833cce3ef10c2cefd7ed70ec75d",
+      "source_bytes": 5863,
+      "license": "LGPL-2.1",
+      "limits": [
+        "文件没有端点字段；社区标签不作为官方采样证明。"
+      ]
+    }
+  ]
+}

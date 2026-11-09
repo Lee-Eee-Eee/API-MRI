@@ -2,14 +2,16 @@
 
 从DSH左侧栏打开API-MRI，在中央主区域使用完整工作台：连接与速度、工具协议、模型指纹、示例馆和公开能力参考。
 
+0.9.4默认滚动库已加入11月9日的Flash、Pro参考，共134候选。公开指纹每周免费增量检查；“补采参考”按96次短请求手动启动，已有回答可用新库零调用重排。[参考维护](../docs/reference-maintenance.md)
+
 ## 安装与打开
 
-0.9.3使用DSH原生入口，无需Better Sidebar。Windows x64首次打开时自动安装运行程序。
+0.9.4使用DSH原生入口，无需Better Sidebar。Windows x64首次打开时自动安装运行程序。
 
-下载[插件包](https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v0.9.3/dsh-api-mri-0.9.3.tgz)，在PowerShell安装到桌面版：
+下载[插件包](https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v0.9.4/dsh-api-mri-0.9.4.tgz)，在PowerShell安装到桌面版：
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\下载目录\dsh-api-mri-0.9.3.tgz"
+& "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "C:\下载目录\dsh-api-mri-0.9.4.tgz"
 ```
 
 在DSH左侧栏点击 **API-MRI**。第一次打开自动下载Windows运行包、核对SHA-256、解压并启动；页面显示下载进度。以后复用已安装版本，自动启动并连接。运行包包含Python与CPU分析依赖，大小以进度条为准。
@@ -18,16 +20,16 @@
 
 检测走DSH模型适配器，报告保留这条调用路径。不支持的指定工具或推理参数会单列显示；指纹需要该型号明确提供关闭思考的档位。
 
-0.9.3修复了短指纹请求被422拒绝、工具结果无法回填和流末尾字段遗漏。DSH服务测量默认每请求256 tokens，型号支持时关闭推理；强制调用不受支持时继续检查自动调用和结果回填。[排障与实测](../docs/dsh-diagnostics-2026-11-09.md)
+0.9.4修复了短指纹请求被422拒绝、工具结果无法回填和流末尾字段遗漏。DSH服务测量默认每请求256 tokens，型号支持时关闭推理；强制调用不受支持时继续检查自动调用和结果回填。[排障与实测](../docs/dsh-diagnostics-2026-11-09.md)
 
-0.9.0旧插件包使用Better Sidebar右栏；升级到0.9.3后从原生左栏进入。
+0.9.0旧插件包使用Better Sidebar右栏；升级到0.9.4后从原生左栏进入。
 
 无需另下便携版。已有API-MRI服务时，也可以填写地址手动连接。macOS/Linux暂用[源码启动](../README.md#开始使用)，然后手动连接。
 
 DSH Web使用`web` profile：
 
 ```sh
-dsh plugin --profile web add ./dsh-api-mri-0.9.3.tgz
+dsh plugin --profile web add ./dsh-api-mri-0.9.4.tgz
 ```
 
 Web地址须为回环地址，可附端口。桌面来源固定为`dsh-app://app`。HTTPS Web页面连接HTTP后端会受到浏览器混合内容限制；这种部署连接自行配置的HTTPS后端。

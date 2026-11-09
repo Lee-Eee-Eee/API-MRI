@@ -231,9 +231,15 @@
                   aria-pressed="false"
                 >
                   指定型号对照
-                </button>
+                </button><button id="identity-collect" type="button" aria-pressed="false">补采参考</button>
+              </div>
+              <div id="identity-coverage" class="reference-coverage" aria-live="polite">
+                <strong id="coverage-title">参考覆盖</strong>
+                <p id="coverage-description">选择型号后查看同协议参考。</p>
+                <button id="coverage-collect" type="button" class="text-button" hidden>为这个型号补采参考</button>
               </div>
               <div id="candidate-settings">
+                <div class="field"><label for="identification-bank">比较库</label><select id="identification-bank"></select></div>
                 <div class="field">
                   <label for="identify-budget">请求预算</label
                   ><select id="identify-budget">
@@ -246,6 +252,18 @@
                 <p id="bank-summary" class="field-help">
                   正在读取共同探针参考库。
                 </p>
+              </div>
+              <div id="reference-collect-settings" hidden>
+                <div id="reference-resume-note" class="reference-resume-note" hidden><p id="reference-resume-description"></p><button id="reference-resume-cancel" type="button" class="text-button">改为新一轮采集</button></div>
+                <p id="reference-collection-summary" class="field-help reference-collection-summary">只采当前型号：8 组短探针，每组尝试 8 次参考、4 次独立留出。最多 96 次请求、1536 输出配额。</p>
+                <div class="field"><label for="reference-source-label">参考标签</label><input id="reference-source-label" type="text" maxlength="160" placeholder="例如 DeepSeek V4.1 Flash" /></div>
+                <details class="reference-source-details">
+                  <summary>来源声明</summary>
+                  <div class="field"><label for="reference-source-kind">通道标记</label><select id="reference-source-kind"><option value="operator_declared">我指定的接入服务</option><option value="first_party_route_claim">原厂通道（声明）</option></select></div>
+                  <div class="field"><label for="reference-source-alias">型号 / 版本声明</label><input id="reference-source-alias" type="text" maxlength="200" placeholder="保留接口别名或供应商版本号" /></div>
+                  <div class="field"><label for="reference-source-provider">提供方</label><input id="reference-source-provider" type="text" maxlength="160" placeholder="例如 deepseek-official" /></div>
+                </details>
+                <p class="field-help">采完先查看留出检查，再由你发布为参考。来源标记会随数据保留。</p>
               </div>
               <div id="specific-settings" hidden>
                 <div class="field">
@@ -406,8 +424,8 @@
                 />
               </svg>
               <div>
-                <h2>等待一次扫描</h2>
-                <p>填写接入信息，或先试用无密钥示例。</p>
+                <h2 id="empty-heading">等待一次扫描</h2>
+                <p id="empty-instruction">填写接入信息，或先试用无密钥示例。</p>
               </div>
             </div>
             <div class="scan-preview" id="scan-preview"></div>
@@ -551,14 +569,18 @@
             <p id="library-bank-note"></p>
           </div>
         </div>
+        <div class="library-actions"><button id="sync-identification-library" type="button" class="text-button">同步公开指纹</button><button id="refresh-identification-library" type="button" class="text-button">刷新列表</button><button id="collect-reference-library" type="button" class="button secondary">补采一个型号</button></div>
+        <p id="identification-sync-note" class="library-sync-note" role="status" aria-live="polite"></p>
         <div id="library-bank" class="reference-summary"></div>
+        <div id="identification-bank-list"></div>
+        <p id="identification-library-error" class="inline-error" role="alert" hidden></p>
         <div class="section-heading library-heading">
           <div>
             <h2>指定型号参考</h2>
             <p>KBF 作者发布的可复算数据包</p>
           </div>
           <button id="update-library" class="button secondary" type="button">
-            抓取参考库更新
+            更新 KBF 对照包
           </button>
         </div>
         <div id="library-update" class="notice" hidden></div>

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "api-mri"
-version = "0.9.3"
+version = "0.9.4"
 description = "Budgeted API service diagnostics, tool calling checks and model fingerprint evidence"
 requires-python = ">=3.10"
 dependencies = [

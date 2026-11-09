@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | Inspect AI 0.3.278 | Task、Sample、模型适配、执行、评分与评测日志 | [官方仓库](https://github.com/UKGovernmentBEIS/inspect_ai)，MIT；以实际安装版本记录为准 |
 | Model Equality Testing 0.0.2 | CompletionSample、Unicode编码和原始两样本检验 | [官方仓库](https://github.com/irenasaracay/model-equality-testing)，[包内MIT许可](https://github.com/irenasaracay/model-equality-testing/blob/main/model_equality_testing/LICENSE)；原版权行有占位符，保留发布包原文，不补写作者身份 |
-| KBF，本机评分代码固定于提交 68aefbbab879469152aaac9fd988a86c30ee4739 | 26 个经检查的完整参考包、原始提示与解析器、领域容差、格式校验和单侧二项统计评分 | [原始仓库](https://github.com/Ooo0ption/KBF/tree/68aefbbab879469152aaac9fd988a86c30ee4739)，Apache-2.0；许可及修改说明随 `src/relay_audit/vendor/kbf/` 分发 |
+| KBF，随包评分代码固定于提交 68aefbbab879469152aaac9fd988a86c30ee4739，另适配可复现的旧计分规则 | 28个原始参考包、提示与解析器、领域容差、格式校验和单侧二项统计评分；26包使用半向上舍入，2包使用旧绝对误差公式 | [原始仓库](https://github.com/Ooo0ption/KBF/tree/68aefbbab879469152aaac9fd988a86c30ee4739)，Apache-2.0；许可及修改说明随 `src/relay_audit/vendor/kbf/` 分发 |
 | ShadowAPI | 仅参考公开的对照实验和复用路线，本版没有复制其代码或数据 | [官方仓库](https://github.com/TrustAIRLab/ShadowAPI)；其自有代码与第三方题目分别适用许可 |
 | One Token Is Enough / PAMELA | 共同短探针、132 标签参考计数；独立移植文本规范化规则 | [数据](https://zenodo.org/records/21278557) CC BY 4.0；[配置及代码](https://zenodo.org/records/21278793) MIT；原作者归属、来源校验及完整 MIT 文本见 `src/relay_audit/data/identification/NOTICE` |
 | Nebius token-factory-cookbook | 示例馆 19 个原始 SVG | [固定提交 45408f6](https://github.com/nebius/token-factory-cookbook/tree/45408f6508d2e9ff6f8c1fe9e9b8254d2a6879e5/fun/pelican-riding-bicycle)，MIT，© 2025 Nebius B.V. |
@@ -18,9 +18,9 @@
 
 v0.6 的候选识别使用单独的共同提示库，未把 KBF 不同完整批次的回答拼成多类训练集。参考计数的 CC BY 4.0 许可单独适用，不由本项目 MIT 许可取代。模型名称和家族沿用作者标签，准确率评价的数据拆分与拒判范围见[方法说明](docs/model-identification.md)。
 
-本版检查 KBF 九月目录的 28 份候选，收录其中与固定实现兼容且自测能复算的 26 份参考包，原始文件保持不变。完整数量与排除原因见[参考包清单](docs/reference-packs.md#内置参考包)，来源、采集及自测日期、许可链接和 SHA-256 保存在 `data/reference_packs/catalog.json`。模型、provider 与端点为作者记录，参考渠道未经本组独立认证；没有端点字段时保持未知。核查日期：2026年10月13日。
+2026年11月9日复核后，KBF九月目录的28份原始参考均已收录。原26份继续采用`absolute_half_up`；Flash与GLM 5.3的完整自测向量和全部计数可由旧公式逐项复现，标为`legacy_absolute_raw`。两份新增文件取自固定提交`6b4c403def2498cb92b7bd51ad958ddee5b3d06f`，Git内容与原固定提交相同，原始文件、计数和采集日期保持不变。规则及来源见[本轮核查](docs/fingerprint-sources-2026-11-09.md)、[参考包清单](docs/reference-packs.md#内置参考包)和`data/reference_packs/catalog.json`。模型、provider与端点沿用作者记录，没有端点字段时保持未知。
 
-适配器直接调用 KBF 的 `extract_nums`、`validate_batch`、`check_match`、`probe_consensus` 和 `compute_verdict`，不把数值差异自行包装成模型身份概率。上游 `SAME` 被译为“未检出明显差异”，并不是模型身份证明。代码保留上游 Apache-2.0 许可与来源哈希；本项目 MIT 许可不替代这些许可。
+适配器复用KBF的`extract_nums`、`probe_consensus`和`compute_verdict`。默认计分与批次校验调用上游`check_match`和`validate_batch`；两份旧规则参考使用单独的兼容函数，待测评分与离线复算采用该包的同一策略。上游`SAME`译为“未检出明显差异”。原始代码保留Apache-2.0许可与来源哈希，兼容适配没有修改vendor源码，数值差异不解释为模型身份概率。
 
 有界传输替换上游自动网络重试：六种参数策略各最多一次，完整模式每批最多三次格式尝试，初筛每批一次；不自动扩大输出预算。初筛保留所选原始批次的提示与解析，仅报告描述性差异；完整模式保留上游统计阈值并增加答案完整性要求。每次 HTTP 尝试先脱敏再存盘，离线复算从原始响应重建解析值；哈希仅用于一致性检查。
 

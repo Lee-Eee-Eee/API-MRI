@@ -6,7 +6,7 @@ from pathlib import Path
 
 DATA=Path(__file__).parent/'data'
 
-def data_status() -> dict:
+def data_status(library_dir=None) -> dict:
     bank=DATA/'identification/one-token-202607.json'
     model=DATA/'model_reference.json'
     benchmark=DATA/'benchmark_snapshots.json'
@@ -27,4 +27,13 @@ def data_status() -> dict:
             label=hashlib.sha256(raw).hexdigest()[:12];note='快照日期'
         rows.append({'id':identifier,'name':title,'date':stamp or None,'version':label,
             'sha256':hashlib.sha256(raw).hexdigest(),'policy':policy,'note':note})
+    from .identification_library import active_bank_id, bank_digest, load_bank
+    active=active_bank_id(library_dir)
+    if active:
+        current=load_bank(active,library_dir)
+        for row in rows:
+            if row['id']=='fingerprint':
+                row.update(date=current.get('new_observations_collected_at',current['collected_at'])['last'][:10],
+                    version=current['id'],sha256=bank_digest(current),
+                    note='新增参考的采集日期；历史型号保留各自原采集日期')
     return {'checked_at':date.today().isoformat(),'network_requests':0,'entries':rows}

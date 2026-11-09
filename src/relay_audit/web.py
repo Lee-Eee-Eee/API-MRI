@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import secrets
 import threading
 from contextlib import asynccontextmanager
@@ -106,6 +107,33 @@ def validate_job(payload: Any, *, library_dir: Path | None = None) -> dict:
         require_research()
     settings = _analysis_settings(payload)
     clean = {"mode": mode, **settings.model_dump()}
+    if mode == "identify_recompare":
+        from .identification import parse_identification_records
+        from .identification_library import load_bank
+        source = payload.get("evidence_jsonl")
+        if isinstance(source, str) and len(source.encode("utf8")) <= 4 * 1024 * 1024:
+            try:
+                value = json.loads(source)
+            except (ValueError, RecursionError):
+                value = None
+            if isinstance(value, dict) and value.get("schema") == "api-mri-identification-recompare/1":
+                from .identification_recompare import parse_recomparison
+                envelope = parse_recomparison(source)
+                source = "\n".join(json.dumps(row, ensure_ascii=False) for row in envelope["source_records"])
+        parse_identification_records(source, library_dir=library_dir)
+        bank = load_bank(payload.get("bank_id"), library_dir)
+        clean.update(source_evidence=source, bank_id=bank["id"])
+        return clean
+    if mode == "reference_collect":
+        from .reference_collect import plan_reference_capture
+        config = {key: payload[key] for key in ("candidate", "source", "timeout", "budget") if key in payload}
+        plan_reference_capture(config)
+        clean["reference_config"] = config
+        if "resume_run_id" in payload:
+            if not isinstance(payload["resume_run_id"], str) or not re.fullmatch(r"[0-9]{8}T[0-9]{6}-[a-f0-9]{10}", payload["resume_run_id"]):
+                raise ValueError("续采需要已保存的运行编号。")
+            clean["resume_run_id"] = payload["resume_run_id"]
+        return clean
     if mode in {"showcase", "showcase_demo", "showcase_offline"}:
         from .showcase import list_showcase, parse_showcase_records, plan_showcase
 
@@ -139,20 +167,34 @@ def validate_job(payload: Any, *, library_dir: Path | None = None) -> dict:
         from .identification import load_identification_bank, parse_identification_records, plan_identification
 
         if mode == "identify":
-            config = {key: payload[key] for key in ("candidate", "candidate_models", "budget", "timeout", "api2d_no_cache", "stop_policy") if key in payload}
-            plan_identification(config)
+            config = {key: payload[key] for key in ("candidate", "candidate_models", "budget", "timeout", "api2d_no_cache", "stop_policy", "bank_id") if key in payload}
+            plan_identification(config, library_dir=library_dir)
             clean["identification_config"] = config
         elif mode == "identify_demo":
+            from .identification_library import load_bank
+            bank = load_bank(payload.get("bank_id"), library_dir) if payload.get("bank_id") else load_identification_bank()
             model_id = payload.get("model_id")
-            if model_id is not None and model_id not in {m["model"] for m in load_identification_bank()["models"]}:
+            if model_id is not None and model_id not in {m["model"] for m in bank["models"]}:
                 raise ValueError("请选择库中已有的演示模型。")
             config = {"candidate": {"api_base": "https://offline.example/v1", "model": "offline-demo"}}
             if "budget" in payload:
                 config["budget"] = payload["budget"]
-            clean["budget"] = plan_identification(config)["budget"]
+            if "bank_id" in payload:
+                config["bank_id"] = payload["bank_id"]
+                clean["bank_id"] = bank["id"]
+            clean["budget"] = plan_identification(config, library_dir=library_dir)["budget"]
             clean["model_id"] = model_id
         else:
-            clean["identification_records"] = parse_identification_records(payload.get("evidence_jsonl"))
+            text = payload.get("evidence_jsonl")
+            try:
+                first = json.loads(text.splitlines()[0]) if isinstance(text, str) and len(text.encode('utf8')) <= 4 * 1024 * 1024 else {}
+            except (ValueError, IndexError, RecursionError):
+                first = {}
+            if isinstance(first, dict) and first.get("schema") == "api-mri-identification-recompare/1":
+                from .identification_recompare import parse_recomparison
+                clean["recomparison_records"] = parse_recomparison(text)
+            else:
+                clean["identification_records"] = parse_identification_records(text, library_dir=library_dir)
         return clean
     if mode in {"fingerprint", "fingerprint_demo", "fingerprint_offline"}:
         from .fingerprint import list_reference_packs, plan_fingerprint
@@ -327,7 +369,13 @@ class JobManager:
             if event.is_set():
                 self._update(identifier, status="cancelled")
                 return
-            if payload["mode"] in {"showcase", "showcase_demo", "showcase_offline"}:
+            if payload["mode"] == "reference_collect":
+                from .reference_collect import run_reference_capture
+                result = run_reference_capture(payload["reference_config"], out, progress=progress, cancelled=event.is_set,
+                    seed_records=payload.get("_resume_seed"))
+                result["resume_run_id"] = payload.get("resume_run_id")
+                reports.append({"name": "reference", "report": result})
+            elif payload["mode"] in {"showcase", "showcase_demo", "showcase_offline"}:
                 from .showcase import demo_showcase, replay_showcase, run_showcase
 
                 if payload["mode"] == "showcase":
@@ -351,17 +399,25 @@ class JobManager:
                     progress({"completed": 0, "total": 1, "phase": "analyzing", "message": "复算流式时间线和工具记录"})
                     result = replay_service_quality(payload["service_records"], out)
                 reports.append({"name": "service", "report": result})
-            elif payload["mode"] in {"identify", "identify_demo", "identify_offline"}:
+            elif payload["mode"] in {"identify", "identify_demo", "identify_offline", "identify_recompare"}:
                 from .identification import run_identification, demo_identification, replay_identification
 
-                if payload["mode"] == "identify":
-                    result = run_identification(payload["identification_config"], out, progress=progress, cancelled=event.is_set)
+                if payload["mode"] == "identify_recompare":
+                    from .identification_recompare import recompare_identification
+                    result = recompare_identification(payload["source_evidence"], payload["bank_id"], out, library_dir=self.library_dir)
+                elif payload["mode"] == "identify":
+                    result = run_identification(payload["identification_config"], out, progress=progress, cancelled=event.is_set, library_dir=self.library_dir)
                 elif payload["mode"] == "identify_demo":
                     progress({"completed": 0, "total": 1, "phase": "analyzing", "message": "从参考分布生成合成回答，演示候选排序"})
-                    result = demo_identification(out, model_id=payload["model_id"], budget=payload["budget"])
+                    result = demo_identification(out, model_id=payload["model_id"], budget=payload["budget"],
+                        bank_id=payload.get("bank_id"), library_dir=self.library_dir)
                 else:
                     progress({"completed": 0, "total": 1, "phase": "analyzing", "message": "从已有记录复算候选距离"})
-                    result = replay_identification(payload["identification_records"], out)
+                    if "recomparison_records" in payload:
+                        from .identification_recompare import replay_recomparison
+                        result = replay_recomparison(payload["recomparison_records"], out)
+                    else:
+                        result = replay_identification(payload["identification_records"], out, library_dir=self.library_dir)
                 reports.append({"name": "identification", "report": result})
             elif payload["mode"] in {"fingerprint", "fingerprint_demo", "fingerprint_offline"}:
                 from .fingerprint import run_fingerprint, demo_fingerprint, replay_fingerprint
@@ -463,6 +519,8 @@ class JobManager:
             names["jsonl"] = "service_records.jsonl"
         if job["mode"].startswith("showcase"):
             names["jsonl"] = "showcase_records.jsonl"
+        if job["mode"] == "reference_collect":
+            names["jsonl"] = "reference_records.jsonl"
         filename = names.get(format_name)
         if filename is None:
             raise KeyError(format_name)
@@ -481,6 +539,12 @@ class JobManager:
         if report_name not in {item["name"] for item in job.get("reports", [])}:
             raise KeyError(report_name)
         directory = self.root / identifier / "evidence"
+        if job["mode"] == "reference_collect":
+            path = (directory / "reference_records.jsonl").resolve()
+            if not path.is_relative_to(self.root):
+                raise KeyError("reference_records.jsonl")
+            rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()] if path.exists() else []
+            return {"reference": rows}
         if job["mode"].startswith("showcase"):
             path = (directory / "showcase_records.jsonl").resolve()
             if not path.is_relative_to(self.root):
@@ -680,7 +744,7 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
     @app.get('/api/data-status')
     def local_data_status():
         from .data_registry import data_status
-        return data_status()
+        return data_status(library_path)
 
     @app.get('/capabilities.js')
     def capabilities_javascript():
@@ -765,17 +829,125 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
         from .fingerprint import list_reference_packs
         from .identification import load_identification_bank
 
-        bank = load_identification_bank()
+        from .identification_library import active_bank_id, load_bank
+        active = active_bank_id(library_path)
+        bank = load_bank(active, library_path) if active else load_identification_bank()
         identification_bank = {key: bank[key] for key in ("id", "source", "collected_at", "built_on")}
         identification_bank.update(model_count=len(bank["models"]), cell_count=len(bank["cells"]),
-                                   models=[{key: model[key] for key in ("model", "label", "family")} for model in bank["models"]])
+                                   models=[{key: model[key] for key in ("model", "label", "family", "aliases", "collected_at", "provenance") if key in model} for model in bank["models"]])
+        identification_bank["qualification"] = bank.get("qualification", "historical_calibration")
 
         return {"version": __version__, "session_token": session_token, "probes": list_probes(),
                 "embedding": {"origins": list(allowed_frames)},
                 "scenarios": scenarios, "reference_packs": list_reference_packs(library_path),
                 "identification_bank": identification_bank,
                 "capabilities": {"research_extensions": research_available(),
-                    "modes": ["showcase", "showcase_demo", "showcase_offline", "service", "service_demo", "service_offline", "identify", "identify_demo", "identify_offline", "fingerprint", "fingerprint_demo", "fingerprint_offline"] + (["demo", "lab", "live", "offline"] if research_available() else []), "protocol": "Chat Completions", "local_only": True}}
+                    "modes": ["showcase", "showcase_demo", "showcase_offline", "service", "service_demo", "service_offline", "identify", "identify_demo", "identify_offline", "reference_collect", "fingerprint", "fingerprint_demo", "fingerprint_offline"] + (["demo", "lab", "live", "offline"] if research_available() else []), "protocol": "Chat Completions", "local_only": True}}
+
+    def identification_library_value(bank_id=None, model=None):
+        from .identification_library import active_bank_id, coverage, list_banks, load_bank
+        from .identification_sync import sync_status
+        active = active_bank_id(library_path)
+        bank = load_bank(bank_id or active, library_path)
+        summary = {key: bank[key] for key in ("id", "source", "collected_at", "built_on")}
+        summary.update(model_count=len(bank["models"]), cell_count=len(bank["cells"]),
+            qualification=bank.get("qualification", "historical_calibration"),
+            models=[{key: row[key] for key in ("model", "label", "family", "aliases", "collected_at", "provenance") if key in row} for row in bank["models"]])
+        return {"banks": list_banks(library_path), "active_bank_id": active or bank["id"],
+            "selected_bank_id": bank["id"], "bank": summary,
+            "coverage": coverage(bank, model) if model else None, "sync": sync_status(library_path),
+            "published_run_ids": [row["id"] for row in manager.list() if row.get("published_bank_id")]}
+
+    def reference_seed(payload):
+        identifier = payload.get("resume_run_id")
+        if identifier is None:
+            return None
+        try:
+            job = manager.get(identifier)
+        except KeyError:
+            raise ValueError("没有找到原始参考采集。") from None
+        if job["mode"] != "reference_collect" or job["status"] not in {"completed", "failed", "cancelled"}:
+            raise ValueError("请先停止原采集，再继续剩余请求。")
+        path = manager.file(identifier, "reference", "jsonl")
+        if path.stat().st_size > 4 * 1024 * 1024:
+            raise ValueError("原始采集记录超过4MiB。")
+        return path.read_text(encoding="utf8")
+
+    @app.get("/api/identification-library")
+    def common_reference_library(bank_id: str | None = None, model: str | None = None):
+        try:
+            return identification_library_value(bank_id, model)
+        except ValueError:
+            raise HTTPException(422, "参考版本或型号格式无效。") from None
+
+    @app.post("/api/identification-library/activate")
+    def activate_common_reference(payload: dict):
+        from .identification_library import activate_bank
+        if set(payload) != {"bank_id"}:
+            raise HTTPException(422, "请选择一个参考版本。")
+        if manager.active is not None:
+            raise HTTPException(409, "请等待当前任务结束后切换参考。")
+        try:
+            activate_bank(payload["bank_id"], library_path)
+            return identification_library_value(payload["bank_id"])
+        except ValueError:
+            raise HTTPException(422, "该参考版本不可用。") from None
+
+    @app.post("/api/identification-library/publish")
+    def publish_common_reference(payload: dict):
+        from .identification_library import activate_bank
+        from .reference_collect import publish_capture
+        if set(payload) != {"run_id"} or not isinstance(payload["run_id"], str):
+            raise HTTPException(422, "请选择已完成的参考采集。")
+        if manager.active is not None:
+            raise HTTPException(409, "请等待当前采集结束后发布。")
+        try:
+            job = manager.get(payload["run_id"])
+            if job["mode"] != "reference_collect" or job["status"] != "completed":
+                raise ValueError
+            if job.get("published_bank_id"):
+                return {"bank_id": job["published_bank_id"], "library": identification_library_value(job["published_bank_id"])}
+            records = manager.file(job["id"], "reference", "jsonl")
+            meta = publish_capture(records, library_path)
+            activate_bank(meta["id"], library_path)
+            manager._update(job["id"], published_bank_id=meta["id"])
+            return {"bank": meta, "bank_id": meta["id"], "library": identification_library_value(meta["id"])}
+        except (KeyError, ValueError):
+            raise HTTPException(422, "参考采集不完整，或协议与记录校验未通过。") from None
+        except RuntimeError:
+            raise HTTPException(409, "另一次参考发布正在进行，请稍后重试。") from None
+
+    @app.post("/api/identification-library/sync")
+    def sync_common_reference(payload: dict):
+        from .identification_sync import sync_public_references
+        if set(payload) - {"force"} or "force" in payload and type(payload["force"]) is not bool:
+            raise HTTPException(422, "同步只需要force布尔选项，不接受服务地址或密钥。")
+        try:
+            result = sync_public_references(library_path, force=payload.get("force", False))
+            value = identification_library_value()
+            value["sync"] = result
+            return value
+        except (ValueError, RuntimeError):
+            raise HTTPException(502, "公开指纹同步未完成，现有参考保留。") from None
+
+    @app.post("/api/identification-library/recompare", status_code=202)
+    def recompare_common_reference(payload: dict):
+        if set(payload) != {"run_id", "bank_id"}:
+            raise HTTPException(422, "请选择原始识别记录和目标参考版本。")
+        try:
+            job = manager.get(payload["run_id"])
+            if not job["mode"].startswith("identify") or job["status"] not in {"completed", "failed", "cancelled"}:
+                raise ValueError
+            path = manager.file(job["id"], "identification", "jsonl")
+            if path.stat().st_size > 4 * 1024 * 1024:
+                raise ValueError
+            source = path.read_text(encoding="utf8")
+            cleaned = validate_job({"mode": "identify_recompare", "evidence_jsonl": source, "bank_id": payload["bank_id"]}, library_dir=library_path)
+            return manager.start(cleaned)
+        except (ValueError, KeyError, TypeError):
+            raise HTTPException(422, "识别记录或目标参考版本不可用。") from None
+        except RuntimeError:
+            raise HTTPException(409, "请等待当前任务完成后重排。") from None
 
     @app.get("/api/runs")
     def runs():
@@ -816,6 +988,10 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
     @app.post("/api/plan")
     def plan(payload: dict):
         try:
+            if payload.get("mode") == "reference_collect":
+                from .reference_collect import plan_reference_capture
+                cleaned = validate_job(payload, library_dir=library_path)
+                return plan_reference_capture(cleaned["reference_config"], seed_records=reference_seed(cleaned))
             if payload.get("mode") == "showcase":
                 from .showcase import plan_showcase
                 cleaned = validate_job(payload)
@@ -826,8 +1002,8 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
                 return plan_service_quality(cleaned["service_config"])
             if payload.get("mode") == "identify":
                 from .identification import plan_identification
-                cleaned = validate_job(payload)
-                return plan_identification(cleaned["identification_config"])
+                cleaned = validate_job(payload, library_dir=library_path)
+                return plan_identification(cleaned["identification_config"], library_dir=library_path)
             if payload.get("mode") == "fingerprint":
                 from .fingerprint import plan_fingerprint
                 cleaned = validate_job(payload, library_dir=library_path)
@@ -844,6 +1020,10 @@ def create_app(runs_dir: Path | str = "runs/ui", *, library_dir: Path | str | No
     def start(payload: dict):
         try:
             cleaned = validate_job(payload, library_dir=library_path)
+            if cleaned["mode"] == "reference_collect" and cleaned.get("resume_run_id"):
+                from .reference_collect import plan_reference_capture
+                cleaned["_resume_seed"] = reference_seed(cleaned)
+                plan_reference_capture(cleaned["reference_config"], seed_records=cleaned["_resume_seed"])
         except (ValueError, TypeError) as exc:
             detail = str(exc) if payload.get("mode") in {"offline", "identify", "identify_demo", "identify_offline"} and not isinstance(exc, ValidationError) else "请检查参考包、服务地址、模型名和文件格式；指纹复算需使用同一参考包的原始JSONL。"
             raise HTTPException(422, detail) from None

@@ -14,8 +14,10 @@ def test_core_keeps_everyday_modes_and_guards_optional_research(tmp_path,monkeyp
         assert client.get('/api/data-status').json()['network_requests']==0
     with pytest.raises(ValueError,match='研究扩展'):validate_job({'mode':'demo'})
 
-def test_fingerprint_status_reports_collection_instead_of_build_date():
-    data=data_status()
+def test_fingerprint_status_reports_collection_instead_of_build_date(tmp_path):
+    from relay_audit.identification_library import activate_bank
+    activate_bank('legacy',tmp_path)
+    data=data_status(tmp_path)
     bank=next(x for x in data['entries'] if x['id']=='fingerprint')
     assert bank['date']=='2026-07-08'
     assert len(bank['sha256'])==64

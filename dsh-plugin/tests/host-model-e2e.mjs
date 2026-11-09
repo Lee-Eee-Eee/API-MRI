@@ -40,7 +40,7 @@ function answerFor(messages) {
   const cell = bank.cells.find(cell => messages.some(row => row.content === cell.user));
   if (!cell) throw new Error('Unknown synthetic fingerprint prompt.');
   let answer = Object.keys(bank.models.find(model => model.counts[cell.id])?.counts[cell.id] || {})[0];
-  if (cell.normalize_as === 'coin') {
+  if (cell.normalize_as === 'coin' || cell.normalize_as === 'binary') {
     const names = { en: ['heads', 'tails'], ru: ['орёл', 'решка'], zh: ['正面', '反面'], ar: ['صورة', 'كتابة'] };
     answer = names[cell.lang][answer === 'h' ? 0 : 1];
   }
@@ -173,6 +173,7 @@ export function apply(ctx){
   const catalog = await json(hostUrl + '/api/api-mri/models', { headers: { Cookie: cookie } });
   assert.equal(catalog.models.length, 1);
   assert.equal(catalog.models[0].fingerprint_supported, true);
+  assert.ok(['127.0.0.1', 'localhost', '[::1]'].includes(new URL(catalog.apiBase).hostname));
   const model = catalog.models[0].id;
   result.checks.configuredModelViaOfficialAdapter = true;
 
@@ -211,22 +212,33 @@ export function apply(ctx){
   assert.ok(bootstrap?.session_token);
   assert.equal(bootstrap.version, version);
   const api = (route, body) => json(apiUrl + route, { ...(body ? { method: 'POST', body } : {}), headers: { 'x-relay-token': bootstrap.session_token } });
-  async function job(payload) {
-    const run = await api('/api/runs', payload); let state;
+  async function completedJob(run, description) {
+    let state;
     const end = Date.now() + 60000;
     do { await delay(100); state = await api(`/api/runs/${run.id}`); } while (['queued', 'running'].includes(state.status) && Date.now() < end);
-    assert.equal(state.status, 'completed', `${payload.mode} job failed: ${state.error || state.progress?.message}`);
-    assert.ok(state.reports?.length); return state;
+    assert.equal(state.status, 'completed', `${description} job failed: ${state.error || state.progress?.message}`);
+    assert.ok(state.reports?.length);
+    // The completed envelope is persisted just before the worker releases its lock.
+    await delay(50); return state;
   }
-  async function live(payload, reportName, verify) {
+  async function job(payload) {
+    return completedJob(await api('/api/runs', payload), payload.mode);
+  }
+  async function authorized(payload) {
     result.stage = payload.mode + ':' + (payload.checks?.join('+') || 'probes');
     const candidate = { api_base: catalog.apiBase, model };
+    const before = upstreamCalls;
     const plan = await api('/api/plan', { ...payload, candidate });
+    assert.equal(upstreamCalls, before, 'Planning made a model call.');
     const maxRequests = plan.maximum_requests ?? plan.max_requests ?? plan.budget.max_requests;
     const maxOutputTokens = plan.maximum_output_tokens ?? plan.max_output_tokens_total ?? plan.budget.max_output_tokens;
     const lease = await json(hostUrl + '/api/api-mri/lease', { method: 'POST', headers: { Cookie: cookie },
       body: { model, maxRequests, maxOutputTokens, embedOrigin: 'dsh-app://app' } });
     const state = await job({ ...payload, candidate: lease.candidate });
+    return { state, plan };
+  }
+  async function live(payload, reportName, verify) {
+    const { state } = await authorized(payload);
     const report = state.reports.find(row => row.name === reportName).report;
     verify(report);
     const evidence = await fetch(`${apiUrl}/api/runs/${state.id}/download/${reportName}/jsonl`).then(value => value.text());
@@ -266,6 +278,117 @@ export function apply(ctx){
   result.checks.identificationProtocolAndReplay = true;
   result.measurements.identificationRequests = identify.cost.request_count ?? identify.cost.real_requests;
   result.measurements.identificationCompletedCells = identify.coverage.completed_cells;
+
+  result.stage = 'reference_collect:baseline';
+  const initialLibrary = await api('/api/identification-library');
+  const initialBankId = initialLibrary.active_bank_id;
+  const initialModelCount = initialLibrary.bank.model_count;
+  assert.ok(initialBankId && Number.isInteger(initialModelCount) && initialModelCount > 0);
+  const referenceSource = { kind: 'operator_declared', label: 'Synthetic loopback reference',
+    provider: 'api-mri-e2e-fixture', model_alias: catalog.models[0].model || 'synthetic' };
+  const beforeCapture = upstreamCalls;
+  const captured = await authorized({ mode: 'reference_collect', source: referenceSource,
+    budget: { max_requests: 96, max_output_tokens: 1536 } });
+  assert.equal(captured.plan.maximum_requests, 96);
+  assert.equal(captured.plan.maximum_output_tokens, 1536);
+  assert.equal(upstreamCalls - beforeCapture, 96);
+  const reference = captured.state.reports.find(row => row.name === 'reference')?.report;
+  assert.equal(reference?.kind, 'reference_collection');
+  assert.equal(reference.status, 'ready_to_publish');
+  assert.equal(reference.reference.can_publish, true);
+  assert.equal(reference.reference.cells, 8);
+  assert.equal(reference.reference.reference_answers, 64);
+  assert.equal(reference.reference.holdout_answers, 32);
+  assert.equal(reference.cost.request_count, 96);
+  assert.equal(reference.cost.requested_output_tokens, 1536);
+  assert.deepEqual(reference.source, referenceSource);
+  const referenceEvidence = await fetch(`${apiUrl}/api/runs/${captured.state.id}/download/reference/jsonl`).then(value => value.text());
+  assert.equal(referenceEvidence.includes(syntheticKey), false);
+  const referenceRecords = referenceEvidence.trim().split('\n').map(line => JSON.parse(line));
+  const referenceRequests = referenceRecords.filter(row => row.type === 'request');
+  assert.equal(referenceRequests.length, 96);
+  assert.equal(referenceRequests.filter(row => row.split === 'reference').length, 64);
+  assert.equal(referenceRequests.filter(row => row.split === 'holdout').length, 32);
+  assert.ok(observations.slice(-96).every(row => row.maxTokens === 16 && row.reasoning === 'none'));
+  result.checks.referenceCapture96ViaOfficialAdapter = true;
+  result.measurements.referenceRequests = reference.cost.request_count;
+  result.measurements.referenceHoldoutAnswers = reference.reference.holdout_answers;
+
+  result.stage = 'reference_collect:publish';
+  const beforePublish = upstreamCalls;
+  const published = await api('/api/identification-library/publish', { run_id: captured.state.id });
+  const publishedBankId = published.bank_id;
+  assert.ok(publishedBankId && publishedBankId !== initialBankId);
+  const activeLibrary = await api('/api/identification-library?model=' + encodeURIComponent(referenceSource.model_alias));
+  assert.equal(activeLibrary.active_bank_id, publishedBankId);
+  assert.equal(activeLibrary.bank.id, publishedBankId);
+  assert.equal(activeLibrary.bank.model_count, initialModelCount + 1);
+  assert.equal(activeLibrary.coverage.match, 'unconfirmed_alias');
+  assert.equal(activeLibrary.coverage.model_id, reference.reference.model);
+  assert.equal(activeLibrary.coverage.reference_cells, 8);
+  assert.equal((await api('/api/bootstrap')).identification_bank.id, publishedBankId);
+  const repeatedPublish = await api('/api/identification-library/publish', { run_id: captured.state.id });
+  assert.equal(repeatedPublish.bank_id, publishedBankId);
+  assert.equal(repeatedPublish.library.bank.model_count, initialModelCount + 1);
+  assert.equal(upstreamCalls, beforePublish, 'Publishing or metadata inspection made a model call.');
+  result.checks.referencePublishActiveAndIdempotent = true;
+  result.measurements.referenceModelsBeforePublish = initialModelCount;
+  result.measurements.referenceModelsAfterPublish = activeLibrary.bank.model_count;
+
+  const beforeRolling = upstreamCalls;
+  const rolling = await authorized({ mode: 'identify', bank_id: publishedBankId,
+    budget: { max_requests: 12, max_output_tokens: 192 } });
+  const rollingReport = rolling.state.reports.find(row => row.name === 'identification')?.report;
+  assert.equal(upstreamCalls - beforeRolling, 12);
+  assert.equal(rollingReport?.status, 'reference_shortlist');
+  assert.equal(rollingReport.identity_decision, 'abstained');
+  assert.equal(rollingReport.bank.id, publishedBankId);
+  assert.equal(rollingReport.coverage.compared_candidates, initialModelCount + 1);
+  assert.equal(rollingReport.coverage.completed_cells, 3);
+  assert.equal(rollingReport.coverage.valid_answers, 12);
+  assert.equal(rollingReport.calibration.applicable_gate, null);
+  const addedCandidate = rollingReport.ranking.find(row => row.model === reference.reference.model);
+  assert.ok(addedCandidate, 'Newly published reference did not enter the rolling ranking.');
+  assert.equal(addedCandidate.distance, 0, 'Identical synthetic responses must match their own reference distribution.');
+  const rollingEvidence = await fetch(`${apiUrl}/api/runs/${rolling.state.id}/download/identification/jsonl`).then(value => value.text());
+  assert.equal(JSON.parse(rollingEvidence.split('\n')[0]).bank_snapshot.id, publishedBankId);
+  result.checks.publishedRollingIdentification = true;
+  result.measurements.publishedRollingIdentificationRequests = rollingReport.cost.request_count;
+
+  result.stage = 'identify:zero-call-recompare';
+  const beforeRecompare = upstreamCalls;
+  const reordered = await completedJob(await api('/api/identification-library/recompare', {
+    run_id: rolling.state.id, bank_id: initialBankId,
+  }), 'identify_recompare');
+  const reorderedReport = reordered.reports.find(row => row.name === 'identification')?.report;
+  assert.equal(upstreamCalls, beforeRecompare, 'Recomparison made a model call.');
+  assert.equal(reorderedReport?.reanalysis.model_api_calls, 0);
+  assert.equal(reorderedReport.reanalysis.source_bank_id, publishedBankId);
+  assert.equal(reorderedReport.reanalysis.target_bank_id, initialBankId);
+  assert.equal(reorderedReport.reanalysis.reused_requests, 12);
+  assert.equal(reorderedReport.coverage.compared_candidates, initialModelCount);
+  assert.equal(reorderedReport.cost.request_count, 0);
+  assert.equal(reorderedReport.cost.real_requests, 0);
+  assert.equal(reorderedReport.cost.requested_output_tokens, 0);
+  assert.deepEqual(reorderedReport.reused_cost, rollingReport.cost);
+  const reorderedEvidence = await fetch(`${apiUrl}/api/runs/${reordered.id}/download/identification/jsonl`).then(value => value.text());
+  assert.equal(JSON.parse(reorderedEvidence).schema, 'api-mri-identification-recompare/1');
+  assert.equal(await fetch(`${apiUrl}/api/runs/${rolling.state.id}/download/identification/jsonl`).then(value => value.text()), rollingEvidence,
+    'Recomparison changed the original capture.');
+  result.checks.zeroCallRecomparePreservesOriginalEvidence = true;
+  result.measurements.recomparisonCalls = upstreamCalls - beforeRecompare;
+  result.measurements.reusedFingerprintAnswers = reorderedReport.reanalysis.reused_requests;
+
+  result.stage = 'identify:rolling-and-recompare-offline-replay';
+  const beforeReplay = upstreamCalls;
+  for (const [evidence, expected] of [[rollingEvidence, rollingReport], [reorderedEvidence, reorderedReport]]) {
+    assert.equal(evidence.includes(syntheticKey), false);
+    const replay = await job({ mode: 'identify_offline', evidence_jsonl: evidence });
+    assert.deepEqual(replay.reports[0].report, expected, 'Rolling/recomparison replay differs from its saved evidence.');
+    assert.equal(upstreamCalls, beforeReplay, 'Rolling/recomparison offline replay made a model call.');
+  }
+  result.checks.rollingAndRecomparisonOfflineReplay = true;
+  result.measurements.offlineReplayCalls = upstreamCalls - beforeReplay;
   result.measurements.upstreamSyntheticRequests = upstreamCalls;
   result.checks.actualToolResultsReachedUpstream = observations.some(row => row.toolMessages >= 2);
   assert.ok(result.checks.actualToolResultsReachedUpstream);

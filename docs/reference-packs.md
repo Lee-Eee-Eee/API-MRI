@@ -4,7 +4,7 @@
 
 ## 内置参考包
 
-v0.4 收录 [KBF](https://github.com/Ooo0ption/KBF) 固定提交 `68aefbbab879469152aaac9fd988a86c30ee4739` 中 **26 份兼容参考包**，原始 JSON 保持不变。本次检查的九月目录共有 28 份候选，另 2 份自测汇总与逐题复算不一致，暂不收录。以下字段核查于 **2026年10月13日**；日期来自文件时间戳，原文件没有注明时区。
+当前收录 [KBF](https://github.com/Ooo0ption/KBF) 固定提交 `68aefbbab879469152aaac9fd988a86c30ee4739` 中 **28 份兼容参考包**，原始 JSON 保持不变。10月13日首轮收录26份；11月9日查明另两份采用旧评分规则，逐项复现后补回。以下原始日期来自文件时间戳，原文件没有注明时区。
 
 新增覆盖包含 GPT-6 Astra、Claude Opus 5、Claude Fable 5.1、DeepSeek V4 Pro 0813、Kimi K3、MiniMax M3 等作者记录的版本。目录表示已有参考覆盖；模型发布日期与参考生成日期分别理解。精确型号和原始数据见下表。
 
@@ -41,14 +41,14 @@ v0.4 收录 [KBF](https://github.com/Ooo0ption/KBF) 固定提交 `68aefbbab87946
 
 本地 [catalog.json](../src/relay_audit/data/reference_packs/catalog.json) 保存每包的完整模型名、日期、原始链接、提交和 SHA-256。运行时检查文件哈希，报告和原始响应记录携带参考包身份；哈希确认文件版本一致，不认证作者的来源声明。
 
-### 两份未收录的候选
+### 两份旧评分规则的参考
 
 | 作者文件 | 原文件自测不匹配数 | 本地逐题复算 | 处理 |
 | --- | ---: | ---: | --- |
-| [deepseek-v4.1-flash_20260911.json](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/deepseek-v4.1-flash_20260911.json) | 29 | 28 | 保留来源与原因，等待上游修正或进一步核查 |
-| [glm-5.3_20260911.json](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/glm-5.3_20260911.json) | 27 | 26 | 保留来源与原因，等待上游修正或进一步核查 |
+| [deepseek-v4.1-flash_20260911.json](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/deepseek-v4.1-flash_20260911.json) | 29 | 新规则28，原规则29 | 已恢复，`legacy_absolute_raw` |
+| [glm-5.3_20260911.json](https://github.com/Ooo0ption/KBF/blob/68aefbbab879469152aaac9fd988a86c30ee4739/probes/reference_202609/glm-5.3_20260911.json) | 27 | 新规则26，原规则27 | 已恢复，`legacy_absolute_raw` |
 
-这两份分别为 DeepSeek V4.1 Flash 和 GLM-5.3。自测字段不一致影响基线复算，因此不进入可用列表；这项检查不判定作者的模型来源。完整检查摘要见 [update-audit.json](../src/relay_audit/data/reference_packs/update-audit.json)。
+旧规则直接比较数值的绝对误差，新规则先做整数舍入。两份文件的完整自测向量均能按旧规则复现，运行和回放因此使用其原规则。Flash包为363题、Novita渠道；GLM 5.3为372题、Z.AI渠道，均采于9月11日。Flash的这份参考早于10月17日别名升级，不能作为1017版本的参考。[核查过程](fingerprint-sources-2026-11-09.md) · [update-audit.json](../src/relay_audit/data/reference_packs/update-audit.json)
 
 ## 它具体比较什么
 
@@ -98,4 +98,4 @@ v0.4 提供“抓取参考库更新”按钮和 `api-mri references-update` 命�
 
 上述内置 KBF 代码与数据按固定提交的 Apache-2.0 许可保留，原许可见 [LICENSE](../src/relay_audit/vendor/kbf/LICENSE)，本组适配代码仍采用 MIT。重新分发时保留相应许可和来源说明。其他候选方法如 LLMmap、MET 历史响应集和 IRIS 尚未作为单 API 参考库打包进本项目，不混用其数据许可。
 
-更新时，文件 Git blob 哈希未变的已安装参考不重复下载。发行版已核查并排除的两个文件也按原始哈希复用排除记录；上游内容变化后重新下载和检查，不把旧排除结果沿用到新内容。
+更新时，文件Git blob哈希未变的已安装参考不重复下载。每份参考记录其评分策略；新文件须完整复现对应规则下的自测向量与计数后才收录。

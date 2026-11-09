@@ -16,7 +16,7 @@ def test_reference_audit_is_offline_and_does_not_invent_accuracy(tmp_path, monke
     assert result["external_model_calls"] == 0
     assert result["empirical_accuracy"] is None
     assert result["summary"] == {
-        "pack_count": 26, "packs_with_recorded_endpoint": 7,
+        "pack_count": 28, "packs_with_recorded_endpoint": 7,
         "packs_with_independently_verified_source": 0,
         "packs_with_multiple_self_runs": 0, "packs_with_other_model_runs": 0,
         "unusable_result_entries": 0,

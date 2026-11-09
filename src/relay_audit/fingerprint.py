@@ -26,7 +26,8 @@ from .records import content_hash, file_hash
 from .vendor.kbf import kbf_common as kbf
 from .vendor.kbf.kbf_test import compute_verdict
 from .vendor.kbf.protocols import build_request
-from .reference_library import catalog_entries, load_reference, ReferenceValidationError
+from .reference_library import (catalog_entries, load_reference, ReferenceValidationError,
+                                CURRENT_SCORING_POLICY, score_reference_value, validate_scored_batch)
 
 PACK_DIR = Path(__file__).parent / "data" / "reference_packs"
 SCHEMA = "relay-fingerprint/1"
@@ -84,6 +85,10 @@ def _clean(value: Any, secrets: tuple[str, ...] = ()) -> Any:
 
 def _load_pack(pack_id: str, library_dir: Path | None = None) -> tuple[dict, dict]:
     return load_reference(pack_id, library_dir)
+
+
+def _validate_batch(meta: dict, values, batch, consensus_values=None):
+    return validate_scored_batch(values, batch, consensus_values, meta.get("scoring_policy", CURRENT_SCORING_POLICY))
 
 
 def _batches(data: dict) -> list[dict]:
@@ -281,6 +286,7 @@ def _provider(candidate: dict, meta: dict) -> str | None:
 def _manifest(config: dict, meta: dict, synthetic: bool = False) -> dict:
     return {"type": "manifest", "schema": SCHEMA, "run_id": uuid4().hex,
             "reference_pack": meta["id"], "reference_sha256": meta["sha256"],
+            "scoring_policy": meta.get("scoring_policy", CURRENT_SCORING_POLICY),
             "candidate": config["candidate"], "settings": _settings(config),
             "profile": config["profile"], "budget": config["budget"], "selection": config["selection"],
             "synthetic": synthetic, "created_at": datetime.now(timezone.utc).isoformat()}
@@ -487,7 +493,7 @@ def run_fingerprint(payload: dict, out: Path, progress: Callable | None = None,
                         state, reason = "partial", "请求失败、输出截断或响应格式异常；保留已完成证据。"
                         break
                     values = kbf.extract_nums(_raw_text(row), len(batch["indices"]), kbf.DOMAIN_RANGES[batch["domain"]])
-                    okay, _ = kbf.validate_batch(values, batch["items"], [kbf.probe_consensus(p) for _, p in batch["items"]])
+                    okay, _ = _validate_batch(meta, values, batch["items"], [kbf.probe_consensus(p) for _, p in batch["items"]])
                     if okay:
                         break
                 if state != "complete":
@@ -512,6 +518,8 @@ def _validate_records(pack_id: str, records: list[dict], library_dir: Path | Non
         raise ValueError("Fingerprint evidence manifest is missing or unsupported")
     if manifest.get("reference_pack") != pack_id or manifest.get("reference_sha256") != meta["sha256"]:
         raise ValueError("Fingerprint evidence belongs to a different reference pack")
+    if manifest.get("scoring_policy", CURRENT_SCORING_POLICY) != meta.get("scoring_policy", CURRENT_SCORING_POLICY):
+        raise ValueError("Fingerprint scoring policy differs from the reference calibration")
     if type(manifest.get("synthetic")) is not bool:
         raise ValueError("Fingerprint evidence must state synthetic provenance")
     metadata = {"profile", "budget", "selection"} & set(manifest)
@@ -579,7 +587,7 @@ def _validate_records(pack_id: str, records: list[dict], library_dir: Path | Non
             expected = _request(config["candidate"]["model"], batch["prompt"], batch["max_tokens"], selected,
                                 _provider(config["candidate"], meta))
             prior_values = kbf.extract_nums(_raw_text(row), len(batch["indices"]), kbf.DOMAIN_RANGES[batch["domain"]])
-            okay, _ = kbf.validate_batch(prior_values, batch["items"], [kbf.probe_consensus(p) for _, p in batch["items"]])
+            okay, _ = _validate_batch(meta, prior_values, batch["items"], [kbf.probe_consensus(p) for _, p in batch["items"]])
             if row.get("error") or _truncated(row) or _raw_text(row) is None:
                 terminal = True
             elif okay or expected_attempt == _attempts(config["profile"]) - 1:
@@ -632,7 +640,7 @@ def _evaluate(meta: dict, data: dict, records: list[dict]) -> dict:
             valid = sum(v is not None for v in parsed)
             if valid > best_count:
                 best, best_count, best_row = parsed, valid, row
-            okay, _ = kbf.validate_batch(parsed, batch["items"], [kbf.probe_consensus(p) for _, p in batch["items"]])
+            okay, _ = _validate_batch(meta, parsed, batch["items"], [kbf.probe_consensus(p) for _, p in batch["items"]])
             if okay:
                 best, best_row = parsed, row
                 break
@@ -647,7 +655,7 @@ def _evaluate(meta: dict, data: dict, records: list[dict]) -> dict:
         if i not in batch_ids:
             continue
         reference = kbf.probe_consensus(probe)
-        match = None if reference is None or value is None else kbf.check_match(reference, value, probe["domain"])
+        match = None if reference is None or value is None else score_reference_value(reference, value, probe["domain"], meta.get("scoring_policy", CURRENT_SCORING_POLICY))
         source_row = selected_rows.get(batch_ids[i])
         raw_text = _raw_text(source_row) if source_row else None
         probes.append({"index": i, "prompt_id": f"kbf-{i:04d}", "domain": probe["domain"], "name": probe["name"],
@@ -756,7 +764,8 @@ def markdown_fingerprint_report(report: dict) -> str:
              f"模式：{profile_label}；所选 {summary['total']} 题 / 参考全库 {summary.get('reference_total', summary['total'])} 题。", "",
              fp["verdict_explanation"], "", f"待测模型字段：{cell(report['candidate']['model'])}。",
              f"参考：{ref['label']}；采集日期 {ref['generated_at'][:10]}；参考渠道字段 {ref['provider']}。",
-             f"参考端点：{ref['source_endpoint']}；来源为作者记录，未经本组独立认证。", "",
+             f"参考端点：{ref['source_endpoint']}；来源为作者记录，未经本组独立认证。",
+             f"计分规则：`{ref.get('scoring_policy', CURRENT_SCORING_POLICY)}`，与该参考的自测向量一致。", "",
              "| 指标 | 结果 |", "| --- | --- |",
              f"| 可解析覆盖率 | {summary['answered']}/{summary['total']} ({summary['coverage']:.1%}) |",
              f"| 匹配 / 不匹配 | {summary['matches']} / {summary['mismatches']} |",
@@ -835,11 +844,11 @@ def demo_fingerprint(pack_id: str, out: Path, variant: str = "match", *, library
             value = kbf.probe_consensus(probe)
             if variant == "different":
                 low, high = kbf.DOMAIN_RANGES[probe["domain"]]
-                value = low if not kbf.check_match(value, low, probe["domain"]) else high
+                value = low if not score_reference_value(value, low, probe["domain"], meta.get("scoring_policy", CURRENT_SCORING_POLICY)) else high
             values.append(value)
         raw = "\n".join(f"({i + 1}) {v}" for i, v in enumerate(values))
         # Preserve the same retry behavior for deliberately mismatching fixtures.
-        okay, _ = kbf.validate_batch(values, batch["items"], [kbf.probe_consensus(p) for _, p in batch["items"]])
+        okay, _ = _validate_batch(meta, values, batch["items"], [kbf.probe_consensus(p) for _, p in batch["items"]])
         for attempt in range(1 if okay else _attempts(profile)):
             cost = _cost([r for r in records if r["type"] == "request"], True)
             if cost["request_count"] >= config["budget"]["max_requests"]:

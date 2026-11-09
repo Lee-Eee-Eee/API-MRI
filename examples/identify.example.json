@@ -4,7 +4,11 @@
     "model": "your-model-alias",
     "api_key_env": "API_MRI_KEY"
   },
-  "budget": {"max_requests": 32, "max_output_tokens": 512},
+  "budget": {
+    "max_requests": 32,
+    "max_output_tokens": 512
+  },
   "timeout": 30,
-  "api2d_no_cache": false
+  "api2d_no_cache": false,
+  "bank_id": "rolling-20261109-core8-v1"
 }

@@ -110,7 +110,7 @@ def rehash(rows):
 
 def test_pinned_references_and_upstream_code_have_original_hashes():
     packs = fp.list_reference_packs()
-    assert len(packs) == 26
+    assert len(packs) == 28
     assert packs[0]["source_endpoint"] == "https://openrouter.ai/api/v1/chat/completions"
     assert all(p["source_verified"] is False for p in packs)
     upstream = Path(fp.__file__).parent / "vendor/kbf"
@@ -128,6 +128,38 @@ def test_plan_is_offline_bounded_and_does_not_read_credentials(monkeypatch):
     assert plan["max_requests"] == 6 + 3 * 34
     assert plan["max_output_tokens_total"] == 4800 + 240 * 265
     assert "api_key_env" not in json.dumps(plan)
+
+
+@pytest.mark.parametrize("pack_id,probe_index,value,self_hamming", [
+    ("deepseek-v4.1-flash_20260911", 210, 1.1, 29),
+    ("glm-5.3_20260911", 225, 9.95, 27),
+])
+def test_legacy_reference_scores_target_and_replay_with_its_original_rule(tmp_path, pack_id, probe_index, value, self_hamming):
+    meta, data = fp._load_pack(pack_id)
+    original_hash = file_hash(fp.PACK_DIR / meta["filename"])
+    fp.demo_fingerprint(pack_id, tmp_path / "demo", "match")
+    path = tmp_path / "demo" / "fingerprint_records.jsonl"
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert rows[0]["scoring_policy"] == "legacy_absolute_raw"
+    batch = next(batch for batch in fp._batches(data) if probe_index in batch["indices"])
+    source = next(row for row in rows if row.get("stage") == "batch" and row["batch_id"] == batch["id"])
+    source["raw_response"]["choices"][0]["message"]["content"] = "\n".join(
+        f"({index + 1}) {value if original == probe_index else fp.kbf.probe_consensus(probe)}"
+        for index, (original, probe) in enumerate(batch["items"]))
+    rehash(rows)
+    checked = fp.parse_fingerprint_records("\n".join(map(json.dumps, rows)), pack_id)
+    report = fp.replay_fingerprint(pack_id, checked, tmp_path / "replay")
+    summary = report["fingerprint"]["summary"]
+    assert summary["mismatches"] == 1
+    assert report["fingerprint"]["reference"]["self_hamming"] == self_hamming
+    assert report["fingerprint"]["reference"]["scoring_policy"] == "legacy_absolute_raw"
+    assert next(probe for probe in report["fingerprint"]["probes"] if probe["index"] == probe_index)["match"] is False
+    assert file_hash(fp.PACK_DIR / meta["filename"]) == original_hash
+    # A different policy cannot be substituted even after recomputing hashes.
+    rows[0]["scoring_policy"] = "absolute_half_up"
+    rehash(rows)
+    with pytest.raises(ValueError, match="Invalid fingerprint evidence"):
+        fp.parse_fingerprint_records("\n".join(map(json.dumps, rows)), pack_id)
 
 
 @pytest.mark.parametrize("variant,status", [("match", "no_difference_detected"), ("different", "difference_detected"), ("incomplete", "insufficient_evidence")])

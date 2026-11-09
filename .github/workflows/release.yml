@@ -88,7 +88,7 @@ jobs:
           & .core-venv/Scripts/python.exe -m pip install --no-deps --no-build-isolation -e '.[ui]'
           if ($LASTEXITCODE -ne 0) { throw 'Core project installation failed' }
           & .core-venv/Scripts/python.exe -m pip check
-          & .core-venv/Scripts/python.exe -X utf8 -m pytest tests/test_features_and_data.py tests/test_model_reference.py tests/test_showcase.py tests/test_web_showcase_embed.py tests/test_service_quality.py tests/test_identification.py -q
+          & .core-venv/Scripts/python.exe -X utf8 -m pytest tests/test_features_and_data.py tests/test_model_reference.py tests/test_showcase.py tests/test_web_showcase_embed.py tests/test_service_quality.py tests/test_identification.py tests/test_identification_library.py tests/test_identification_sync.py tests/test_identification_recompare.py tests/test_reference_collect.py tests/test_web_reference_maintenance.py -q
           if ($LASTEXITCODE -ne 0) { throw 'Core-only feature tests failed' }
           & .core-venv/Scripts/python.exe -X utf8 scripts/build_portable.py --profile core --out build/portable-release
           if ($LASTEXITCODE -ne 0) { throw 'Core build failed' }

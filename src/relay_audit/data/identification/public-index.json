@@ -1,0 +1,11 @@
+{
+  "schema": "api-mri-public-reference-index/1",
+  "updated_at": "2026-11-09T01:34:57.094851+00:00",
+  "banks": [
+    {
+      "id": "rolling-20261109-core8-v1",
+      "sha256": "dfb9bc9f1f11c81aca036c710ad5e9312152cc03088f8bc2e43b930f4b319740",
+      "filename": "rolling-20261109-core8-v1.json"
+    }
+  ]
+}

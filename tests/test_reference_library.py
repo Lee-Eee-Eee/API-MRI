@@ -244,14 +244,51 @@ def test_kernel_lock_prevents_parallel_updates_and_releases_after_exit(tmp_path)
     assert lib.update_reference_library(tmp_path, fetch=fixture)["status"] == "updated"
 
 
-def test_builtin_manifest_preserves_original_files_and_two_precise_rejections():
+def test_builtin_manifest_preserves_files_and_two_reproducible_legacy_calibrations():
     packs = fp.list_reference_packs()
-    assert len(packs) == 26
+    assert len(packs) == 28
     assert {p["model"] for p in packs}.issuperset({"openai/gpt-6-astra", "anthropic/claude-opus-5", "moonshotai/kimi-k3", "deepseek/deepseek-v4-pro-0813"})
     audit = json.loads((lib.BUNDLED_DIR / "update-audit.json").read_text(encoding="utf-8"))
-    assert audit["candidate_count"] == 28 and audit["accepted_count"] == 26
-    assert len(audit["skipped"]) == 2
-    assert all("self_test_hamming_mismatch" in row["reason"] for row in audit["skipped"])
+    assert audit["candidate_count"] == audit["accepted_count"] == 28
+    assert audit["scoring_policies"] == {"absolute_half_up": 26, "legacy_absolute_raw": 2}
+    assert audit["skipped"] == []
+    assert len(audit["previous_check"]["skipped"]) == 2
+    assert all("self_test_hamming_mismatch" in row["reason"] for row in audit["previous_check"]["skipped"])
+    assert {p["id"] for p in packs if p["scoring_policy"] == lib.LEGACY_SCORING_POLICY} == {
+        "deepseek-v4.1-flash_20260911", "glm-5.3_20260911"}
+
+
+def test_legacy_policy_requires_complete_original_counters_and_vector():
+    data = fixture_pack()
+    data["probes"] = [{"name": f"quantity {i}", "domain": "internet_culture", "value": 1.0} for i in range(3)]
+    entry = data["target_results"]["research-fixture"]
+    entry.update(values=[1.1, 1.0, 1.0], match_vector=[0, 1, 1], hamming=1, correct=2)
+    raw = encoded(data)
+    meta, restored = lib.validate_reference_bytes(raw, filename=NAME, upstream_commit=COMMIT, source_path=SOURCE_PATH)
+    assert meta["scoring_policy"] == lib.LEGACY_SCORING_POLICY
+    assert meta["self_hamming"] == 1 and restored == data
+    assert lib.score_reference_value(1.0, 1.1, "internet_culture", lib.LEGACY_SCORING_POLICY) is False
+    assert lib.score_reference_value(1.0, 1.1, "internet_culture", lib.CURRENT_SCORING_POLICY) is True
+    entry["match_vector"] = [1, 0, 1]
+    with pytest.raises(lib.ReferenceValidationError, match="self_test_hamming_mismatch"):
+        lib.validate_reference_bytes(encoded(data), filename=NAME, upstream_commit=COMMIT, source_path=SOURCE_PATH)
+
+
+def test_shifted_batch_validation_uses_the_enrollment_scoring_rule():
+    batch = [(i, {"domain": "internet_culture"}) for i in range(4)]
+    consensus, values = [1.0, 1.1, 1.2, 1.3], [1.1, 1.2, 1.3, 1.3]
+    assert lib.validate_scored_batch(values, batch, consensus, lib.CURRENT_SCORING_POLICY)[0] is True
+    okay, reason = lib.validate_scored_batch(values, batch, consensus, lib.LEGACY_SCORING_POLICY)
+    assert okay is False and reason == "shifted (own=0, shift=3/3)"
+
+
+def test_catalog_cannot_override_verified_scoring_policy(tmp_path):
+    lib.update_reference_library(tmp_path, fetch=UpstreamFixture())
+    rows = json.loads((tmp_path / "catalog.json").read_text(encoding="utf-8"))
+    rows[0]["scoring_policy"] = lib.LEGACY_SCORING_POLICY
+    (tmp_path / "catalog.json").write_text(json.dumps(rows), encoding="utf-8")
+    with pytest.raises(lib.ReferenceValidationError, match="scoring policy"):
+        lib.load_reference(rows[0]["id"], tmp_path)
 
 
 def test_checked_rejection_avoids_redownload_but_changed_blob_is_revalidated(tmp_path, monkeypatch):

@@ -1,0 +1,170 @@
+{
+  "date": "2026-11-09",
+  "bank_id": "rolling-20261109-core8-v1",
+  "bank_sha256": "dfb9bc9f1f11c81aca036c710ad5e9312152cc03088f8bc2e43b930f4b319740",
+  "snapshot_bytes": 124907,
+  "model_count": 134,
+  "new_reference_models": [
+    {
+      "model": "service/deepseek-official/deepseek-flash",
+      "label": "DeepSeek-V4.1-Flash",
+      "reference_answers": 63,
+      "heldout_answers": 31,
+      "full_valid_heldout_cells": 7,
+      "self_rank": 1,
+      "top5": [
+        {
+          "model": "service/deepseek-official/deepseek-flash",
+          "label": "DeepSeek-V4.1-Flash",
+          "family": "deepseek-official",
+          "distance": 0.18489,
+          "compared_cells": 7,
+          "rank": 1
+        },
+        {
+          "model": "inclusionai/ling-2.6-1t",
+          "label": "inclusionAI: Ling-2.6-1T",
+          "family": "other",
+          "distance": 0.399524,
+          "compared_cells": 7,
+          "rank": 2
+        },
+        {
+          "model": "z-ai/glm-4.5-air",
+          "label": "Z.ai: GLM 4.5 Air",
+          "family": "glm",
+          "distance": 0.438409,
+          "compared_cells": 7,
+          "rank": 3
+        },
+        {
+          "model": "nousresearch/hermes-3-llama-3.1-405b",
+          "label": "Nous: Hermes 3 405B Instruct",
+          "family": "llama",
+          "distance": 0.443639,
+          "compared_cells": 7,
+          "rank": 4
+        },
+        {
+          "model": "baidu/ernie-4.5-vl-424b-a47b",
+          "label": "Baidu: ERNIE 4.5 VL 424B A47B ",
+          "family": "ernie",
+          "distance": 0.45249,
+          "compared_cells": 7,
+          "rank": 5
+        }
+      ],
+      "budget_trajectory": [
+        {
+          "attempted_cells": 3,
+          "valid_cells": 3,
+          "self_rank": 1
+        },
+        {
+          "attempted_cells": 4,
+          "valid_cells": 4,
+          "self_rank": 1
+        },
+        {
+          "attempted_cells": 6,
+          "valid_cells": 5,
+          "self_rank": 1
+        },
+        {
+          "attempted_cells": 8,
+          "valid_cells": 7,
+          "self_rank": 1
+        }
+      ]
+    },
+    {
+      "model": "service/deepseek-official/deepseek-v4-pro",
+      "label": "DeepSeek-V4-Pro",
+      "reference_answers": 64,
+      "heldout_answers": 32,
+      "full_valid_heldout_cells": 8,
+      "self_rank": 1,
+      "top5": [
+        {
+          "model": "service/deepseek-official/deepseek-v4-pro",
+          "label": "DeepSeek-V4-Pro",
+          "family": "deepseek-official",
+          "distance": 0.334935,
+          "compared_cells": 8,
+          "rank": 1
+        },
+        {
+          "model": "qwen/qwen3.5-397b-a17b",
+          "label": "Qwen: Qwen3.5 397B A17B",
+          "family": "qwen",
+          "distance": 0.366261,
+          "compared_cells": 8,
+          "rank": 2
+        },
+        {
+          "model": "inclusionai/ling-2.6-1t",
+          "label": "inclusionAI: Ling-2.6-1T",
+          "family": "other",
+          "distance": 0.369617,
+          "compared_cells": 8,
+          "rank": 3
+        },
+        {
+          "model": "qwen/qwen3.5-plus-02-15",
+          "label": "Qwen: Qwen3.5 Plus 2026-02-15",
+          "family": "qwen",
+          "distance": 0.394163,
+          "compared_cells": 8,
+          "rank": 4
+        },
+        {
+          "model": "z-ai/glm-4.5-air",
+          "label": "Z.ai: GLM 4.5 Air",
+          "family": "glm",
+          "distance": 0.401959,
+          "compared_cells": 8,
+          "rank": 5
+        }
+      ],
+      "budget_trajectory": [
+        {
+          "attempted_cells": 3,
+          "valid_cells": 3,
+          "self_rank": 12
+        },
+        {
+          "attempted_cells": 4,
+          "valid_cells": 4,
+          "self_rank": 1
+        },
+        {
+          "attempted_cells": 6,
+          "valid_cells": 6,
+          "self_rank": 1
+        },
+        {
+          "attempted_cells": 8,
+          "valid_cells": 8,
+          "self_rank": 1
+        }
+      ]
+    }
+  ],
+  "real_bridge_requests": 192,
+  "requested_output_tokens": 3072,
+  "provider_reported_usage": {
+    "prompt_tokens": 8112,
+    "completion_tokens": 326,
+    "total_tokens": 8438
+  },
+  "bill_queried": false,
+  "capture_budget": {
+    "max_requests": 256,
+    "max_output_tokens": 4096
+  },
+  "reference_holdout_overlap": false,
+  "validation_scope": "same source and capture window, disjoint repetitions; no open-set calibration or cross-day claim",
+  "identity_authenticated": false,
+  "resumed_requests": 62,
+  "repeated_old_calls": 0
+}

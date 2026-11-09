@@ -1,6 +1,6 @@
 {
-  "version": "0.9.3",
-  "url": "https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v0.9.3/API-MRI-0.9.3-windows-x64.zip",
+  "version": "0.9.4",
+  "url": "https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v0.9.4/API-MRI-0.9.4-windows-x64.zip",
   "sha256": null,
   "size_bytes": null,
   "note": "Release CI writes the verified archive hash before packing the plugin."

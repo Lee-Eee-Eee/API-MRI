@@ -60,15 +60,37 @@ def build_parser() -> argparse.ArgumentParser:
     refs_update.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
     identify_plan = commands.add_parser("identify-plan", help="检查共享短探针候选识别计划，不调用API")
     identify_plan.add_argument("--config", type=Path, required=True)
+    identify_plan.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
     identify_run = commands.add_parser("identify", help="采集一个API的短答案并返回库内模型候选")
     identify_run.add_argument("--config", type=Path, required=True)
     identify_run.add_argument("--out", type=Path, required=True)
+    identify_run.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
     identify_demo = commands.add_parser("identify-demo", help="本地候选识别流程示例，不调用API")
     identify_demo.add_argument("--model", default=None)
     identify_demo.add_argument("--out", type=Path, required=True)
+    identify_demo.add_argument("--bank-id")
+    identify_demo.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
     identify_replay = commands.add_parser("identify-replay", help="离线复算候选排名，不调用API")
     identify_replay.add_argument("--records", type=Path, required=True)
     identify_replay.add_argument("--out", type=Path, required=True)
+    identify_replay.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
+    identify_recompare = commands.add_parser("identify-recompare", help="用另一参考库重排已有短回答，模型调用为零")
+    identify_recompare.add_argument("--records", type=Path, required=True)
+    identify_recompare.add_argument("--bank-id", required=True)
+    identify_recompare.add_argument("--out", type=Path, required=True)
+    identify_recompare.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
+    reference_plan = commands.add_parser("reference-plan", help="核对96次短参考采集计划，不调用模型")
+    reference_plan.add_argument("--config", type=Path, required=True)
+    reference_capture = commands.add_parser("reference-collect", help="手动采集一个服务的短指纹参考与独立留出")
+    reference_capture.add_argument("--config", type=Path, required=True)
+    reference_capture.add_argument("--out", type=Path, required=True)
+    reference_publish = commands.add_parser("reference-publish", help="校验已有采集并发布为声明型参考，不调用模型")
+    reference_publish.add_argument("--records", type=Path, required=True)
+    reference_publish.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
+    reference_publish.add_argument("--activate", action="store_true", help="发布后同时选用这份参考")
+    reference_sync = commands.add_parser("identification-sync", help="同步公开共同探针参考，不调用模型")
+    reference_sync.add_argument("--force", action="store_true")
+    reference_sync.add_argument("--library-dir", type=Path, default=Path("runs/reference-library"))
     fp_plan = commands.add_parser("fingerprint-plan", help="检查单API指纹计划与调用上限，不调用API")
     fp_plan.add_argument("--config", type=Path, required=True)
     fp_run = commands.add_parser("fingerprint", help="用内置参考包检测一个API")
@@ -194,18 +216,56 @@ def main(argv: list[str] | None = None) -> int:
                 if "api_key" in payload["candidate"]:
                     raise ValueError("CLI配置使用api_key_env环境变量名称，移除明文api_key。")
                 if args.command == "identify-plan":
-                    print(json.dumps(plan_identification(payload), ensure_ascii=False, indent=2))
+                    print(json.dumps(plan_identification(payload, library_dir=args.library_dir), ensure_ascii=False, indent=2))
                     return 0
-                result = run_identification(payload, args.out)
+                result = run_identification(payload, args.out, library_dir=args.library_dir)
             elif args.command == "identify-demo":
-                result = demo_identification(args.out, model_id=args.model)
+                result = demo_identification(args.out, model_id=args.model, bank_id=args.bank_id, library_dir=args.library_dir)
             else:
-                result = replay_identification(args.records, args.out)
+                text = args.records.read_text(encoding='utf8')
+                try:
+                    first = json.loads(text.splitlines()[0])
+                except (ValueError, IndexError):
+                    first = {}
+                if isinstance(first, dict) and first.get('schema') == 'api-mri-identification-recompare/1':
+                    from .identification_recompare import replay_recomparison
+                    result = replay_recomparison(text, args.out)
+                else:
+                    result = replay_identification(args.records, args.out, library_dir=args.library_dir)
             print({"candidate_shortlist": "已得到库内候选；距离不是身份概率。", "unknown_or_changed": "库外模型或服务行为变化。",
-                   "insufficient_evidence": "识别证据不足。"}[result["status"]])
+                   "insufficient_evidence": "识别证据不足。", "reference_shortlist": "已得到近期参考候选；开放集门槛未校准。"}[result["status"]])
             print(f"报告：{args.out / 'report.md'}")
             if result.get("collection", {}).get("failure"):
                 return 1
+        elif args.command == "identify-recompare":
+            from .identification_recompare import recompare_identification
+            result = recompare_identification(args.records.read_text(encoding='utf8'), args.bank_id, args.out, library_dir=args.library_dir)
+            print(f"已复用{result['reanalysis']['reused_requests']}条回答，本次模型调用0次。")
+            print(f"报告：{args.out / 'report.md'}")
+        elif args.command in {"reference-plan", "reference-collect"}:
+            from .reference_collect import plan_reference_capture, run_reference_capture
+            payload = json.loads(args.config.read_text(encoding="utf8"))
+            if not isinstance(payload, dict) or not isinstance(payload.get("candidate"), dict):
+                raise ValueError("参考配置需要candidate对象。")
+            if "api_key" in payload["candidate"]:
+                raise ValueError("CLI配置使用api_key_env，不保存明文密钥。")
+            if args.command == "reference-plan":
+                print(json.dumps(plan_reference_capture(payload), ensure_ascii=False, indent=2))
+            else:
+                result = run_reference_capture(payload, args.out)
+                print(f"参考回答：{result['reference']['reference_answers']}；留出回答：{result['reference']['holdout_answers']}。")
+                print(f"报告：{args.out / 'report.md'}")
+                return 0 if result['reference']['can_publish'] else 1
+        elif args.command == "reference-publish":
+            from .reference_collect import publish_capture
+            meta = publish_capture(args.records, args.library_dir)
+            if args.activate:
+                from .identification_library import activate_bank
+                activate_bank(meta['id'], args.library_dir)
+            print(json.dumps(meta, ensure_ascii=False, indent=2))
+        elif args.command == "identification-sync":
+            from .identification_sync import sync_public_references
+            print(json.dumps(sync_public_references(args.library_dir, force=args.force), ensure_ascii=False, indent=2))
         elif args.command == "references":
             from .fingerprint import list_reference_packs
             print(json.dumps(list_reference_packs(args.library_dir), ensure_ascii=False, indent=2))

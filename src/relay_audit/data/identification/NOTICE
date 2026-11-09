@@ -45,3 +45,17 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+2026-11-09 rolling core8-v1 addition:
+Eight unchanged PAMELA prompts and historical counts are retained with attribution.
+New service counts were collected through DSH routes labelled deepseek-official
+on 2026-11-09, with separate reference and held-out repetitions. Labels record the provider route
+and catalog claim, not independently authenticated model weights. New aggregate
+counts are distributed under CC-BY-4.0 by the API-MRI contributors.
+Snapshot: rolling-20261109-core8-v1.json (134 declared model/service labels).
+SHA-256: dfb9bc9f1f11c81aca036c710ad5e9312152cc03088f8bc2e43b930f4b319740
+New valid counts: Flash 63 reference / 31 held-out; Pro 64 reference / 32 held-out.
+The two invalid Flash attempts remain in its capture ledger and are excluded
+from these aggregate answer counts. Held-out counts are not used as references.
+The legacy calibrated bank remains unchanged; rolling snapshots have no imported
+open-set calibration. See docs/reference-maintenance.md and the per-file source metadata.

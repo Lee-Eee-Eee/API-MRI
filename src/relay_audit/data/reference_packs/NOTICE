@@ -2,8 +2,15 @@ Unmodified KBF reference data from commit 68aefbbab879469152aaac9fd988a86c30ee47
 Copyright 2026 The KBF Authors. Licensed under Apache-2.0.
 See ../../vendor/kbf/LICENSE and catalog.json for source URLs and SHA-256 hashes.
 These are author-published reference fingerprints, not independently authenticated.
-This distribution includes 26 compatible files from probes/reference_202609.
-Two further files were excluded because their self-test counters cannot be
-reproduced by the pinned local implementation; see update-audit.json.
+This distribution includes 28 original files from probes/reference_202609.
+The original 26 files remain byte-identical and use KBF's absolute-domain
+half-up comparison rule. Two additional files were retrieved from commit
+6b4c403def2498cb92b7bd51ad958ddee5b3d06f on 2026-11-09; their Git blobs are
+unchanged from the original pinned commit. Their complete stored calibration
+vectors reproduce the earlier unrounded absolute-domain rule from commit
+b789b4b7abe119e28ec6260142564b2189ff5449, so both reference and target are
+scored under the explicit legacy_absolute_raw policy. No original counters,
+answers, collection timestamps, or source files were rewritten.
+See catalog.json and update-audit.json for policy and compatibility evidence.
 Some files record an OpenRouter reference endpoint; others omit the endpoint.
 Provider labels are author-recorded. See each catalog entry for recorded fields.

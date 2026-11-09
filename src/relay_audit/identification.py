@@ -7,6 +7,7 @@ KBF reference packs are deliberately NOT merged: their full prompts differ.
 from __future__ import annotations
 
 from collections import Counter
+from copy import deepcopy
 from datetime import datetime, timezone
 from functools import lru_cache
 import hashlib
@@ -32,6 +33,8 @@ BLOCK = 4
 TOKEN_CAP = 16
 MIN_CELLS = 3
 STOP_POLICIES = {"fixed", "stable_shortlist"}
+CORE_SAMPLING_POLICY = "core8-fixed-attempts-v1"
+SEMANTIC_INVALID = {"invalid", "refusal", "empty"}
 COIN = {"en": {"heads": "h", "tails": "t"}, "ru": {"орёл": "h", "орел": "h", "решка": "t"},
         "zh": {"正面": "h", "正": "h", "反面": "t", "反": "t"}, "ar": {"صورة": "h", "كتابة": "t"}}
 _PUNCT = re.compile(r'''[«»"“”„'’‘`().,!?。！？、：:;؛؟\[\]{}*_#-]+''')
@@ -96,9 +99,9 @@ def jsd(left: dict, right: dict) -> float:
     return max(0.0, min(1.0, score))
 
 
-@lru_cache(maxsize=1)
-def load_identification_bank() -> dict:
-    raw = BANK_PATH.read_bytes()
+@lru_cache(maxsize=4)
+def _load_historical_bank(stamp) -> dict:
+    raw = Path(stamp[0]).read_bytes()
     if len(raw) > 8_000_000:
         raise ValueError("Identification bank exceeds the size limit")
     bank = json.loads(raw)
@@ -107,8 +110,13 @@ def load_identification_bank() -> dict:
     return bank
 
 
-def _config(payload: dict) -> tuple[dict, str | None, str | None]:
-    allowed = {"candidate", "candidate_models", "budget", "timeout", "api2d_no_cache", "stop_policy"}
+def load_identification_bank() -> dict:
+    from .identification_library import _stamp
+    return deepcopy(_load_historical_bank(_stamp(BANK_PATH)))
+
+
+def _config(payload: dict, *, library_dir: Path | None = None, bank: dict | None = None) -> tuple[dict, str | None, str | None]:
+    allowed = {"candidate", "candidate_models", "budget", "timeout", "api2d_no_cache", "stop_policy", "bank_id"}
     if not isinstance(payload, dict) or set(payload) - allowed:
         raise ValueError("识别配置包含不支持的字段。")
     candidate = payload.get("candidate")
@@ -147,7 +155,8 @@ def _config(payload: dict) -> tuple[dict, str | None, str | None]:
     if (type(budget["max_requests"]) is not int or not 1 <= budget["max_requests"] <= 32
             or type(budget["max_output_tokens"]) is not int or not 1 <= budget["max_output_tokens"] <= 512):
         raise ValueError("实验识别须设1至32次请求、1至512输出配额。")
-    ids = [m["model"] for m in load_identification_bank()["models"]]
+    bank = _selected_bank(payload, library_dir=library_dir, bank=bank)
+    ids = [m["model"] for m in bank["models"]]
     chosen = payload.get("candidate_models", ids)
     if (not isinstance(chosen, list) or any(not isinstance(m, str) for m in chosen) or len(chosen) < 2 or len(chosen) > len(ids)
             or len(set(chosen)) != len(chosen) or any(m not in ids for m in chosen)):
@@ -160,10 +169,48 @@ def _config(payload: dict) -> tuple[dict, str | None, str | None]:
         raise ValueError("stop_policy须为fixed或stable_shortlist。")
     config = {"candidate": {"api_base": base, "model": model.strip()}, "timeout": timeout, "budget": budget,
               "candidate_models": sorted(chosen), "api2d_no_cache": bypass}
+    if "bank_id" in payload:
+        config["bank_id"] = bank["id"]
     # Omitted policy is kept omitted so v0.6 hashed manifests still replay exactly.
     if "stop_policy" in payload:
         config["stop_policy"] = policy
     return config, key, env
+
+
+def _selected_bank(config=None, *, library_dir=None, bank=None):
+    if bank is not None:
+        return bank
+    if config is not None and "bank_id" in config:
+        from .identification_library import load_bank
+        if not isinstance(config["bank_id"], str):
+            raise ValueError("bank_id须为参考版本标识。")
+        return load_bank(config["bank_id"], library_dir)
+    # The zero-argument loader remains the legacy seam, including old test fixtures.
+    return load_identification_bank()
+
+
+def _bank_material(bank, config):
+    if bank.get("profile") == "core8-v1":
+        from .identification_library import bank_digest, validate_bank_snapshot
+        snapshot = validate_bank_snapshot(bank)
+        return {"bank_sha256": bank_digest(snapshot), "bank_snapshot": snapshot}
+    return {"bank_sha256": hashlib.sha256(BANK_PATH.read_bytes()).hexdigest()}
+
+
+def _manifest_bank(manifest, library_dir=None):
+    if "bank_snapshot" in manifest:
+        from .identification_library import validate_bank_snapshot
+        bank = validate_bank_snapshot(manifest["bank_snapshot"], expected_sha=manifest.get("bank_sha256"))
+        if manifest.get("config", {}).get("bank_id") != bank["id"]:
+            raise ValueError("Embedded reference does not match the sampling configuration.")
+        return bank
+    if manifest.get("bank_sha256") != hashlib.sha256(BANK_PATH.read_bytes()).hexdigest():
+        raise ValueError("Legacy reference hash mismatch.")
+    config = manifest.get("config", {})
+    bank = load_identification_bank()
+    if "bank_id" in config and config["bank_id"] not in {"legacy", bank["id"]}:
+        raise ValueError("A rolling reference needs its immutable embedded snapshot.")
+    return bank
 
 
 def _models(bank: dict, model_ids: list[str]) -> list[dict]:
@@ -202,8 +249,15 @@ def select_next_cell(bank: dict, models: list[dict], observed: dict[str, Counter
     ranked = rank_candidates(bank, models, observed)
     shortlist = {r["model"] for r in ranked[:12]} if ranked else {m["model"] for m in models}
     active = [m for m in models if m["model"] in shortlist]
+    # Rolling snapshots are loaded as detached objects; Python object ids can
+    # be reused across versions. Bind their cached gains to immutable content.
+    if bank.get("profile") == "core8-v1":
+        from .identification_library import bank_digest
+        cache_identity = bank_digest(bank)
+    else:
+        cache_identity = id(bank)
     def gain(cell):
-        cache_key = (id(bank), tuple(m["model"] for m in active), cell["id"])
+        cache_key = (cache_identity, tuple(m["model"] for m in active), cell["id"])
         if cache_key in _GAIN_CACHE:
             return _GAIN_CACHE[cache_key]
         pairs = [jsd(a["counts"][cell["id"]], b["counts"][cell["id"]])
@@ -219,7 +273,7 @@ def select_next_cell(bank: dict, models: list[dict], observed: dict[str, Counter
 
 
 def _bank_summary(bank: dict) -> dict:
-    return {k: bank[k] for k in ("id", "source", "collected_at", "built_on", "reference_split", "normalization")}
+    return {k: bank[k] for k in ("id", "source", "collected_at", "built_on", "reference_split", "normalization", "profile", "qualification", "new_observations_collected_at") if k in bank}
 
 
 def _stage(bank: dict, models: list[dict], observed: dict[str, Counter]) -> dict:
@@ -292,16 +346,19 @@ def identification_evidence(bank: dict, models: list[dict], observed: dict[str, 
                 "same_leader_fraction": (sum(r["same_leader"] for r in leave_out) / len(leave_out)) if leave_out else None,
                 "interpretation": "删除一个已采探针后重排；保持采样题序固定，不是身份概率或独立验证。"},
             "provenance": [{"model": row["model"], "providers": by_model[row["model"]].get("providers", []),
-                            "provider_labels_source": "author_record"} for row in heads],
+                            "provider_labels_source": by_model[row["model"]].get("provenance", {}).get("kind", "author_record"),
+                            **({"source_declaration": by_model[row["model"]]["provenance"]} if "provenance" in by_model[row["model"]] else {})}
+                           for row in heads],
             "analysis_api_requests": 0}
 
 
-def plan_identification(payload: dict) -> dict:
-    config, key, _ = _config(payload)
-    bank = load_identification_bank()
+def plan_identification(payload: dict, *, library_dir: Path | None = None) -> dict:
+    config, key, _ = _config(payload, library_dir=library_dir)
+    bank = _selected_bank(config, library_dir=library_dir)
     models = _models(bank, config["candidate_models"])
+    rolling = bank.get("profile") == "core8-v1"
     cells = _common_cells(bank, models)
-    first = select_next_cell(bank, models, {})
+    first = cells[0] if rolling else select_next_cell(bank, models, {})
     return fp._clean({"schema": SCHEMA, "kind": "identification", "bank": _bank_summary(bank),
         "candidate_count": len(models), "candidates": [{k: m[k] for k in ("model", "label", "family")} for m in models],
         "shared_cell_count": len(cells), "first_probe": first, "budget": config["budget"],
@@ -309,14 +366,14 @@ def plan_identification(payload: dict) -> dict:
                                     config["budget"]["max_output_tokens"] // (TOKEN_CAP * BLOCK)),
         "protocol": {"temperature": 1, "max_tokens": TOKEN_CAP, "reasoning": {"enabled": False},
                      "samples_per_cell": BLOCK, "retries": 0},
-        "selection_method": "shared_prompt_pairwise_jsd_per_utf8_cost_v1",
+        "selection_method": CORE_SAMPLING_POLICY if rolling else "shared_prompt_pairwise_jsd_per_utf8_cost_v1",
         "stop_policy": config.get("stop_policy", "fixed"),
-        "validation": {"reference_labels": "author_provided", "reference_provider_split": "pooled",
-            "fixed_budget_evaluation": "same_collection_disjoint_repetitions",
+        "validation": {"reference_labels": "mixed_declared_observations" if bank.get("profile") == "core8-v1" else "author_provided", "reference_provider_split": "recorded_per_model" if bank.get("profile") == "core8-v1" else "pooled",
+            "fixed_budget_evaluation": "not_calibrated" if bank.get("profile") == "core8-v1" else "same_collection_disjoint_repetitions",
             "stable_stop_earliest_requests": 24, "live_accuracy_evaluated": False},
         "config": config, "notes": ["候选距离为JSD原值，数值较小表示本轮回答分布更接近；它不是身份概率。",
-            "统一参考采于2026年7月；未收录或已更新模型可能靠近某个旧标签。",
-            "每4次有效回答完成一个单元；整段回答缓存或隐藏推理会停止采样。",
+            "当前版本含历史计数与新采样；新增型号的来源是声明，候选排名尚无开放集校准。" if bank.get("profile") == "core8-v1" else "统一参考采于2026年7月；未收录或已更新模型可能靠近某个旧标签。",
+            "每题固定4次尝试；语义无效不追加请求，只有4条有效回答的单元进入排名。" if rolling else "每4次有效回答完成一个单元；整段回答缓存或隐藏推理会停止采样。",
             "输出配额不包括输入与额外推理费用；报告记录供应商自报用量。"]}, (key,) if key else ())
 
 
@@ -413,9 +470,12 @@ def _report(bank: dict, config: dict, records: list[dict]) -> dict:
             status = "unknown_or_changed"
         elif not gate:
             status = "insufficient_evidence"
+    rolling = bank.get("profile") == "core8-v1"
     if completed >= MIN_CELLS and gate_config is None:
-        status = "insufficient_evidence"
-    if invalid or finish.get("state") in {"partial", "cancelled"}:
+        status = "reference_shortlist" if rolling and ranking else "insufficient_evidence"
+    fixed_attempts = records[0].get("sampling_policy") == CORE_SAMPLING_POLICY
+    blocking_invalid = {name: count for name, count in invalid.items() if not fixed_attempts or name not in SEMANTIC_INVALID}
+    if blocking_invalid or finish.get("state") in {"partial", "cancelled"}:
         status = "insufficient_evidence"
     families = {}
     for row in ranking:
@@ -432,30 +492,33 @@ def _report(bank: dict, config: dict, records: list[dict]) -> dict:
         "coverage": {"completed_cells": completed, "valid_answers": sum(map(lambda c: sum(c.values()), observed.values())),
                      "compared_candidates": len(ranking), "candidate_count": len(config["candidate_models"]),
                      "invalid_answers": dict(invalid), "partial_cells": [c for c, v in observed.items() if sum(v.values()) < BLOCK],
+                     **({"attempted_cells": len({row["cell_id"] for row in requests}),
+                         "incomplete_cells": sorted({row["cell_id"] for row in requests}
+                            - {c for c, values in observed.items() if sum(values.values()) >= BLOCK})} if fixed_attempts else {}),
                      "cells": {c: dict(v) for c, v in observed.items()}},
         "calibration": {**calibration, "applicable_gate": gate_config, "ranking_gap": gap,
-                        "inside_distance_envelope": envelope, "open_set_gate_passed": gate, "scope": "same_collection_offline_only",
+                        "inside_distance_envelope": envelope, "open_set_gate_passed": gate, "scope": "uncalibrated_rolling_reference" if rolling else "same_collection_offline_only",
                         "rank_stability": rank_stability,
-                        "interpretation": "距离包络来自同轮公开采集的独立重复；现网准确率尚未测量。"},
+                        "interpretation": "新增参考保留来源声明；当前排名没有开放集校准门槛。" if rolling else "距离包络来自同轮公开采集的独立重复；现网准确率尚未测量。"},
         "cost": cost, "stop_reason": stop, "records_file": "identification_records.jsonl",
         "evidence": evidence,
-        "validation": {"reference_labels": "author_provided", "reference_provider_split": "pooled",
-            "fixed_budget_evaluation": "same_collection_disjoint_repetitions",
+        "validation": {"reference_labels": "mixed_declared_observations" if rolling else "author_provided", "reference_provider_split": "recorded_per_model" if rolling else "pooled",
+            "fixed_budget_evaluation": "not_calibrated" if rolling else "same_collection_disjoint_repetitions",
             "stop_policy_evaluation": ("exploratory_historical_holdout_reanalysis"
                                       if config.get("stop_policy") == "stable_shortlist" else "fixed_horizon"),
             "live_accuracy_evaluated": False,
-            "source_stratum_audit": "docs/identification-stress.json"},
+            "source_stratum_audit": None if rolling else "docs/identification-stress.json"},
         "stopping": {"policy": config.get("stop_policy", "fixed"),
             "early_stopped": stop == "stable_shortlist",
             "sequential_experimental": config.get("stop_policy", "fixed") == "stable_shortlist",
-            "fixed_horizon_metrics_apply_to_policy": (config.get("stop_policy", "fixed") == "fixed"
+            "fixed_horizon_metrics_apply_to_policy": (not rolling and config.get("stop_policy", "fixed") == "fixed"
                 and len(config["candidate_models"]) == len(bank["models"]) and MIN_CELLS <= completed <= 8),
             "unused_request_budget": max(0, config["budget"]["max_requests"] - len(requests)),
             "unused_output_token_cap": max(0, config["budget"]["max_output_tokens"] - len(requests) * TOKEN_CAP)},
         "collection": {"state": finish.get("state", "partial"), "failure": finish.get("failure")},
         "notes": ["候选排名预测与库中哪些服务标签更接近；当前版本保留身份拒判，距离不换算为概率。",
                   "排名稳定性采用逐个完整单元留出复算；单元数不足时保持未知，不能替代独立验证集。",
-                  "家族按作者family_guess合并，展示各家族最接近的标签距离；不代表模型谱系证明。",
+                  "家族按参考记录的声明归组，展示各家族最接近标签的距离。" if rolling else "家族按作者family_guess合并，展示各家族最接近的标签距离；不代表模型谱系证明。",
                   "未收录、更新、动态路由或服务配置变化都可能导致库外结果。",
                   "已完成回答同时比较全部候选；复算不再次发送模型请求。"]
                   + ([transport["note"]] if transport else [])
@@ -463,7 +526,7 @@ def _report(bank: dict, config: dict, records: list[dict]) -> dict:
 
 
 def markdown_identification_report(report: dict) -> str:
-    labels = {"candidate_shortlist": "已得到库内候选", "unknown_or_changed": "库外模型或服务行为变化", "insufficient_evidence": "采样证据不足"}
+    labels = {"reference_shortlist": "已得到参考候选（未经开放集校准）", "candidate_shortlist": "已得到库内候选", "unknown_or_changed": "库外模型或服务行为变化", "insufficient_evidence": "采样证据不足"}
     lines = ["# API-MRI · 模型候选识别", "", labels[report["status"]], "",
         f"已完成{report['coverage']['completed_cells']}个单元，比较{report['coverage']['compared_candidates']}个候选；停止原因：{report['stop_reason']}。", "",
         "| 候选 | 家族 | JSD距离（越小越接近） |", "| --- | --- | ---: |"]
@@ -489,29 +552,33 @@ def _write_report(out: Path, report: dict):
     (out / "report.md").write_text(markdown_identification_report(report), encoding="utf-8")
 
 
-def run_identification(payload: dict, out: Path, progress=None, cancelled=None) -> dict:
-    config, direct, env = _config(payload)
+def run_identification(payload: dict, out: Path, progress=None, cancelled=None, *, library_dir: Path | None = None) -> dict:
+    config, direct, env = _config(payload, library_dir=library_dir)
     key = direct or os.environ.get(env or "")
     if not isinstance(key, str) or not 8 <= len(key) <= 4096 or re.search(r"\s", key):
         raise ValueError("API key missing or invalid")
     secrets = (key, quote(key, safe=""))
     config = fp._clean(config, secrets)
-    bank = load_identification_bank()
+    bank = _selected_bank(config, library_dir=library_dir)
+    fixed_attempts = bank.get("profile") == "core8-v1"
     models = _models(bank, config["candidate_models"])
+    sampling_cells = _common_cells(bank, models)
     output = Path(out)
     output.mkdir(parents=True, exist_ok=False)
     path = output / "identification_records.jsonl"
     records = []
     fp._append(path, records, {"type": "manifest", "schema": SCHEMA, "run_id": uuid4().hex,
-        "bank_sha256": hashlib.sha256(BANK_PATH.read_bytes()).hexdigest(), "config": config,
+        **_bank_material(bank, config), "config": config,
+        **({"sampling_policy": CORE_SAMPLING_POLICY} if fixed_attempts else {}),
         "synthetic": False, "created_at": datetime.now(timezone.utc).isoformat()})
-    fp._write_json(output / "sampling_plan.json", plan_identification(payload))
-    observed, stop, failure, stages = {}, "budget_exhausted", None, []
+    fp._write_json(output / "sampling_plan.json", plan_identification(payload, library_dir=library_dir))
+    observed, stop, failure, stages, attempted_cells = {}, "budget_exhausted", None, [], []
     with httpx.Client(timeout=config["timeout"], follow_redirects=False, trust_env=False) as client:
         while True:
-            cell = select_next_cell(bank, models, observed)
+            cell = (next((cell for cell in sampling_cells if cell["id"] not in attempted_cells), None)
+                    if fixed_attempts else select_next_cell(bank, models, observed))
             if cell is None:
-                stop = "no_discriminating_shared_probe"
+                stop = "shared_core_complete" if fixed_attempts else "no_discriminating_shared_probe"
                 break
             used = fp._cost([r for r in records if r["type"] == "request"])
             if (used["request_count"] + BLOCK > config["budget"]["max_requests"]
@@ -519,6 +586,7 @@ def run_identification(payload: dict, out: Path, progress=None, cancelled=None) 
                 stop = "budget_exhausted"
                 break
             counts = Counter()
+            attempted_cells.append(cell["id"])
             for _ in range(BLOCK):
                 if cancelled and cancelled():
                     stop = "cancelled"
@@ -534,19 +602,21 @@ def run_identification(payload: dict, out: Path, progress=None, cancelled=None) 
                     "request": body, "request_headers": transport_config["_headers"],
                     **fp._call(client, transport_config, key, body, secrets, cancelled)}, secrets))
                 value, status = _sample(row, cell)
-                if status != "valid":
+                if status != "valid" and (not fixed_attempts or status not in SEMANTIC_INVALID):
                     stop, failure = status, status
                     break
-                counts[value] += 1
+                if status == "valid":
+                    counts[value] += 1
                 if progress:
                     progress({"phase": "identifying", "completed": used["request_count"] + 1,
                         "total": config["budget"]["max_requests"], "message": f"已采集{used['request_count'] + 1}次短回答",
                         "cost": _identification_cost([r for r in records if r["type"] == "request"])})
             if counts:
                 observed[cell["id"]] = counts
-            if len(counts) == 0 or sum(counts.values()) < BLOCK or failure or stop == "cancelled":
+            if failure or stop == "cancelled" or (not fixed_attempts and (not counts or sum(counts.values()) < BLOCK)):
                 break
-            stages.append(_stage(bank, models, observed))
+            if sum(counts.values()) == BLOCK:
+                stages.append(_stage(bank, models, observed))
             if config.get("stop_policy") == "stable_shortlist" and should_stop_stable(stages):
                 stop = "stable_shortlist"
                 break
@@ -557,20 +627,25 @@ def run_identification(payload: dict, out: Path, progress=None, cancelled=None) 
     return report
 
 
-def parse_identification_records(text: str) -> list[dict]:
+def parse_identification_records(text: str, *, library_dir: Path | None = None) -> list[dict]:
     if not isinstance(text, str) or len(text.encode("utf-8")) > 4 * 1024 * 1024:
         raise ValueError("Identification evidence exceeds 4 MiB")
     try:
         records = [json.loads(line, parse_constant=lambda _: (_ for _ in ()).throw(ValueError())) for line in text.splitlines() if line.strip()]
         manifest = records[0]
         if (len(records) > 34 or manifest["type"] != "manifest" or manifest["schema"] != SCHEMA
-                or manifest["bank_sha256"] != hashlib.sha256(BANK_PATH.read_bytes()).hexdigest()
                 or type(manifest["synthetic"]) is not bool):
             raise ValueError
-        config, _, _ = _config(manifest["config"])
+        bank = _manifest_bank(manifest, library_dir)
+        fixed_attempts = manifest.get("sampling_policy") == CORE_SAMPLING_POLICY
+        if ("sampling_policy" in manifest and not fixed_attempts
+                or fixed_attempts and bank.get("profile") != "core8-v1"):
+            raise ValueError
+        config, _, _ = _config(manifest["config"], library_dir=library_dir, bank=bank)
         if config != manifest["config"]:
             raise ValueError
-        cells = {c["id"]: c for c in _common_cells(load_identification_bank(), _models(load_identification_bank(), config["candidate_models"]))}
+        sampling_cells = _common_cells(bank, _models(bank, config["candidate_models"]))
+        cells = {c["id"]: c for c in sampling_cells}
         previous = None
         count = 0
         observed, current_cell, current_count, stages = {}, None, 0, []
@@ -582,13 +657,30 @@ def parse_identification_records(text: str) -> list[dict]:
                 raise ValueError
             previous = row["record_hash"]
             if row["type"] == "request":
+                if fixed_attempts:
+                    if terminal or count >= len(sampling_cells) * BLOCK:
+                        raise ValueError
+                    if count % BLOCK == 0 and (count + BLOCK > config["budget"]["max_requests"]
+                            or (count + BLOCK) * TOKEN_CAP > config["budget"]["max_output_tokens"]):
+                        raise ValueError
+                    expected = sampling_cells[count // BLOCK]
+                    if (row["cell_id"] != expected["id"] or row["request"] != _body(config, expected)
+                            or row.get("request_headers", {}) != ({"x-api2d-no-cache": "1"} if config["api2d_no_cache"] else {})):
+                        raise ValueError
+                    count += 1
+                    value, status = _sample(row, expected)
+                    if status == "valid":
+                        observed.setdefault(expected["id"], Counter())[value] += 1
+                    elif status not in SEMANTIC_INVALID:
+                        terminal = True
+                    continue
                 if terminal:
                     raise ValueError
                 if current_cell is None or current_count == BLOCK:
                     if (count + BLOCK > config["budget"]["max_requests"]
                             or (count + BLOCK) * TOKEN_CAP > config["budget"]["max_output_tokens"]):
                         raise ValueError
-                    expected = select_next_cell(load_identification_bank(), _models(load_identification_bank(), config["candidate_models"]), observed)
+                    expected = select_next_cell(bank, _models(bank, config["candidate_models"]), observed)
                     if expected is None or row["cell_id"] != expected["id"]:
                         raise ValueError
                     current_cell, current_count = expected["id"], 0
@@ -605,7 +697,7 @@ def parse_identification_records(text: str) -> list[dict]:
                     observed[current_cell][value] += 1
                     current_count += 1
                     if current_count == BLOCK:
-                        stages.append(_stage(load_identification_bank(), _models(load_identification_bank(), config["candidate_models"]), observed))
+                        stages.append(_stage(bank, _models(bank, config["candidate_models"]), observed))
                         if config.get("stop_policy") == "stable_shortlist" and should_stop_stable(stages):
                             terminal, stable_stop = True, True
                 else:
@@ -615,6 +707,17 @@ def parse_identification_records(text: str) -> list[dict]:
         if records[-1]["type"] != "finish" or count > config["budget"]["max_requests"] or count * TOKEN_CAP > config["budget"]["max_output_tokens"]:
             raise ValueError
         finish = records[-1]
+        if fixed_attempts:
+            requests = [row for row in records if row["type"] == "request"]
+            last_status = _sample(requests[-1], cells[requests[-1]["cell_id"]])[1] if requests else "valid"
+            failure = last_status if last_status not in SEMANTIC_INVALID | {"valid"} else None
+            expected_state = "cancelled" if finish.get("stop_reason") == "cancelled" else "partial" if failure else "complete"
+            if (finish.get("failure") != failure or finish.get("state") != expected_state
+                    or failure is not None and finish.get("stop_reason") != failure
+                    or failure is None and finish.get("stop_reason") not in {"budget_exhausted", "demo_budget_exhausted", "shared_core_complete", "cancelled"}
+                    or finish.get("stop_reason") == "shared_core_complete" and count != len(sampling_cells) * BLOCK
+                    or failure is None and finish.get("stop_reason") != "cancelled" and count % BLOCK):
+                raise ValueError
         if stable_stop != (finish.get("stop_reason") == "stable_shortlist"):
             raise ValueError
         if stable_stop and (finish.get("state") != "complete" or finish.get("failure") is not None):
@@ -624,36 +727,40 @@ def parse_identification_records(text: str) -> list[dict]:
         raise ValueError("识别记录的协议、参考哈希或记录链不一致。") from None
 
 
-def replay_identification(records: list[dict] | Path, out: Path) -> dict:
+def replay_identification(records: list[dict] | Path, out: Path, *, library_dir: Path | None = None) -> dict:
     text = records.read_text(encoding="utf-8") if isinstance(records, Path) else "\n".join(json.dumps(r, ensure_ascii=False) for r in records)
-    checked = parse_identification_records(text)
+    checked = parse_identification_records(text, library_dir=library_dir)
     output = Path(out)
     output.mkdir(parents=True, exist_ok=False)
     (output / "identification_records.jsonl").write_text(text + "\n", encoding="utf-8")
-    result = _report(load_identification_bank(), checked[0]["config"], checked)
+    result = _report(_manifest_bank(checked[0], library_dir), checked[0]["config"], checked)
     _write_report(output, result)
     return result
 
 
-def demo_identification(out: Path, model_id: str | None = None, budget: dict | None = None) -> dict:
+def demo_identification(out: Path, model_id: str | None = None, budget: dict | None = None, *, bank_id: str | None = None, library_dir: Path | None = None) -> dict:
     """Deterministic process fixture; it reuses reference counts, not held-out tests."""
-    bank = load_identification_bank()
+    bank = _selected_bank({"bank_id": bank_id} if bank_id is not None else {}, library_dir=library_dir)
+    fixed_attempts = bank.get("profile") == "core8-v1"
+    sampling_cells = _common_cells(bank, bank["models"])
     target = next((m for m in bank["models"] if m["model"] == model_id), bank["models"][0])
     if model_id is not None and target["model"] != model_id:
         raise ValueError("示例模型不在参考库。")
-    config, _, _ = _config({"candidate": {"api_base": "https://offline.example/v1", "model": "offline-demo"}, "budget": budget or DEFAULT_BUDGET})
+    config, _, _ = _config({"candidate": {"api_base": "https://offline.example/v1", "model": "offline-demo"}, "budget": budget or DEFAULT_BUDGET, **({"bank_id": bank_id} if bank_id is not None else {})}, library_dir=library_dir)
     output = Path(out)
     output.mkdir(parents=True, exist_ok=False)
     records, observed = [], {}
     path = output / "identification_records.jsonl"
     fp._append(path, records, {"type": "manifest", "schema": SCHEMA, "run_id": uuid4().hex,
-        "bank_sha256": hashlib.sha256(BANK_PATH.read_bytes()).hexdigest(), "config": config, "synthetic": True,
+        **_bank_material(bank, config), "config": config, "synthetic": True,
+        **({"sampling_policy": CORE_SAMPLING_POLICY} if fixed_attempts else {}),
         "demo_model": target["model"], "created_at": datetime.now(timezone.utc).isoformat()})
     while len([r for r in records if r["type"] == "request"]) + BLOCK <= min(config["budget"]["max_requests"], config["budget"]["max_output_tokens"] // TOKEN_CAP):
-        cell = select_next_cell(bank, bank["models"], observed)
+        cell = (next((cell for cell in sampling_cells if cell["id"] not in observed), None)
+                if fixed_attempts else select_next_cell(bank, bank["models"], observed))
         if cell is None:
             break
-        values = [value for value, count in sorted(target["counts"][cell["id"]].items()) for _ in range(count)]
+        values = [value for value, count in sorted(target["counts"].get(cell["id"], {}).items()) for _ in range(count)] or [""]
         observed[cell["id"]] = Counter()
         for i in range(BLOCK):
             value = values[(i * len(values)) // BLOCK]

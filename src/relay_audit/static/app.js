@@ -6,6 +6,7 @@
     ready: false,
     view: "quality",
     specific: false,
+    referenceCollect: false,
     plan: null,
     planSignature: null,
     planRevision: 0,
@@ -14,6 +15,17 @@
     run: null,
     runs: [],
     bank: { models: [] },
+    identificationLibrary: { banks: [], active_bank_id: null },
+    referenceCoverage: null,
+    coverageKey: null,
+    coverageRevision: 0,
+    referenceSourceKey: null,
+    resumeRunId: null,
+    resumeReusedRequests: 0,
+    resumeSource: null,
+    publishedReferences: new Set(),
+    publicSyncRunning: false,
+    automaticPublicSyncStarted: false,
     packs: [],
     probes: [],
     scenarios: [],
@@ -48,7 +60,7 @@
     identity: {
       title: "模型指纹",
       description: "用已有参考回答，寻找最接近的模型候选。",
-      emptyTitle: "一个回答，同时比较多个候选",
+      emptyTitle: "同一组回答，比较全部候选",
       emptyDescription:
         "固定短探针复用公开参考分布。逐题贡献和删去单个探针后的排序变化，展示候选结论依赖哪些回答。",
     },
@@ -80,6 +92,7 @@
     identify: "模型候选识别",
     identify_demo: "候选合成示例",
     identify_offline: "候选记录复算",
+    reference_collect: "参考补采",
     fingerprint: "指定型号对照",
     fingerprint_demo: "型号对照示例",
     fingerprint_offline: "型号记录复算",
@@ -95,6 +108,8 @@
     failed: "运行中断",
     cancelled: "已停止",
     candidate_shortlist: "已得到模型候选",
+    reference_shortlist: "近期参考候选",
+    ready_to_publish: "参考采样完成",
     unknown_or_changed: "库外或行为变化",
     insufficient_evidence: "证据不足",
     difference_detected: "发现显著差异",
@@ -115,6 +130,7 @@
     no_discriminating_shared_probe: "剩余共享探针无法继续区分候选。",
     no_informative_cells: "剩余探针没有可用分歧。",
     no_more_cells: "可用共同探针已用尽。",
+    shared_core_complete: "可比较的共同探针已完成。",
     protocol_incompatible: "端点未接受固定探针协议。",
     invalid: "回答未满足探针格式，已保存原始记录。",
     empty: "返回了空回答。",
@@ -122,6 +138,8 @@
     truncated: "回答达到输出限制。",
     http_error: "服务返回 HTTP 错误。",
     request_error: "连接或请求失败。",
+    request_failed: "一次请求未完成，已停止后续采样并保留记录。",
+    transport_or_format_error: "本次请求未取得可用的短回答，原始响应已保存。",
     completed: "计划已完成。",
     stable_shortlist: "候选达到分阶段停止条件，已节省后续请求。",
   };
@@ -258,6 +276,11 @@
       "import-submit",
     ].forEach((id) => ($(id).disabled = locked));
     $("update-library").disabled = locked;
+    ["identity-candidates", "identity-specific", "identity-collect", "identification-bank", "coverage-collect",
+      "reference-source-label", "reference-source-kind", "reference-source-alias", "reference-source-provider",
+      "reference-resume-cancel", "refresh-identification-library", "collect-reference-library"].forEach(id => { $(id).disabled = locked; });
+    $("sync-identification-library").disabled = locked || state.publicSyncRunning;
+    document.querySelectorAll("[data-bank-action]").forEach(node => { node.disabled = locked || node.dataset.bankAction === state.identificationLibrary.active_bank_id; });
     updateDshControls(locked);
     window.API_MRI_SHOWCASE?.setLocked(locked);
   }
@@ -290,17 +313,19 @@
     ["history", "library", "research", "showcase", "capabilities"].forEach(
       (v) => ($(v + "-view").hidden = target !== v),
     );
-    $("try-demo").hidden = !isCheck;
+    $("try-demo").hidden = !isCheck || target === "identity" && state.referenceCollect;
+    $("empty-demo").hidden = target === "identity" && state.referenceCollect;
     $("service-settings").hidden = target === "identity";
     $("service-protocol-fields").hidden = target === "identity";
-    $("stable-stop-field").hidden = target !== "identity" || state.specific;
+    $("stable-stop-field").hidden = target !== "identity" || state.specific || state.referenceCollect || !state.bank.id?.startsWith("pamela-");
     $("identity-settings").hidden = target !== "identity";
     $("stream-fields").hidden = target === "tools";
     $("include-tools-label").hidden = target !== "quality";
     $("tool-settings-note").hidden = target !== "tools";
-    $("no-cache-label").hidden = target !== "identity" || state.specific;
+    $("no-cache-label").hidden = target !== "identity" || state.specific || state.referenceCollect;
     $("service-budget-fields").hidden =
       target === "identity" && !state.specific;
+    $("setup-title").textContent = target === "identity" && state.referenceCollect ? "参考 API" : "待测 API";
     if (previous === "identity" && ["quality", "tools"].includes(target)) {
       $("request-cap").value = "6";
       $("token-cap").value = usesDSH() ? "1536" : "768";
@@ -308,17 +333,27 @@
     $("request-cap").max = target === "identity" ? "500" : "32";
     $("token-cap").max = target === "identity" ? "1000000" : "8192";
     if (isCheck) {
-      $("empty-title").textContent = data.emptyTitle;
-      $("empty-description").textContent = data.emptyDescription;
-      renderMechanism(target);
+      renderEmptyInspection(target);
     }
     invalidatePlan();
     updateDshControls();
+    renderReferenceCoverage();
+    if (target === "identity" && !state.specific) void refreshReferenceCoverage();
     closeMenu();
     if (target === "history") renderHistory();
     if (target === "library") renderLibrary();
     document.dispatchEvent(new CustomEvent("api-mri:view", { detail: { view: target } }));
     if (focus) $("main").focus();
+  }
+  function renderEmptyInspection(view) {
+    const collecting = view === "identity" && state.referenceCollect;
+    $("empty-heading").textContent = collecting ? "建立一份近期参考" : "等待一次扫描";
+    $("empty-instruction").textContent = collecting ? "选定通道，查看采样计划后开始。" : "填写接入信息，或先试用无密钥示例。";
+    $("empty-title").textContent = collecting ? "补齐一个型号的近期参考" : views[view].emptyTitle;
+    $("empty-description").textContent = collecting
+      ? "固定 8 组短探针，分开保存参考回答与独立留出。采完查看质量，再发布并使用。"
+      : views[view].emptyDescription;
+    renderMechanism(view);
   }
   function renderMechanism(view) {
     // Fixed explanatory illustrations; no figures here represent measurements.
@@ -341,6 +376,10 @@
       },
     };
     const drawing = drawings[view] || drawings.quality;
+    if (view === "identity" && state.referenceCollect) {
+      drawing.label = "采集短探针，分开保存参考回答与独立留出，建立通道参考";
+      drawing.captions = ["收集短回答", "分开参考与留出", "保存通道参考"];
+    }
     $("scan-preview").innerHTML =
       `<svg class="mechanism-illustration" viewBox="0 0 560 220" role="img" aria-label="${drawing.label}">${drawing.art}</svg><div class="illustration-legend">${drawing.captions.map((caption) => `<span>${caption}</span>`).join("")}</div>`;
   }
@@ -370,7 +409,7 @@
     return state.dsh?.models.find(row => row.id === $(dshPrefix(scope) + "-dsh-model").value);
   }
   function requireDshFingerprintProtocol(payload) {
-    if (payload.mode === "identify" && dshCandidates.has(payload.candidate)
+    if (["identify", "reference_collect"].includes(payload.mode) && dshCandidates.has(payload.candidate)
         && selectedDshModel()?.fingerprint_supported !== true)
       throw new Error("这个 DSH 模型未声明可关闭推理，暂不能运行共同指纹探针。可先测连接与工具，或使用支持关闭推理的接口。");
   }
@@ -413,7 +452,7 @@
     for (const row of value.models) {
       if (!row || typeof row.id !== "string" || !row.id || row.id.length > 200 || /[\x00-\x1f]/.test(row.id) || ids.has(row.id)) return;
       if (![row.label, row.provider, row.model].every(v => typeof v === "string" && v.length <= 300 && !/[\x00-\x1f]/.test(v))) return;
-      ids.add(row.id); models.push({ id: row.id, label: row.label, provider: row.provider, model: row.model,
+      ids.add(row.id); models.push({ id: row.id, label: row.label, name: typeof row.name === "string" ? row.name : row.label.split(" · ")[0], provider: row.provider, model: row.model,
         fingerprint_supported: row.fingerprint_supported === true ? true : row.fingerprint_supported === false ? false : null });
     }
     const first = !state.dsh;
@@ -435,6 +474,7 @@
       $(prefix + "-dsh-note").textContent = models.length ? "经 DSH 模型适配器调用" : "在 DSH 中配置模型后，点击刷新。";
     }
     updateDshControls(); invalidatePlan();
+    syncReferenceSource(); void refreshReferenceCoverage();
     document.dispatchEvent(new CustomEvent("api-mri:dsh-catalog"));
   }
   function refreshDshCatalog() {
@@ -462,10 +502,76 @@
   function candidate(withKey = false) {
     return selectedCandidate(withKey);
   }
+  function declaredModel(value = null) {
+    if (!value) return usesDSH() ? selectedDshModel()?.model || "" : $("api-model").value.trim();
+    const configured = state.dsh?.models.find(model => model.id === value);
+    if (configured) return configured.model;
+    const parts = /^dsh:([^:]+):([^:]+)$/.exec(value);
+    try { return parts ? decodeURIComponent(parts[2]) : value; } catch { return value; }
+  }
+  function syncReferenceSource() {
+    const model = usesDSH() ? selectedDshModel() : null;
+    const alias = declaredModel();
+    const sourceKey = JSON.stringify([usesDSH(), model?.provider, alias, $("api-base").value]);
+    if (!alias || sourceKey === state.referenceSourceKey) return;
+    clearReferenceResume();
+    state.referenceSourceKey = sourceKey;
+    $("reference-source-label").value = model?.name || alias;
+    $("reference-source-alias").value = alias;
+    let provider = model?.provider;
+    if (!provider) { try { provider = new URL($("api-base").value).hostname; } catch {} }
+    $("reference-source-provider").value = provider || "";
+    $("reference-source-kind").value = "operator_declared";
+  }
+  function renderReferenceResume() {
+    const reused = state.resumeReusedRequests;
+    $("reference-resume-note").hidden = !state.resumeRunId;
+    $("reference-resume-description").textContent = state.resumeRunId ? `继续已有采集 · 已保留 ${num(reused)} 次请求记录` : "";
+    $("reference-collection-summary").textContent = state.resumeRunId
+      ? `8 组短探针沿用已有记录。本轮最多新增 ${num(Math.max(0, 96 - reused))} 次请求、${num(Math.max(0, 96 - reused) * 16)} 输出配额。`
+      : "只采当前型号：8 组短探针，每组尝试 8 次参考、4 次独立留出。最多 96 次请求、1536 输出配额。";
+  }
+  function clearReferenceResume() {
+    state.resumeRunId = null; state.resumeReusedRequests = 0; state.resumeSource = null; renderReferenceResume();
+  }
+  function resumeReferenceCollection(run, report) {
+    if (state.busy || state.running) return;
+    const endpoint = report.candidate || {}, source = report.source || {};
+    const configured = state.dsh?.models.find(model => model.id === endpoint.model);
+    if (configured || String(endpoint.model || "").startsWith("dsh:")) {
+      if (!configured) return toast("当前 DSH 目录没有原采集型号，请刷新模型目录后重试。");
+      $("api-source").value = "dsh"; $("api-dsh-model").value = configured.id;
+    } else {
+      $("api-source").value = "manual";
+      $("api-base").value = endpoint.api_base || ""; $("api-model").value = endpoint.model || "";
+    }
+    $("api-key").value = "";
+    updateDshControls();
+    state.referenceSourceKey = null; syncReferenceSource();
+    configureSpecific(false, true);
+    for (const [id, key] of [["reference-source-label", "label"], ["reference-source-kind", "kind"],
+      ["reference-source-alias", "model_alias"], ["reference-source-provider", "provider"]]) $(id).value = source[key] || "";
+    state.resumeRunId = run.id;
+    state.resumeSource = { ...source };
+    state.resumeReusedRequests = (report.cost?.reused_requests || 0) + (report.cost?.request_count ?? report.cost?.real_requests ?? report.collection?.completed_requests ?? 0);
+    renderReferenceResume();
+    location.hash = "#identity"; route(); invalidatePlan(); void refreshReferenceCoverage();
+    $("plan-button").focus({ preventScroll: true });
+  }
   function payload(withKey = false) {
     const c = candidate(withKey),
       timeout = Number($("timeout").value);
     if (state.view === "identity") {
+      if (state.referenceCollect) {
+        syncReferenceSource();
+        return {
+          mode: "reference_collect", candidate: c, timeout,
+          source: { ...(state.resumeRunId ? state.resumeSource : {}), label: $("reference-source-label").value.trim(), kind: $("reference-source-kind").value,
+            model_alias: $("reference-source-alias").value.trim(), provider: $("reference-source-provider").value.trim() },
+          budget: { max_requests: 96, max_output_tokens: 1536 },
+          ...(state.resumeRunId ? { resume_run_id: state.resumeRunId } : {}),
+        };
+      }
       if (state.specific) {
         const b = {};
         if ($("request-cap").value)
@@ -485,11 +591,12 @@
       return {
         mode: "identify",
         candidate: c,
+        ...(state.bank.id ? { bank_id: state.bank.id } : {}),
         timeout,
         budget: { max_requests: count, max_output_tokens: count * 16 },
         api2d_no_cache: $("no-cache").checked,
         stop_policy:
-          $("stable-stop").checked && count === 32
+          $("stable-stop").checked && count === 32 && state.bank.id?.startsWith("pamela-")
             ? "stable_shortlist"
             : "fixed",
       };
@@ -527,6 +634,8 @@
       ];
     if (mode === "identify")
       return [plan.budget?.max_requests, plan.budget?.max_output_tokens];
+    if (mode === "reference_collect")
+      return [plan.maximum_requests ?? plan.budget?.max_requests, plan.maximum_output_tokens ?? plan.budget?.max_output_tokens];
     if (mode === "fingerprint")
       return [
         plan.max_requests ?? plan.request_count,
@@ -542,8 +651,8 @@
     const values = planNumbers(plan, mode);
     const ns = el("div", "plan-numbers");
     [
-      ["最多请求", values[0], "次"],
-      ["申请输出配额", values[1], "tokens"],
+      [mode === "reference_collect" && state.resumeRunId ? "新增请求" : "最多请求", values[0], "次"],
+      [mode === "reference_collect" && state.resumeRunId ? "新增输出配额" : "申请输出配额", values[1], "tokens"],
     ].forEach(([label, v, unit]) => {
       const n = el("div");
       n.append(el("span", "", label));
@@ -564,6 +673,15 @@
       );
       node.append(el("p", "", "顺序发送，不自动重试。"));
       if (plan.reasoning_off) node.append(el("p", "", "本轮关闭推理。"));
+    } else if (mode === "reference_collect") {
+      const profile = plan.profile || {}, source = plan.source || {};
+      const reused = plan.reused_requests ?? plan.resume?.reused_requests ?? state.resumeReusedRequests;
+      if (state.resumeRunId || reused) node.append(el("p", "", `已保留 ${num(reused)} 次请求记录，本轮最多新增 ${num(values[0])} 次。完整采集仍为 96 次。`));
+      node.append(el("p", "", `${num(profile.cells ?? 8)} 组探针；每组尝试 ${num(profile.reference_per_cell ?? 8)} 次参考、${num(profile.holdout_per_cell ?? 4)} 次独立留出，无效回答单列。`));
+      node.append(el("p", "", `来源：${source.label || $("reference-source-label").value} · ${source.provider || $("reference-source-provider").value} · ${source.kind === "first_party_route_claim" ? "原厂通道声明" : "自选接入服务"}`));
+      node.append(el("p", "", `型号声明：${source.model_alias || $("reference-source-alias").value}`));
+      if (plan.existing_reference) node.append(el("p", "plan-warning", "此型号已有参考。本轮采集新的时段，原快照保留。"));
+      node.append(el("p", "", "本轮只补这个型号，完成后由你决定是否发布。"));
     } else if (mode === "identify") {
       node.append(
         el(
@@ -572,6 +690,9 @@
           `一组 4 次回答；最多 ${num(plan.max_completed_cells)} 组，同时比较 ${num(plan.candidate_count ?? state.bank.model_count)} 个标签。`,
         ),
       );
+      const coverage = plan.reference_coverage || state.referenceCoverage;
+      if (coverage?.match === "missing") node.append(el("p", "plan-warning", "比较库未收录这个型号，仍会比较已有候选。"));
+      if ((plan.bank?.id || state.bank.id) && !(plan.bank?.id || state.bank.id).startsWith("pamela-")) node.append(el("p", "", "近期参考按距离排序，尚无独立校准的身份接受门槛。"));
     } else if (mode === "fingerprint") {
       node.append(
         el(
@@ -597,6 +718,7 @@
       value = payload(false);
     try {
       requireDshFingerprintProtocol(value);
+      if (value.mode === "reference_collect" && (!value.source.label || !value.source.model_alias || !value.source.provider)) throw new Error("填写参考标签、型号声明与提供方，再查看采集计划。");
       const result = await api("/api/plan", value);
       if (revision !== state.planRevision) return;
       state.plan = result;
@@ -606,7 +728,7 @@
       $("start-button").hidden = false;
       $("replan-button").hidden = false;
       $("start-button").textContent =
-        `开始检测 · 最多 ${num(planNumbers(result, value.mode)[0])} 次`;
+        `${value.mode === "reference_collect" ? state.resumeRunId ? "继续补采" : "开始补采" : "开始检测"} · 最多 ${num(planNumbers(result, value.mode)[0])} 次`;
       $("run-cost-note").textContent =
         "开始后使用待测账户额度。输入和额外推理费用另记。";
     } catch (err) {
@@ -624,6 +746,7 @@
     await submitRun(payload(true));
   }
   async function demo() {
+    if (state.referenceCollect && state.view === "identity") return toast("补采参考会使用所选账户额度，请先查看采集计划。");
     if (state.view === "identity") {
       if (state.specific) {
         if (!$("reference-pack").value) return toast("先选择一个参考型号。");
@@ -637,6 +760,7 @@
       const count = Number($("identify-budget").value);
       return submitRun({
         mode: "identify_demo",
+        ...(state.bank.id ? { bank_id: state.bank.id } : {}),
         budget: { max_requests: count, max_output_tokens: count * 16 },
       });
     }
@@ -650,7 +774,7 @@
   }
   function viewForRun(run) {
     if (run.mode.startsWith("showcase")) return "showcase";
-    if (run.mode.startsWith("identify") || run.mode.startsWith("fingerprint"))
+    if (run.mode.startsWith("identify") || run.mode.startsWith("fingerprint") || run.mode === "reference_collect")
       return "identity";
     if (run.mode.startsWith("service")) {
       const report = run.reports?.find(
@@ -712,6 +836,24 @@
   function pollLater(delay = 800) {
     clearTimeout(state.poll);
     state.poll = setTimeout(pollRun, delay);
+  }
+  async function recompareRun(run) {
+    if (state.busy || state.running || !state.bank.id) return;
+    setBusy(true); showError("");
+    try {
+      const next = await api("/api/identification-library/recompare", { run_id: run.id, bank_id: state.bank.id });
+      state.running = next.id;
+      state.run = next;
+      state.runs = [next, ...state.runs.filter(item => item.id !== next.id)];
+      if (state.view !== "identity") location.hash = "#identity";
+      invalidatePlan();
+      renderProgress(next);
+      $("progress-title").tabIndex = -1;
+      $("progress-title").focus({ preventScroll: true });
+      pollLater(150);
+      toast("正在用当前库重排，复用已保存的回答，模型调用 0 次。");
+    } catch (error) { showError(error.message); toast(error.message); }
+    finally { setBusy(false); }
   }
   async function pollRun() {
     if (!state.running) return;
@@ -794,7 +936,7 @@
       el(
         "span",
         report.synthetic ? "demo-label" : "",
-        report.synthetic ? "合成示例 · 实际模型调用 0 次" : "本次采样",
+        report.synthetic ? "合成示例 · 实际模型调用 0 次" : report.reanalysis ? "已保存回答重排 · 模型调用 0 次" : "本次采样",
       ),
       el("span", "", date(run.created_at)),
     );
@@ -849,6 +991,10 @@
     return { wrap, t, body };
   }
   function appendUsage(root, report) {
+    if (report.reanalysis) {
+      root.append(el("p", "cost-line", `复用 ${num(report.reanalysis.reused_requests)} 条回答，本次调用 ${num(report.reanalysis.model_api_calls ?? 0)} 次。`));
+      return;
+    }
     const cost = report.cost || {},
       usage = cost.usage || {};
     let message;
@@ -869,7 +1015,7 @@
       ["md", "Markdown"],
     ];
     if (
-      ["service_quality", "identification", "fingerprint"].includes(
+      ["service_quality", "identification", "fingerprint", "reference_collection"].includes(
         entry.report.kind,
       ) ||
       entry.report.fingerprint
@@ -882,7 +1028,12 @@
       a.download = "";
       row.append(a);
     }
-    row.append(btn("导入复算", () => openImport(run, entry)));
+    if (entry.report.kind !== "reference_collection") row.append(btn("导入复算", () => openImport(run, entry)));
+    if (entry.report.kind === "identification" && state.bank.id && entry.report.bank?.id && state.bank.id !== entry.report.bank.id) {
+      const recompare = btn("用当前库重排 · 0 token", () => recompareRun(run));
+      recompare.disabled = state.busy || Boolean(state.running);
+      row.append(recompare);
+    }
     root.append(row);
   }
   function recordsDetail(root, run, entry) {
@@ -1210,12 +1361,27 @@
       run,
       r,
       statusNames[r.status] || "模型候选记录",
-      r.status === "candidate_shortlist"
+      r.status === "candidate_shortlist" || r.status === "reference_shortlist"
         ? `当前首位为 ${top?.label || top?.model || "—"}。候选由固定探针的回答分布计算。`
         : r.status === "unknown_or_changed"
           ? "当前分布未通过参考库接受条件。最近候选保留供复核版本、配置和路由变化。"
           : "有效回答、候选间隔或采样条件尚不足以形成候选结论。",
     );
+    const referenceCoverage = r.reference_coverage;
+    if (referenceCoverage?.match === "missing") {
+      const note = el("div", "report-coverage");
+      note.append(el("p", "", `本次比较库未收录请求型号 ${referenceCoverage.claimed_model || declaredModel(r.candidate?.model)}，参考采集于 ${dateRange(r.bank?.collected_at)}。`));
+      note.append(btn("为当前所选型号补采参考", openReferenceCollection));
+      root.append(note);
+    } else if (referenceCoverage?.match === "unconfirmed_alias") {
+      root.append(el("p", "report-coverage", `${referenceCoverage.model_id ? "已比较此通道的服务快照，固定模型版本对应未确认。" : `请求别名 ${referenceCoverage.claimed_model || declaredModel(r.candidate?.model)} 尚未对应到固定版本参考。`}本报告使用 ${dateRange(referenceCoverage.collected_at || r.bank?.collected_at)} 的快照。`));
+    } else if (r.status === "unknown_or_changed") {
+      const bank = state.identificationLibrary.banks.find(item => item.id === r.bank?.id);
+      const requested = declaredModel(r.candidate?.model || "");
+      const sameName = bank?.models?.some(model => model.model === requested || model.label === requested);
+      if (bank && requested && !sameName) root.append(el("p", "report-coverage", `本报告使用 ${dateRange(r.bank?.collected_at)} 的参考；其中没有与请求别名 ${requested} 同名的记录。`));
+    }
+    if (r.status === "reference_shortlist") root.append(el("p", "report-coverage", "此列表来自近期来源声明参考，按回答距离排序，身份判断保留未定。"));
     const strip = el("div", "metric-strip");
     strip.append(
       metric(
@@ -1225,9 +1391,9 @@
       ),
       metric("比较候选", num(c.compared_candidates), "同一回答复用比较"),
       metric(
-        "本次请求",
-        num(r.cost?.request_count),
-        `申请 ${num(r.cost?.requested_output_tokens)} 输出配额`,
+        r.reanalysis ? "本次调用" : "本次请求",
+        num(r.reanalysis ? r.reanalysis.model_api_calls ?? 0 : r.cost?.request_count),
+        r.reanalysis ? `复用 ${num(r.reanalysis.reused_requests)} 条回答` : `申请 ${num(r.cost?.requested_output_tokens)} 输出配额`,
       ),
     );
     root.append(strip);
@@ -1350,6 +1516,43 @@
     });
     recordsDetail(root, run, entry);
     exports(root, run, entry);
+  }
+  function renderReferenceCollection(root, run, entry) {
+    const r = entry.report, reference = r.reference || {}, cost = r.cost || {};
+    const published = state.publishedReferences.has(run.id) || Boolean(run.published_bank_id);
+    reportHeader(root, run, r, published ? "参考已发布" : statusNames[r.status] || "参考采样记录",
+      `${reference.label || reference.model || "当前型号"} · ${reference.provider || "来源见采样记录"}`);
+    const metrics = el("div", "metric-strip");
+    metrics.append(metric("参考回答", num(reference.reference_answers)), metric("独立留出", num(reference.holdout_answers)),
+      metric(cost.reused_requests ? "本次新增" : "本次请求", num(cost.request_count ?? cost.real_requests), `申请 ${num(cost.requested_output_tokens)} 输出配额`));
+    root.append(metrics);
+    const summary = section(root, "本次采集");
+    summary.append(el("p", "", `${num(reference.cells)} 组共同短探针。${reference.can_publish ? "采样完整，可发布为来源声明参考。" : "采样尚未满足发布条件，已完成记录保留。"}`));
+    if (cost.reused_requests) summary.append(el("p", "", `沿用 ${num(cost.reused_requests)} 次请求记录，本轮新增 ${num(cost.request_count ?? cost.real_requests)} 次。`));
+    if (r.collection?.failure) summary.append(el("p", "inline-error", stopNames[r.collection.failure] || text(r.collection.failure)));
+    if (!published && (r.can_resume === true || reference.can_resume === true)) {
+      const resume = btn("继续剩余采样", () => resumeReferenceCollection(run, r), "button secondary");
+      resume.disabled = state.busy || Boolean(state.running); summary.append(resume);
+    }
+    const publish = btn(published ? "已发布并使用" : "发布并使用", async () => {
+      if (state.busy || state.running) return;
+      publish.disabled = true; setBusy(true);
+      try {
+        const value = await api("/api/identification-library/publish", { run_id: run.id });
+        state.publishedReferences.add(run.id);
+        if (value.library) applyIdentificationLibrary(value.library);
+        else await refreshIdentificationLibrary();
+        publish.textContent = "已发布并使用";
+        toast("近期参考已发布并选用，来源声明和独立留出记录已保留。");
+      } catch (error) { toast(error.message); publish.disabled = false; }
+      finally { setBusy(false); }
+    }, "button primary");
+    publish.disabled = published || reference.can_publish !== true || run.status !== "completed";
+    summary.append(publish);
+    if (r.evaluation) detail(root, "独立留出检查", r.evaluation);
+    appendUsage(root, r);
+    detail(root, "来源、协议与覆盖", { reference: r.reference, source: r.source, profile: r.profile, collection: r.collection });
+    recordsDetail(root, run, entry); exports(root, run, entry);
   }
   function distribution(title, counts) {
     const d = el("div");
@@ -1653,6 +1856,7 @@
       if (r.kind === "service_quality") renderService(content, run, entry);
       else if (r.kind === "identification")
         renderIdentification(content, run, entry);
+      else if (r.kind === "reference_collection") renderReferenceCollection(content, run, entry);
       else if (r.kind === "fingerprint" || r.fingerprint)
         renderFingerprint(content, run, entry);
       else renderPair(content, run, entry);
@@ -1775,6 +1979,165 @@
       }
     }
   }
+  function renderReferenceCoverage() {
+    const node = $("identity-coverage");
+    node.hidden = state.view !== "identity" || state.specific;
+    const model = state.referenceCollect ? $("reference-source-alias").value.trim() || declaredModel() : declaredModel();
+    const coverage = state.referenceCoverage;
+    const bank = state.bank;
+    $("coverage-collect").hidden = !model || state.referenceCollect || coverage?.match === "exact";
+    node.classList.toggle("coverage-missing", Boolean(model && coverage?.match === "missing"));
+    if (!model) {
+      $("coverage-title").textContent = "参考覆盖";
+      $("coverage-description").textContent = `当前库采集于 ${dateRange(bank.collected_at)}。选型号后查看覆盖。`;
+    } else if (!coverage || coverage.claimed_model !== model || coverage.bank_id !== bank.id) {
+      $("coverage-title").textContent = `${model} · 参考覆盖`;
+      $("coverage-description").textContent = "正在核对当前比较库的同协议样本。";
+    } else if (coverage.match === "exact") {
+      $("coverage-title").textContent = `${model} · 有同名参考`;
+      $("coverage-description").textContent = `${dateRange(coverage.collected_at || bank.collected_at)} 采集 · ${num(coverage.reference_cells)} 组探针 · 每组至少 ${num(coverage.min_repetitions)} 次。来源声明随参考保存。`;
+    } else if (coverage.match === "unconfirmed_alias") {
+      $("coverage-title").textContent = `${model} · ${coverage.model_id ? "有通道参考" : "版本对应未确认"}`;
+      $("coverage-description").textContent = coverage.model_id
+        ? `${dateRange(coverage.collected_at || bank.collected_at)} 采集 · ${num(coverage.reference_cells)} 组探针 · 每组至少 ${num(coverage.min_repetitions)} 次。此别名对应服务快照，固定模型版本未确认。`
+        : `此接口别名尚未对应到固定参考版本。当前库采集于 ${dateRange(bank.collected_at)}。`;
+    } else {
+      $("coverage-title").textContent = `${model} · 当前库未收录`;
+      $("coverage-description").textContent = `当前库采集于 ${dateRange(bank.collected_at)}；本次仍可比较已有 ${num(bank.model_count ?? bank.models?.length)} 个候选。`;
+    }
+  }
+  function identificationBankLabel(bank) {
+    return bank.label && bank.label !== bank.id ? bank.label : bank.id?.startsWith("pamela-") ? "历史公开参考" : "近期通道参考";
+  }
+  function identificationBankDate(bank) {
+    const recent = bank.new_observations_collected_at;
+    const stamp = recent && typeof recent === "object" ? recent.last || recent.first : recent;
+    return stamp ? `新增 ${date(stamp)}` : dateRange(bank.collected_at);
+  }
+  async function refreshReferenceCoverage() {
+    if (!state.ready || state.view !== "identity" || state.specific) return renderReferenceCoverage();
+    const model = state.referenceCollect ? $("reference-source-alias").value.trim() || declaredModel() : declaredModel();
+    const bankId = state.bank.id;
+    if (!model || !bankId) { state.referenceCoverage = null; state.coverageKey = null; return renderReferenceCoverage(); }
+    const key = JSON.stringify([bankId, model]);
+    if (key === state.coverageKey && state.referenceCoverage) return renderReferenceCoverage();
+    const revision = ++state.coverageRevision;
+    state.coverageKey = key; state.referenceCoverage = null; renderReferenceCoverage();
+    try {
+      const query = new URLSearchParams({ bank_id: bankId, model });
+      const snapshot = await api(`/api/identification-library?${query}`);
+      if (revision !== state.coverageRevision) return;
+      state.referenceCoverage = snapshot.coverage || null;
+      renderReferenceCoverage();
+    } catch {
+      if (revision !== state.coverageRevision) return;
+      state.coverageKey = null;
+      $("coverage-description").textContent = `暂时无法核对型号覆盖。当前库采集于 ${dateRange(state.bank.collected_at)}。`;
+    }
+  }
+  function applyIdentificationLibrary(snapshot) {
+    if (!snapshot || !Array.isArray(snapshot.banks)) return;
+    const previousBank = JSON.stringify([state.bank.id, state.bank.sha256]);
+    state.identificationLibrary = snapshot;
+    for (const runId of snapshot.published_run_ids || []) state.publishedReferences.add(runId);
+    for (const bank of snapshot.banks) for (const model of bank.models || []) {
+      const runId = model.provenance?.run_id || model.source_run_id;
+      if (runId) state.publishedReferences.add(runId);
+    }
+    const selected = snapshot.selected_bank_id || snapshot.active_bank_id;
+    const bank = snapshot.bank || snapshot.banks.find(item => item.id === selected);
+    if (bank) {
+      const metadata = snapshot.banks.find(item => item.id === bank.id);
+      state.bank = { ...bank, label: identificationBankLabel(metadata || bank), sha256: bank.sha256 || metadata?.sha256 };
+    }
+    if (previousBank !== JSON.stringify([state.bank.id, state.bank.sha256])) invalidatePlan();
+    const select = $("identification-bank");
+    select.replaceChildren(...snapshot.banks.map(item => new Option(`${identificationBankLabel(item)} · ${identificationBankDate(item)} · ${num(item.model_count)} 型号`, item.id)));
+    if (state.bank.id) select.value = state.bank.id;
+    if (!state.bank.id?.startsWith("pamela-")) $("stable-stop").checked = false;
+    $("stable-stop-field").hidden = state.view !== "identity" || state.specific || state.referenceCollect || !state.bank.id?.startsWith("pamela-");
+    $("bank-summary").textContent = `${num(state.bank.model_count ?? state.bank.models?.length)} 个参考标签 · ${dateRange(state.bank.collected_at)} 采集`;
+    state.referenceCoverage = null; state.coverageKey = null; state.coverageRevision++;
+    renderLibrary(); renderReferenceCoverage();
+    renderPublicSync(snapshot.sync);
+    void refreshReferenceCoverage();
+    if (snapshot.sync?.due === true && !state.automaticPublicSyncStarted && !state.publicSyncRunning && !state.running) {
+      state.automaticPublicSyncStarted = true; void syncPublicFingerprints(false);
+    }
+  }
+  function renderPublicSync(sync) {
+    const note = $("identification-sync-note");
+    if (state.publicSyncRunning) { note.textContent = "正在同步公开指纹 JSON，模型调用 0 次。"; return; }
+    if (["failed", "error"].includes(sync?.status)) { note.textContent = sync.error || "公开指纹同步未完成，现有参考保留。可点击同步重试。"; return; }
+    note.textContent = sync?.last_checked
+      ? `最近检查 ${date(sync.last_checked)}${sync.added ? ` · 新增 ${num(sync.added)} 份参考` : ""} · 只同步公开数据`
+      : "公开指纹每 7 天检查一次，更新时不调用模型。";
+  }
+  async function syncPublicFingerprints(force = true) {
+    if (state.publicSyncRunning || state.running) return;
+    state.publicSyncRunning = true; updateButtons(); renderPublicSync();
+    try {
+      const snapshot = await api("/api/identification-library/sync", { force });
+      applyIdentificationLibrary(snapshot);
+      showError("", "identification-library-error");
+    } catch (error) { showError(error.message, "identification-library-error"); }
+    finally { state.publicSyncRunning = false; updateButtons(); renderPublicSync(state.identificationLibrary.sync); }
+  }
+  async function refreshIdentificationLibrary() {
+    try {
+      applyIdentificationLibrary(await api("/api/identification-library"));
+      showError("", "identification-library-error");
+    } catch (error) { showError(error.message, "identification-library-error"); }
+  }
+  async function activateIdentificationBank(bankId, returnToIdentity = false) {
+    if (state.busy || state.running || !bankId) return;
+    setBusy(true);
+    try {
+      applyIdentificationLibrary(await api("/api/identification-library/activate", { bank_id: bankId }));
+      invalidatePlan();
+      if (state.view === "identity" && state.run?.reports?.some(entry => entry.report.kind === "identification")) renderReports(state.run);
+      if (returnToIdentity) { configureSpecific(false); location.hash = "#identity"; route(); }
+      toast("比较库已切换，查看新计划后再采样。");
+    } catch (error) { $("identification-bank").value = state.bank.id || ""; toast(error.message); }
+    finally { setBusy(false); }
+  }
+  function openReferenceCollection() {
+    clearReferenceResume();
+    configureSpecific(false, true); location.hash = "#identity"; route();
+    $("reference-source-label").focus({ preventScroll: true });
+  }
+  function renderIdentificationBanks() {
+    const target = $("identification-bank-list");
+    target.replaceChildren();
+    const banks = [...(state.identificationLibrary.banks || [])].sort((a, b) => {
+      const stamp = item => typeof item.collected_at === "object" ? item.collected_at?.last || item.collected_at?.first || "" : item.collected_at || "";
+      return String(stamp(b)).localeCompare(String(stamp(a)));
+    });
+    if (!banks.length) { target.append(el("p", "muted", "正在读取可用的共同探针参考。")); return; }
+    const tb = table(["比较库 / 实际采集", "型号", "资格", ""], ["identity-cell", "num", "", ""]);
+    tb.t.classList.add("identification-library-table");
+    for (const bank of banks) {
+      const row = el("tr"), identity = el("td", "identity-cell"), action = el("td");
+      identity.append(el("strong", "", identificationBankLabel(bank)), el("small", "", `${dateRange(bank.collected_at)}${bank.new_observations_collected_at ? ` · ${identificationBankDate(bank)}` : ""}`));
+      if (bank.models?.length) {
+        const detail = el("details", "bank-models"); detail.append(el("summary", "", "查看型号与来源"));
+        const list = el("ul");
+        for (const model of bank.models) {
+          const item = el("li"), origin = model.provenance || {};
+          item.append(el("strong", "", model.label || model.model), el("small", "", `${model.provider || origin.provider || model.providers?.join(" / ") || "提供方未记录"} · ${dateRange(model.collected_at || bank.collected_at)}`));
+          list.append(item);
+        }
+        detail.append(list); identity.append(detail);
+      }
+      const active = bank.id === state.identificationLibrary.active_bank_id;
+      const button = btn(active ? "当前比较库" : "用于比较", () => activateIdentificationBank(bank.id), "text-button");
+      button.dataset.bankAction = bank.id; button.disabled = active || state.busy || Boolean(state.running);
+      action.append(button);
+      const qualification = bank.id.startsWith("pamela-") ? "历史公开参考" : "来源声明参考 · 未校准";
+      row.append(identity, el("td", "num", num(bank.model_count ?? bank.models?.length)), el("td", "", qualification), action); tb.body.append(row);
+    }
+    target.append(tb.wrap);
+  }
   function renderPacks() {
     const query = $("reference-filter").value.toLowerCase(),
       old = $("reference-pack").value;
@@ -1818,7 +2181,7 @@
   function renderLibrary() {
     const bank = state.bank;
     $("library-bank-note").textContent =
-      `${dateRange(bank.collected_at)} · One Token Is Enough 公开回答`;
+      `${bank.label || "当前比较库"} · ${dateRange(bank.collected_at)} 采集`;
     {
       const n = $("library-bank");
       n.replaceChildren();
@@ -1831,6 +2194,7 @@
         n.append(d);
       });
     }
+    renderIdentificationBanks();
     const query = $("library-search").value.toLowerCase(),
       rows = state.packs.filter((p) =>
         `${p.label || ""} ${p.model || ""} ${p.provider || ""} ${p.id}`
@@ -1933,22 +2297,34 @@
       }
     }, delay);
   }
-  function configureSpecific(specific) {
+  function configureSpecific(specific, collect = false) {
+    if (!collect) clearReferenceResume();
     state.specific = specific;
-    $("identity-candidates").classList.toggle("selected", !specific);
+    state.referenceCollect = collect;
+    $("identity-candidates").classList.toggle("selected", !specific && !collect);
     $("identity-specific").classList.toggle("selected", specific);
-    $("identity-candidates").setAttribute("aria-pressed", String(!specific));
+    $("identity-collect").classList.toggle("selected", collect);
+    $("identity-candidates").setAttribute("aria-pressed", String(!specific && !collect));
     $("identity-specific").setAttribute("aria-pressed", String(specific));
-    $("candidate-settings").hidden = specific;
+    $("identity-collect").setAttribute("aria-pressed", String(collect));
+    $("candidate-settings").hidden = specific || collect;
     $("specific-settings").hidden = !specific;
+    $("reference-collect-settings").hidden = !collect;
+    $("identity-coverage").hidden = specific;
     $("service-budget-fields").hidden = !specific;
-    $("no-cache-label").hidden = specific;
-    $("stable-stop-field").hidden = specific;
+    $("no-cache-label").hidden = specific || collect;
+    $("stable-stop-field").hidden = specific || collect || !state.bank.id?.startsWith("pamela-");
+    $("try-demo").hidden = collect;
+    $("empty-demo").hidden = collect;
+    $("setup-title").textContent = collect ? "参考 API" : "待测 API";
+    if (state.view === "identity") renderEmptyInspection("identity");
+    if (collect) syncReferenceSource();
     if (specific) {
       $("request-cap").value = "4";
       $("token-cap").value = "4096";
     }
     invalidatePlan();
+    renderReferenceCoverage(); void refreshReferenceCoverage();
     updateDshControls();
   }
   function openImport(run = null, entry = null) {
@@ -2131,6 +2507,7 @@
       $("connection-label").textContent = "已连接";
       renderPacks();
       renderLibrary();
+      await refreshIdentificationLibrary();
       if(state.hasResearch) initResearch();
       document.dispatchEvent(new CustomEvent("api-mri:workbench-ready"));
       if (pendingEmbedHello) acknowledgeEmbed(pendingEmbedHello);
@@ -2162,9 +2539,15 @@
   $("reconnect").addEventListener("click", initialize);
   $("check-form").addEventListener("input", (event) => {
     if (event.target.id !== "api-key") invalidatePlan();
+    if (["api-base", "api-model", "api-source", "api-dsh-model", "reference-source-label", "reference-source-kind", "reference-source-alias", "reference-source-provider"].includes(event.target.id)) clearReferenceResume();
+    if (event.target.id === "api-model") { syncReferenceSource(); renderReferenceCoverage(); }
   });
   $("check-form").addEventListener("change", (event) => {
     if (event.target.id !== "api-key") invalidatePlan();
+    if (["api-base", "api-model", "api-source", "api-dsh-model", "reference-source-label", "reference-source-kind", "reference-source-alias", "reference-source-provider"].includes(event.target.id)) clearReferenceResume();
+    if (["api-model", "api-base", "api-source", "api-dsh-model", "reference-source-alias"].includes(event.target.id)) {
+      syncReferenceSource(); void refreshReferenceCoverage();
+    }
   });
   $("toggle-key").addEventListener("click", () => {
     const show = $("api-key").type === "password";
@@ -2186,6 +2569,13 @@
   $("identity-specific").addEventListener("click", () =>
     configureSpecific(true),
   );
+  $("identity-collect").addEventListener("click", () => configureSpecific(false, true));
+  $("reference-resume-cancel").addEventListener("click", () => { clearReferenceResume(); invalidatePlan(); });
+  $("coverage-collect").addEventListener("click", () => configureSpecific(false, true));
+  $("collect-reference-library").addEventListener("click", openReferenceCollection);
+  $("refresh-identification-library").addEventListener("click", refreshIdentificationLibrary);
+  $("sync-identification-library").addEventListener("click", () => syncPublicFingerprints(true));
+  $("identification-bank").addEventListener("change", () => activateIdentificationBank($("identification-bank").value));
   $("reference-filter").addEventListener("input", renderPacks);
   $("reference-pack").addEventListener("change", renderPacks);
   $("fingerprint-profile").addEventListener("change", () => {
@@ -2301,9 +2691,13 @@
     $(prefix + "-source").addEventListener("change", () => {
       $(scope === "showcase" ? "showcase-api-key" : "api-key").value = "";
       updateDshControls();
+      if (scope === "main") { syncReferenceSource(); void refreshReferenceCoverage(); }
     });
     $(prefix + "-dsh-refresh").addEventListener("click", refreshDshCatalog);
-    $(prefix + "-dsh-model").addEventListener("change", () => updateDshControls());
+    $(prefix + "-dsh-model").addEventListener("change", () => {
+      updateDshControls();
+      if (scope === "main") { syncReferenceSource(); void refreshReferenceCoverage(); }
+    });
   }
   window.apiMRI = Object.freeze({
     request: api,

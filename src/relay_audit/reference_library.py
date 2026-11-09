@@ -35,6 +35,12 @@ MAX_PACKS = 100
 MAX_UPDATE_SECONDS = 90
 HTTP_TIMEOUT = 15
 LICENSE_SHA256 = "0485fff26320cac0547cdd92fc503066869f02110ef5914f121c7a50b8cb1467"
+CURRENT_SCORING_POLICY = "absolute_half_up"
+LEGACY_SCORING_POLICY = "legacy_absolute_raw"
+SCORING_SOURCE_COMMITS = {
+    CURRENT_SCORING_POLICY: "df361a373d35120d64b28d9d9974bc7c6709f19f",
+    LEGACY_SCORING_POLICY: "b789b4b7abe119e28ec6260142564b2189ff5449",
+}
 PINNED_SOURCE_BLOBS = {
     "scripts/domains.py": "e281ae4f167f8ee6a164d4477d1b93bc293a300f",
     "scripts/kbf_common.py": "bc22366811d41d9ebf1846b7c9bfbb742b8d6b54",
@@ -57,6 +63,61 @@ class ReferenceFetchError(ValueError):
 
 class UpdateStopped(ReferenceFetchError):
     pass
+
+
+def score_reference_value(reference, value, domain: str, scoring_policy: str = CURRENT_SCORING_POLICY) -> bool:
+    """Use the rule that reproduces this pack's unmodified calibration vector.
+
+    KBF's 2026-09-29 change rounds absolute-domain quantities half-up. Older
+    reference files retain a self-test from the earlier, unrounded rule.
+    """
+    if scoring_policy not in SCORING_SOURCE_COMMITS:
+        raise ReferenceValidationError("unsupported_scoring_policy")
+    if scoring_policy == CURRENT_SCORING_POLICY:
+        return kbf.check_match(reference, value, domain)
+    if reference is None or value is None:
+        return False
+    tolerance, mode = kbf.DOMAIN_TOL.get(domain, (0.05, "relative"))
+    return (abs(reference - value) <= tolerance if mode == "absolute"
+            else abs(reference - value) / max(abs(reference), 1e-10) <= tolerance)
+
+
+def validate_scored_batch(values, batch, consensus_values=None, scoring_policy: str = CURRENT_SCORING_POLICY):
+    """Keep KBF's missing/shifted-layout checks on the same scoring policy."""
+    if scoring_policy == CURRENT_SCORING_POLICY:
+        return kbf.validate_batch(values, batch, consensus_values)
+    if scoring_policy != LEGACY_SCORING_POLICY:
+        raise ReferenceValidationError("unsupported_scoring_policy")
+    n = len(values)
+    if not n:
+        return True, None
+    missing = sum(value is None for value in values)
+    if n >= 3 and missing > n * 0.5:
+        return False, f"too_many_nones ({missing}/{n})"
+    if consensus_values and len(consensus_values) == n and n >= 3:
+        own, shifted, valid = 0, 0, 0
+        for index in range(n - 1):
+            value, reference, following = values[index], consensus_values[index], consensus_values[index + 1]
+            if value is None or reference is None or following is None:
+                continue
+            valid += 1
+            domain = batch[index][1]["domain"] if index < len(batch) else "unknown"
+            own += score_reference_value(reference, value, domain, scoring_policy)
+            shifted += score_reference_value(following, value, domain, scoring_policy)
+        if valid >= 3 and shifted > own and shifted >= 3:
+            return False, f"shifted (own={own}, shift={shifted}/{valid})"
+    return True, None
+
+
+def _self_test_mismatch(self_test, vector):
+    total, hamming = sum(value is not None for value in vector), sum(value == 0 for value in vector)
+    for field, expected in (("total", total), ("hamming", hamming), ("correct", total - hamming)):
+        if type(self_test.get(field)) is not int or self_test[field] != expected:
+            return f"self_test_{field}_mismatch:recorded={self_test.get(field)},recomputed={expected}"
+    saved = self_test.get("match_vector")
+    if not isinstance(saved, list) or len(saved) != len(vector) or saved != vector:
+        return "self_test_match_vector_mismatch"
+    return None
 
 
 def _json(raw: bytes):
@@ -170,17 +231,18 @@ def validate_reference_bytes(raw: bytes, *, filename: str, upstream_commit: str,
     values = self_test.get("values")
     if not isinstance(values, list) or len(values) != len(probes) or any(not _finite(v, nullable=True) for v in values):
         raise ReferenceValidationError("invalid_self_test_values")
-    actual = [None if value is None else int(kbf.check_match(kbf.probe_consensus(probe), value, probe["domain"]))
+    actual = [None if value is None else int(score_reference_value(kbf.probe_consensus(probe), value, probe["domain"]))
               for probe, value in zip(probes, values)]
+    scoring_policy = CURRENT_SCORING_POLICY
+    if mismatch := _self_test_mismatch(self_test, actual):
+        historical = [None if value is None else int(score_reference_value(kbf.probe_consensus(probe), value,
+                       probe["domain"], LEGACY_SCORING_POLICY)) for probe, value in zip(probes, values)]
+        if _self_test_mismatch(self_test, historical) is not None:
+            raise ReferenceValidationError(mismatch)
+        actual, scoring_policy = historical, LEGACY_SCORING_POLICY
     total, hamming = sum(v is not None for v in actual), sum(v == 0 for v in actual)
-    for field, expected in (("total", total), ("hamming", hamming), ("correct", total - hamming)):
-        if type(self_test.get(field)) is not int or self_test[field] != expected:
-            raise ReferenceValidationError(f"self_test_{field}_mismatch:recorded={self_test.get(field)},recomputed={expected}")
     if total < max(1, math.ceil(len(probes) * 0.5)):
         raise ReferenceValidationError("insufficient_reference_self_coverage")
-    vector = self_test.get("match_vector")
-    if not isinstance(vector, list) or len(vector) != len(probes) or vector != actual:
-        raise ReferenceValidationError("self_test_match_vector_mismatch")
     calibrated = _date(self_test.get("timestamp"), "calibrated_at")
     providers = data.get("provider_map", {})
     if not isinstance(providers, dict):
@@ -201,6 +263,8 @@ def validate_reference_bytes(raw: bytes, *, filename: str, upstream_commit: str,
         "license_sha256": LICENSE_SHA256,
         "accessed_on": accessed_on or datetime.now(timezone.utc).date().isoformat(),
         "self_error_rate": hamming / total,
+        "scoring_policy": scoring_policy,
+        "scoring_source_commit": SCORING_SOURCE_COMMITS[scoring_policy],
         "domain_count": len({p["domain"] for p in probes}),
         "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
     }
@@ -307,7 +371,10 @@ def load_reference(pack_id: str, library_dir: Path | None = None) -> tuple[dict,
     for key in ("model", "probe_count", "self_hamming", "self_total"):
         if row.get(key) != actual[key]:
             raise ReferenceValidationError("Reference pack catalog does not match its contents")
+    if row.get("scoring_policy", actual["scoring_policy"]) != actual["scoring_policy"]:
+        raise ReferenceValidationError("Reference pack scoring policy does not match its calibration")
     return {**actual, **row, "self_error_rate": actual["self_error_rate"],
+            "scoring_policy": actual["scoring_policy"], "scoring_source_commit": actual["scoring_source_commit"],
             "domain_count": actual["domain_count"], "provenance_note": actual["provenance_note"],
             "source_verified": False, "storage": "bundled" if directory == BUNDLED_DIR else "cached"}, data
 

@@ -25,7 +25,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.06415094339622641,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "gpt-5.6-sol_20260912",
@@ -53,7 +55,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.06807511737089202,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "claude-opus-4.6_20260912",
@@ -81,7 +85,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.051685393258426963,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "qwen3.5-9b_20260913",
@@ -109,7 +115,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.05,
     "domain_count": 13,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "claude-fable-5.1_20260911",
@@ -137,7 +145,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.026490066225165563,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "claude-opus-5_20260911",
@@ -165,7 +175,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.016908212560386472,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "claude-sonnet-4.6_20260912",
@@ -193,7 +205,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.06436781609195402,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "deepseek-v3.2_20260912",
@@ -221,7 +235,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.060526315789473685,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "deepseek-v4-pro-0813_20260911",
@@ -249,7 +265,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.06104129263913824,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "gemini-2.5-flash-lite_20260918",
@@ -277,7 +295,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.10658307210031348,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "gemini-3-flash-preview_20260912",
@@ -305,7 +325,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.05134474327628362,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "glm-4.7_20260913",
@@ -333,7 +355,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.07710280373831775,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "glm-5_20260912",
@@ -361,7 +385,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.06626506024096386,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "gpt-4.1-nano_20260918",
@@ -389,7 +415,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.10080645161290322,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "gpt-5.4-mini_20260916",
@@ -417,7 +445,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.13402061855670103,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "gpt-5.4_20260913",
@@ -445,7 +475,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.07735849056603773,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "gpt-5.6-luna_20260915",
@@ -473,7 +505,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.0756578947368421,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "gpt-6-astra_20260910",
@@ -501,7 +535,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.0149812734082397,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "hy4-preview_20260911",
@@ -529,7 +565,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.05762081784386617,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "kimi-k2-0905_20260912",
@@ -557,7 +595,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.07777777777777778,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "kimi-k3_20260912",
@@ -585,7 +625,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.0851063829787234,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "llama-4-scout_20260918",
@@ -613,7 +655,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.15217391304347827,
     "domain_count": 14,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "minimax-m3_20260911",
@@ -641,7 +685,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.08064516129032258,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "qwen3.5-27b_20260913",
@@ -669,7 +715,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.06711409395973154,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "qwen3.5-397b-a17b_20260912",
@@ -697,7 +745,9 @@
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.06299212598425197,
     "domain_count": 15,
-    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
   },
   {
     "id": "seed-2-1-turbo_20260911",
@@ -724,6 +774,69 @@
     "license_sha256": "0485fff26320cac0547cdd92fc503066869f02110ef5914f121c7a50b8cb1467",
     "accessed_on": "2026-10-13",
     "self_error_rate": 0.06015037593984962,
+    "domain_count": 15,
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "scoring_policy": "absolute_half_up",
+    "scoring_source_commit": "df361a373d35120d64b28d9d9974bc7c6709f19f"
+  },
+  {
+    "id": "deepseek-v4.1-flash_20260911",
+    "label": "DeepSeek V4.1 Flash",
+    "model": "deepseek/deepseek-v4.1-flash",
+    "provider": "Novita",
+    "generated_at": "2026-09-11T11:42:04.134609",
+    "calibrated_at": "2026-09-11T11:43:40.769819",
+    "probe_count": 363,
+    "self_hamming": 29,
+    "self_total": 363,
+    "source_url": "https://github.com/Ooo0ption/KBF/blob/6b4c403def2498cb92b7bd51ad958ddee5b3d06f/probes/reference_202609/deepseek-v4.1-flash_20260911.json",
+    "sha256": "91bafbe9bf2f8e2182ed93e6aeffb55d0220505dd86467a199672e125113fc9d",
+    "filename": "deepseek-v4.1-flash_20260911.json",
+    "license": "Apache-2.0",
+    "source_verified": false,
+    "source_endpoint": "unknown",
+    "protocol": "chat_completions",
+    "upstream_commit": "6b4c403def2498cb92b7bd51ad958ddee5b3d06f",
+    "source_path": "probes/reference_202609/deepseek-v4.1-flash_20260911.json",
+    "git_blob_sha": "6cbd6e6167f9afbbb2b78fbf5146c1225f79913c",
+    "source_directory": "probes/reference_202609",
+    "license_url": "https://github.com/Ooo0ption/KBF/blob/6b4c403def2498cb92b7bd51ad958ddee5b3d06f/LICENSE",
+    "license_sha256": "0485fff26320cac0547cdd92fc503066869f02110ef5914f121c7a50b8cb1467",
+    "accessed_on": "2026-11-09",
+    "self_error_rate": 0.07988980716253444,
+    "scoring_policy": "legacy_absolute_raw",
+    "scoring_source_commit": "b789b4b7abe119e28ec6260142564b2189ff5449",
+    "domain_count": 15,
+    "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。",
+    "version_note": "作者记录采集于2026-09-11；早于官方2026-10-17的1017升级。"
+  },
+  {
+    "id": "glm-5.3_20260911",
+    "label": "GLM 5.3",
+    "model": "z-ai/glm-5.3",
+    "provider": "Z.AI",
+    "generated_at": "2026-09-11T21:37:16.319863",
+    "calibrated_at": "2026-09-11T21:40:35.466620",
+    "probe_count": 372,
+    "self_hamming": 27,
+    "self_total": 372,
+    "source_url": "https://github.com/Ooo0ption/KBF/blob/6b4c403def2498cb92b7bd51ad958ddee5b3d06f/probes/reference_202609/glm-5.3_20260911.json",
+    "sha256": "beed8c61316f5697dff1cb6b5385d10bd3ecbfd0047b437deaa9152e6facd4fb",
+    "filename": "glm-5.3_20260911.json",
+    "license": "Apache-2.0",
+    "source_verified": false,
+    "source_endpoint": "unknown",
+    "protocol": "chat_completions",
+    "upstream_commit": "6b4c403def2498cb92b7bd51ad958ddee5b3d06f",
+    "source_path": "probes/reference_202609/glm-5.3_20260911.json",
+    "git_blob_sha": "d94dc96d4986491bd2ef2ee500b5298b09668b18",
+    "source_directory": "probes/reference_202609",
+    "license_url": "https://github.com/Ooo0ption/KBF/blob/6b4c403def2498cb92b7bd51ad958ddee5b3d06f/LICENSE",
+    "license_sha256": "0485fff26320cac0547cdd92fc503066869f02110ef5914f121c7a50b8cb1467",
+    "accessed_on": "2026-11-09",
+    "self_error_rate": 0.07258064516129033,
+    "scoring_policy": "legacy_absolute_raw",
+    "scoring_source_commit": "b789b4b7abe119e28ec6260142564b2189ff5449",
     "domain_count": 15,
     "provenance_note": "作者发布的参考数据；记录的模型和渠道未经本组独立认证。"
   }
