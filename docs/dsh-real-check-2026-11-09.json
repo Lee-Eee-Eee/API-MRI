@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "checkedAt": "2026-11-09T00:35:19.169Z",
+  "sourceBuild": true,
+  "packagedBuild": false,
+  "gui": false,
+  "credentialFilesOpened": false,
+  "selectedModel": "dsh:deepseek-official:deepseek-flash",
+  "bridgeAttempts": 17,
+  "upstreamCompletedRequests": 16,
+  "localUnsupportedRequests": 1,
+  "providerReportedUsage": {
+    "prompt_tokens": 1854,
+    "completion_tokens": 179,
+    "total_tokens": 2033
+  },
+  "billQueried": false,
+  "speed": {
+    "samples": 1,
+    "firstContentMs": 578,
+    "reportedOutputTokensPerSecond": 93.71293
+  },
+  "tools": {
+    "tool_forced": "unsupported",
+    "tool_roundtrip": "passed",
+    "tool_auto": "passed",
+    "tool_no_call": "passed"
+  },
+  "identification": {
+    "validAnswers": 12,
+    "completedCells": 3,
+    "comparedCandidates": 132,
+    "status": "unknown_or_changed",
+    "identityConfirmed": false
+  },
+  "status": "passed",
+  "rawTemporaryRecordsRetained": false
+}

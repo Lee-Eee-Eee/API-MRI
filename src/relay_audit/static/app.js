@@ -303,7 +303,7 @@
       target === "identity" && !state.specific;
     if (previous === "identity" && ["quality", "tools"].includes(target)) {
       $("request-cap").value = "6";
-      $("token-cap").value = "768";
+      $("token-cap").value = usesDSH() ? "1536" : "768";
     }
     $("request-cap").max = target === "identity" ? "500" : "32";
     $("token-cap").max = target === "identity" ? "1000000" : "8192";
@@ -313,6 +313,7 @@
       renderMechanism(target);
     }
     invalidatePlan();
+    updateDshControls();
     closeMenu();
     if (target === "history") renderHistory();
     if (target === "library") renderLibrary();
@@ -365,6 +366,14 @@
     dshCandidates.add(value);
     return value;
   }
+  function selectedDshModel(scope = "main") {
+    return state.dsh?.models.find(row => row.id === $(dshPrefix(scope) + "-dsh-model").value);
+  }
+  function requireDshFingerprintProtocol(payload) {
+    if (payload.mode === "identify" && dshCandidates.has(payload.candidate)
+        && selectedDshModel()?.fingerprint_supported !== true)
+      throw new Error("这个 DSH 模型未声明可关闭推理，暂不能运行共同指纹探针。可先测连接与工具，或使用支持关闭推理的接口。");
+  }
   function selectedCandidate(withKey = false, scope = "main") {
     if (usesDSH(scope)) return dshCandidate(scope);
     const prefix = scope === "showcase" ? "showcase-api" : "api";
@@ -388,6 +397,11 @@
         if (kind !== "key") $(manual + "-" + kind).required = !active;
       }
       if (scope === "showcase") $("showcase-form").classList.toggle("dsh-active", active);
+      const model = active ? selectedDshModel(scope) : null;
+      $(prefix + "-dsh-note").textContent = !state.dsh?.models.length ? "在 DSH 中配置模型后，点击刷新。"
+        : scope === "main" && state.view === "identity" && !state.specific && model?.fingerprint_supported !== true
+          ? "此模型未声明关闭推理的控制项，共同指纹探针暂不可用。连接与工具检查仍可使用。"
+          : model?.fingerprint_supported === true ? "经 DSH 模型适配器调用；模型提供关闭推理控制。" : "经 DSH 模型适配器调用；沿用模型的推理设置。";
     }
   }
   function updateDshCatalog(value) {
@@ -399,10 +413,16 @@
     for (const row of value.models) {
       if (!row || typeof row.id !== "string" || !row.id || row.id.length > 200 || /[\x00-\x1f]/.test(row.id) || ids.has(row.id)) return;
       if (![row.label, row.provider, row.model].every(v => typeof v === "string" && v.length <= 300 && !/[\x00-\x1f]/.test(v))) return;
-      ids.add(row.id); models.push({ id: row.id, label: row.label, provider: row.provider, model: row.model });
+      ids.add(row.id); models.push({ id: row.id, label: row.label, provider: row.provider, model: row.model,
+        fingerprint_supported: row.fingerprint_supported === true ? true : row.fingerprint_supported === false ? false : null });
     }
     const first = !state.dsh;
     state.dsh = { apiBase: url.href.replace(/\/$/, ""), models };
+    if (first) {
+      if ($("output-tokens").value === "128") $("output-tokens").value = "256";
+      if ($("token-cap").value === "768") $("token-cap").value = "1536";
+      if ($("timeout").value === "30") $("timeout").value = "60";
+    }
     for (const scope of ["main", "showcase"]) {
       const prefix = dshPrefix(scope), select = $(prefix + "-dsh-model"), previous = select.value;
       select.replaceChildren(...models.map(row => {
@@ -423,6 +443,7 @@
   }
   async function authorizeDSH(payload) {
     if (!state.embedNonce || !state.embedOrigin || !state.embedOrigins.includes(state.embedOrigin) || !state.dsh) throw new Error("DSH 连接已更新，请重新打开工作台。");
+    requireDshFingerprintProtocol(payload);
     const plan = await api("/api/plan", payload);
     const [maxRequests, maxOutputTokens] = payload.mode === "showcase"
       ? [plan.maximum_requests, plan.maximum_requested_output_tokens] : planNumbers(plan, payload.mode);
@@ -486,6 +507,8 @@
       max_tokens: Number($("output-tokens").value),
       token_parameter: $("token-parameter").value,
       stream_usage: $("stream-usage").checked,
+      ...(usesDSH() ? { tool_roundtrip_choice: "auto" } : {}),
+      ...(usesDSH() && selectedDshModel()?.fingerprint_supported === true ? { reasoning_off: true } : {}),
       timeout,
       budget: {
         max_requests: Number($("request-cap").value),
@@ -540,6 +563,7 @@
         ),
       );
       node.append(el("p", "", "顺序发送，不自动重试。"));
+      if (plan.reasoning_off) node.append(el("p", "", "本轮关闭推理。"));
     } else if (mode === "identify") {
       node.append(
         el(
@@ -572,6 +596,7 @@
     const revision = state.planRevision,
       value = payload(false);
     try {
+      requireDshFingerprintProtocol(value);
       const result = await api("/api/plan", value);
       if (revision !== state.planRevision) return;
       state.plan = result;
@@ -919,7 +944,7 @@
               ? "请求过程已记录"
               : "工具调用检查已完成",
       hasStreams
-        ? `${num(connection.successful_requests)} / ${num(connection.attempted_requests)} 次请求完成。耗时包含网络、网关与模型等待。`
+        ? `${num(connection.successful_requests)} / ${num(connection.evaluated_requests ?? connection.attempted_requests)} 次可执行请求完成。${connection.unsupported_requests ? `另有 ${num(connection.unsupported_requests)} 项适配器不支持。` : ""}耗时包含网络、网关与模型等待。`
         : "指定调用、自动选择和结果回填分别检查。",
     );
     const metrics = el("div", "metric-strip");
@@ -1134,6 +1159,7 @@
         invalid_json_response: "响应不是有效 JSON",
         invalid_chat_response: "响应格式不符合接口协议",
         expected_one_tool_call: "未返回恰好一个工具调用",
+        missing_or_excess_tool_calls: "未返回工具调用，或调用数超过4次",
         invalid_tool_call_id: "工具调用标识无效",
         wrong_tool: "选择了错误工具",
         truncated_tool_call: "工具调用被输出限制截断",
@@ -1155,6 +1181,19 @@
         unsupported: "接口不支持该参数",
         adapter_does_not_support_forced_call: "DSH适配器不支持指定工具调用",
         unsupported_parameter: "DSH适配器不支持该参数",
+        dsh_upstream_auth: "DSH 上游鉴权失败，请检查模型连接的凭据",
+        dsh_upstream_quota: "DSH 上游额度不足",
+        dsh_upstream_rate_limit: "DSH 上游触发限流",
+        dsh_upstream_timeout: "DSH 上游响应超时",
+        dsh_upstream_transport: "DSH 无法连接上游服务",
+        dsh_upstream_request: "DSH 上游拒绝了请求参数",
+        dsh_upstream_server: "DSH 上游服务异常",
+        dsh_upstream_unknown: "DSH 模型调用中断，请检查模型连接",
+        dsh_upstream_empty: "DSH 上游返回了空响应",
+        dsh_upstream_context: "DSH 上游上下文超出限制",
+        dsh_adapter_unavailable: "DSH 未载入此模型的适配器",
+        dsh_request_cancelled: "DSH 模型调用已取消",
+        dsh_model_error: "DSH 模型调用失败，请检查模型连接",
         valid: "格式和取值符合要求",
         cancelled: "已停止",
       }[value] || text(value)
@@ -1910,6 +1949,7 @@
       $("token-cap").value = "4096";
     }
     invalidatePlan();
+    updateDshControls();
   }
   function openImport(run = null, entry = null) {
     const mode = run?.mode || "";
@@ -2263,6 +2303,7 @@
       updateDshControls();
     });
     $(prefix + "-dsh-refresh").addEventListener("click", refreshDshCatalog);
+    $(prefix + "-dsh-model").addEventListener("change", () => updateDshControls());
   }
   window.apiMRI = Object.freeze({
     request: api,

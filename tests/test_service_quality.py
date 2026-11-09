@@ -83,6 +83,9 @@ def test_dsh_adapter_refusal_is_not_a_model_tool_failure_and_replays(tmp_path, m
             return httpx.Response(422, headers=headers, json={"error": {"code": "unsupported_parameter", "message": "tool_choice"}})
         if "Reply exactly HELLO" in body["messages"][0]["content"]:
             message = {"content": "HELLO"}
+        elif body.get("tool_choice") == "none":
+            fixture = next(json.loads(m["content"]) for m in body["messages"] if m["role"] == "tool")
+            message = {"content": f"{fixture['value']} {fixture['unit']} {fixture['receipt']}"}
         else:
             message = {"content": None, "tool_calls": [{"id": "fixture-call", "type": "function", "function": {
                 "name": "lookup_sample", "arguments": '{"sample_id":"MRI-17","field":"temperature"}'}}]}
@@ -91,13 +94,17 @@ def test_dsh_adapter_refusal_is_not_a_model_tool_failure_and_replays(tmp_path, m
         "model": "dsh:provider:model", "api_key": KEY}), tmp_path / "run", transport=httpx.MockTransport(handler))
     tools = result["service_quality"]["tools"]
     assert tools["tool_forced"]["status"] == ("unsupported" if marked else "error")
-    assert tools["tool_roundtrip"]["status"] == "skipped"
+    assert tools["tool_roundtrip"]["status"] == "passed"
     assert tools["tool_auto"]["status"] == tools["tool_no_call"]["status"] == "passed"
     assert ("transport" in result) == marked
+    connection = result["service_quality"]["connection"]
+    assert connection["unsupported_requests"] == (1 if marked else 0)
+    assert connection["evaluated_requests"] == (3 if marked else 4)
+    assert connection["success_rate"] == (1 if marked else .75)
     if marked:
         assert result["transport"]["basis"] == "response_header"
         assert "DSH" in result["definitions"]["transport"]
-        assert tools["tool_roundtrip"]["reason"] == "adapter_does_not_support_forced_call"
+        assert tools["tool_roundtrip"]["reason"] == "returned_fixture_read"
     replayed = replay_service_quality(rows(tmp_path), tmp_path / "replayed")
     assert replayed == result
 
@@ -301,7 +308,7 @@ def test_forced_pass_does_not_pass_auto_selection_of_distractor(tmp_path):
         body = json.loads(request.content)
         finish = "stop"
         if body["tool_choice"] == "none":
-            fixture = json.loads(body["messages"][-1]["content"])
+            fixture = next(json.loads(m["content"]) for m in body["messages"] if m["role"] == "tool")
             message = {"content": f"{fixture['value']} {fixture['unit']} {fixture['receipt']}"}
         elif body["messages"][0]["content"].endswith("Do not use any tools."):
             assert len(body["tools"]) == 2
@@ -320,7 +327,7 @@ def test_forced_pass_does_not_pass_auto_selection_of_distractor(tmp_path):
     tools = report["service_quality"]["tools"]
     assert tools["tool_forced"]["status"] == "passed"
     assert tools["tool_roundtrip"]["status"] == "passed"
-    assert tools["tool_auto"] == {"status": "failed", "reason": "wrong_tool", "request_index": 2}
+    assert tools["tool_auto"] == {"status": "failed", "reason": "wrong_tool", "request_index": 1}
     assert tools["tool_no_call"]["status"] == "passed"
     assert report["cost"]["request_count"] == 4
     rows(tmp_path)
@@ -420,3 +427,111 @@ def test_replay_rejects_erased_failure_after_timeout(tmp_path):
     evidence[-1].update(stop_code="complete", failure=None)
     with pytest.raises(ValueError):
         parse_service_records(rehash(evidence))
+
+
+def test_dsh_auto_can_complete_roundtrip_with_multiple_offered_tools(tmp_path):
+    bodies = []
+    def handler(request):
+        body = json.loads(request.content)
+        bodies.append(body)
+        headers = {"x-api-mri-transport": "dsh-adapter"}
+        if isinstance(body.get("tool_choice"), dict):
+            return httpx.Response(422, headers=headers, json={"error": {"code": "unsupported_parameter"}})
+        if any(message["role"] == "tool" for message in body["messages"]):
+            assert body["tool_choice"] == "auto"
+            assert {tool["function"]["name"] for tool in body["tools"]} == {"lookup_sample", "lookup_unit_legend"}
+            results = [json.loads(m["content"]) for m in body["messages"] if m["role"] == "tool"]
+            assert len(results) == 2
+            sample = next(value for value in results if "value" in value)
+            message = {"content": f"{sample['value']} {sample['unit']} {sample['receipt']}"}
+        elif body["messages"][0]["content"].endswith("Do not use any tools."):
+            message = {"content": "HELLO"}
+        else:
+            message = {"content": None, "tool_calls": [
+                {"id": "sample", "type": "function", "function": {"name": "lookup_sample", "arguments": '{"sample_id":"MRI-17","field":"temperature"}'}},
+                {"id": "legend", "type": "function", "function": {"name": "lookup_unit_legend", "arguments": '{"unit":"C"}'}}]}
+        return httpx.Response(200, headers=headers, json={"choices": [{"message": message, "finish_reason": "tool_calls" if message.get("tool_calls") else "stop"}]})
+    report = run_service_quality(config(checks=["tools"], reasoning_off=True, tool_roundtrip_choice="auto",
+        max_tokens=256, budget={"max_requests": 6, "max_output_tokens": 1536}), tmp_path / "run", transport=httpx.MockTransport(handler))
+    tools = report["service_quality"]["tools"]
+    assert tools["tool_forced"]["status"] == "unsupported"
+    assert tools["tool_auto"]["status"] == tools["tool_roundtrip"]["status"] == tools["tool_no_call"]["status"] == "passed"
+    assert report["service_quality"]["tool_harness"]["roundtrip_tool_choice"] == "auto"
+    assert len(bodies) == 4 and all(body["reasoning"] == {"enabled": False} for body in bodies)
+    assert report["cost"]["requested_output_tokens"] == 1024
+    assert replay_service_quality(rows(tmp_path), tmp_path / "replay") == report
+
+
+def test_truncated_tool_arguments_are_not_reported_as_malformed_json(tmp_path):
+    def handler(request):
+        return httpx.Response(200, json={"choices": [{"message": {"content": None, "tool_calls": [
+            {"id": "partial", "type": "function", "function": {"name": "lookup_sample", "arguments": '{"sample_id":'}}]}, "finish_reason": "length"}]})
+    report = run_service_quality(config(checks=["tools"]), tmp_path / "run", transport=httpx.MockTransport(handler))
+    assert report["service_quality"]["tools"]["tool_forced"]["reason"] == "truncated_tool_call"
+    assert report["service_quality"]["tools"]["tool_auto"]["reason"] == "truncated_tool_call"
+    assert report["service_quality"]["tools"]["tool_roundtrip"]["status"] == "skipped"
+    rows(tmp_path)
+
+
+@pytest.mark.parametrize("code", ["dsh_upstream_auth", "dsh_upstream_quota", "dsh_upstream_timeout", "dsh_upstream_request"])
+def test_structured_dsh_sse_failure_is_preserved_and_stops_without_retries(tmp_path, code):
+    calls = []
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, headers={"content-type": "text/event-stream", "x-api-mri-transport": "dsh-adapter"},
+            content=("data: " + json.dumps({"error": {"code": code, "message": "DSH call failed"}}) + "\n\ndata: [DONE]\n\n").encode())
+    report = run_service_quality(config(samples=2), tmp_path / "run", transport=httpx.MockTransport(handler))
+    assert report["collection"]["failure"] == code
+    assert len(calls) == 1
+    assert report["service_quality"]["connection"]["successful_requests"] == 0
+    assert replay_service_quality(rows(tmp_path), tmp_path / "replay") == report
+
+
+def test_legacy_forced_first_records_still_replay(tmp_path, monkeypatch):
+    import relay_audit.service_quality as service
+    stages, body = service._stages, service._body
+    monkeypatch.setattr(service, "_stages", lambda config, tool_flow=None: stages(config, None))
+    monkeypatch.setattr(service, "_body", lambda config, stage, marker, previous=None, receipt=None: body(config, stage, marker, previous, receipt, None))
+    demo_service_quality(tmp_path / "run")
+    evidence = [json.loads(line) for line in (tmp_path / "run" / "service_records.jsonl").read_text(encoding="utf-8").splitlines()]
+    evidence[0].pop("tool_flow")
+    monkeypatch.setattr(service, "_stages", stages)
+    monkeypatch.setattr(service, "_body", body)
+    parsed = parse_service_records(rehash(evidence))
+    assert [row["stage"] for row in parsed if row["type"] == "request"][-4:] == ["tool_forced", "tool_roundtrip", "tool_auto", "tool_no_call"]
+
+
+def test_legacy_dsh_502_errors_replay_without_reclassifying_or_rewriting(tmp_path, monkeypatch):
+    import relay_audit.service_quality as service
+    derive, stages, body = service._derive_error, service._stages, service._body
+    def handler(request):
+        return httpx.Response(502, headers={"x-api-mri-transport": "dsh-adapter"},
+            json={"error": {"code": "dsh_model_error", "message": "DSH model call failed"}})
+    # Reproduce the v0.9.2 collector: generic HTTP error classification,
+    # forced-first ordering, and no structured DSH halt condition.
+    with monkeypatch.context() as historical:
+        historical.setattr(service, "_derive_error", lambda row, body=None: derive(row, body, legacy=True))
+        historical.setattr(service, "_stages", lambda config, tool_flow=None: stages(config, None))
+        historical.setattr(service, "_body", lambda config, stage, marker, previous=None, receipt=None:
+            body(config, stage, marker, previous, receipt, None))
+        service.run_service_quality(config(checks=["tools"]), tmp_path / "old", transport=httpx.MockTransport(handler))
+    old_path = tmp_path / "old" / "service_records.jsonl"
+    evidence = [json.loads(line) for line in old_path.read_text(encoding="utf-8").splitlines()]
+    evidence[0].pop("tool_flow")
+    historic_text = rehash(evidence)
+    old_path.write_text(historic_text, encoding="utf-8")
+    original_bytes = old_path.read_bytes()
+    parsed = service.parse_service_records(historic_text)
+    assert [row["error"] for row in parsed if row["type"] == "request"] == ["server_error"] * 3
+    assert parsed[-1]["stop_code"] == "complete"
+    report = service.replay_service_quality(parsed, tmp_path / "old-replayed")
+    assert report["service_quality"]["connection"]["errors"] == {"server_error": 3}
+    assert old_path.read_bytes() == original_bytes
+    assert [row["record_hash"] for row in parsed] == [row["record_hash"] for row in evidence]
+    # The same observations in a new collector retain the new actionable code
+    # and stop after one attempt; compatibility does not weaken current runs.
+    current = service.run_service_quality(config(checks=["tools"]), tmp_path / "current", transport=httpx.MockTransport(handler))
+    assert current["collection"]["failure"] == "dsh_model_error"
+    assert current["cost"]["request_count"] == 1
+    current_text = (tmp_path / "current" / "service_records.jsonl").read_text(encoding="utf-8")
+    assert service.parse_service_records(current_text)[-1]["failure"] == "dsh_model_error"

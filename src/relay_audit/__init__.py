@@ -1,4 +1,4 @@
 """Group 11's API consistency research prototype."""
 
-__version__ = "0.9.2"
+__version__ = "0.9.3"
 

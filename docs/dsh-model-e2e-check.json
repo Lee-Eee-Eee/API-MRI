@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "checkedAt": "2026-11-09T00:39:37.708Z",
+  "pluginVersion": "0.9.3",
+  "status": "passed",
+  "isolatedProfile": true,
+  "privateConfigurationRead": false,
+  "realModelCalls": 0,
+  "upstream": "loopback synthetic OpenAI SSE",
+  "adapter": "installed DSH official dsh-llm-pi-ai",
+  "checks": {
+    "hostAuthentication": true,
+    "configuredModelViaOfficialAdapter": true,
+    "speedAndReplay": true,
+    "toolAutoMultipleCallsRoundtripAndReplay": true,
+    "identificationProtocolAndReplay": true,
+    "actualToolResultsReachedUpstream": true
+  },
+  "measurements": {
+    "speedRequests": 2,
+    "toolRequests": 4,
+    "identificationRequests": 12,
+    "identificationCompletedCells": 3,
+    "upstreamSyntheticRequests": 17
+  },
+  "stage": "identify:probes:replay",
+  "ownedProcessesStopped": true
+}

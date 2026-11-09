@@ -96,7 +96,7 @@ test('provider exceptions and terminal error messages cannot leak upstream secre
     const llm = mock(stream), bridge = createModelBridge(llm);
     try {
       const res = await call(await issue(bridge)); assert.equal(res.status, 502);
-      const value = await res.text(); assert.ok(!value.includes('FAKE-UPSTREAM-SECRET')); assert.match(value, /dsh_model_error/);
+      const value = await res.text(); assert.ok(!value.includes('FAKE-UPSTREAM-SECRET')); assert.match(value, /dsh_model_error|dsh_upstream_auth/);
     } finally { await bridge.dispose(); }
   }
 });
@@ -144,4 +144,47 @@ test('two already-reading bodies cannot both enter one model lease', async () =>
     const result = await Promise.race([b.response, new Promise(resolve => setTimeout(() => resolve({ status: -1 }), 500))]);
     assert.equal(result.status, 409); assert.equal(llm.calls, 1);
   } finally { for (const req of requests) req.destroy(); await bridge.dispose(); }
+});
+
+
+test('identity request with vendor usage option reaches the configured model', async () => {
+  let received;
+  const llm = mock(async function* (options) { received = options; yield { type: 'text-delta', index: 0, text: '42' }; yield finish; });
+  const bridge = createModelBridge(llm);
+  try {
+    const res = await call(await issue(bridge), body({ usage: { include: true }, reasoning: { enabled: false }, temperature: 0 }));
+    assert.equal(res.status, 200); assert.equal(llm.calls, 1);
+    assert.equal(received.reasoningEffort, 'off'); assert.equal(received.usage, undefined);
+    assert.equal((await res.json()).choices[0].message.content, '42');
+  } finally { await bridge.dispose(); }
+});
+
+test('upstream failures have fixed safe categories in JSON and SSE', async () => {
+  for (const [code, expected] of [['AUTH', 'dsh_upstream_auth'], ['QUOTA', 'dsh_upstream_quota'],
+    ['RATE_LIMIT', 'dsh_upstream_rate_limit'], ['TIMEOUT', 'dsh_upstream_timeout'], ['UNTRUSTED-SECRET', 'dsh_model_error']]) {
+    for (const stream of [false, true]) {
+      const llm = mock(async function* () { yield { type: 'finish', reason: { kind: 'error', failure: { code, message: 'PRIVATE-PROVIDER-SECRET' } } }; });
+      const bridge = createModelBridge(llm);
+      try {
+        const res = await call(await issue(bridge), body({ stream }));
+        const raw = await res.text();
+        assert.equal(res.status, stream ? 200 : 502);
+        assert.ok(!raw.includes('PRIVATE-PROVIDER-SECRET'));
+        assert.ok(!raw.includes('UNTRUSTED-SECRET'));
+        assert.match(raw, new RegExp(expected));
+        if (stream) assert.ok(!raw.includes('[DONE]'));
+      } finally { await bridge.dispose(); }
+    }
+  }
+});
+
+test('provider cannot opt raw private errors into the trusted bridge validation path', async () => {
+  const llm = mock(async function* () {
+    throw Object.assign(new Error('PRIVATE-PROVIDER-SECRET'), { code: 'PRIVATE-PROVIDER-SECRET', status: 422, safeForClient: true });
+  });
+  const bridge = createModelBridge(llm);
+  try {
+    const res = await call(await issue(bridge)); const raw = await res.text();
+    assert.equal(res.status, 502); assert.match(raw, /dsh_model_error/); assert.ok(!raw.includes('PRIVATE-PROVIDER-SECRET'));
+  } finally { await bridge.dispose(); }
 });

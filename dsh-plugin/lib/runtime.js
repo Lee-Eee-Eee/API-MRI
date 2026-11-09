@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 import { request as httpsRequest, Agent as HttpsAgent } from 'node:https';
 import { Readable } from 'node:stream';
 const exec = promisify(execFile);
-const VERSION = '0.9.2';
+const VERSION = '0.9.3';
 class RuntimeError extends Error {}
 
 export function runtimeFetch(url,options={}) {

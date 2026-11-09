@@ -13,6 +13,8 @@ API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧�
 
 先看计划，再开始采样；所有请求串行发送，无自动重试。输出配额按请求参数累加，输入与额外推理计费另记。结果和 JSONL 留在本机，已有记录可反复离线复算。没有 Key 也可以试用合成示例。
 
+DSH入口的服务测量默认每请求256 tokens；只测速512配额，只工具1024配额，同时检查1536配额。支持关闭推理的型号采用该档位。强制指定工具不受DSH接口支持时，仍可完成自动调用和结果回填。[0.9.3修复记录](docs/dsh-diagnostics-2026-11-09.md)
+
 工具展示候选和家族排序，也会返回“库外或行为变化”“证据不足”。参考采于 2026 年 7 月；32 请求的历史留出测试中，131 个有效标签 Top-1 为 103/131、Top-3 为 121/131，门槛放行 64 例，其中 1 例选错。逐题证据和排名稳定性用于解释这次排序，现网识别效果仍待校准。[模型识别方法](docs/model-identification.md) · [服务测量方法](docs/service-quality.md)
 
 ![API-MRI 连接与速度](docs/images/workbench-v07.jpg)
@@ -21,11 +23,11 @@ API-MRI 中的 MRI 指 **Model Response Inspector**。原名 Relay Audit；旧�
 
 ## 开始使用
 
-**Windows 用户：** 在 [Releases](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest) 下载 `API-MRI-0.9.0-windows-x64.zip`，完整解压后双击 `API-MRI.exe`。无需安装 Python。浏览器打开工作台，另有一个小窗口用于打开页面和退出程序。使用与升级步骤见[便携版指南](docs/portable.md)。
+**Windows 用户：** 在 [Releases](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest) 下载 `API-MRI-0.9.3-windows-x64.zip`，完整解压后双击 `API-MRI.exe`。无需安装 Python。浏览器打开工作台，另有一个小窗口用于打开页面和退出程序。使用与升级步骤见[便携版指南](docs/portable.md)。
 
 安装后点击“试用示例”，即可查看流式时间线和工具调用结果。示例使用本地合成响应；模型指纹示例从参考分布合成，两者均不调用模型 API。
 
-**DSH 用户：** 安装[0.9.2插件包](dsh-plugin/README.md)，从原生左栏打开API-MRI。进入后自动启动，直接选择DSH已配置模型，无需再填地址和Key。
+**DSH 用户：** 安装[0.9.3插件包](dsh-plugin/README.md)，从原生左栏打开API-MRI。进入后自动启动，直接选择DSH已配置模型，无需再填地址和Key。
 
 **只想看作品：** “示例馆”默认展示42道有充分对照的题目，统一名称并按发布日期排序，模型与运行档位分开选择。SVG、HTML和WebGL原作在页内按需预览，保留提示、出处和已知参数。[来源与方法](docs/classic-examples.md)
 

@@ -65,6 +65,7 @@ test('tool declarations and history preserve function calls and tool result ids;
   assert.equal(prepared.options.messages[2].content[0].arguments, '{"x":1}');
   assert.equal(prepared.options.messages[3].source.callId, 'call-1');
   assert.equal(prepared.options.messages[3].toolCallId, 'call-1');
+  await assert.rejects(validateCompletionRequest(model([]), request({ tools: [tool], tool_choice: 'none', messages })), error => error.code === 'unsupported_tool_choice');
   const none = await validateCompletionRequest(model([]), request({ tools: [tool], tool_choice: 'none' }));
   assert.equal(none.options.tools, undefined);
   await assert.rejects(validateCompletionRequest(model([]), request({ tools: [{ ...tool, function: { ...tool.function, strict: true } }] })));
@@ -99,7 +100,44 @@ test('stream tool indexes are contiguous and final blocks do not duplicate argum
 
 test('incomplete, failed and cancelled model attempts cannot become successful completions', async () => {
   await assert.rejects(collect(completionChunks(model([]), request())), error => error.code === 'incomplete_stream');
-  await assert.rejects(collect(completionChunks(model([{ type: 'finish', reason: { kind: 'error', failure: { code: 'AUTH', message: 'secret raw provider message' } } }]), request())), error => error.code === 'AUTH' && !error.message.includes('secret') && error.safeForClient === false);
+  await assert.rejects(collect(completionChunks(model([{ type: 'finish', reason: { kind: 'error', failure: { code: 'AUTH', message: 'secret raw provider message' } } }]), request())), error => error.code === 'dsh_upstream_auth' && !error.message.includes('secret') && error.status === 502);
   const controller = new AbortController(); controller.abort();
   await assert.rejects(collect(completionChunks(model([{ type: 'text-delta', index: 0, text: 'x' }]), request(), { signal: controller.signal })), error => error.code === 'ABORTED');
+});
+
+
+test('identification usage option is accepted locally and not sent to DSH', async () => {
+  let options;
+  const chunks = await collect(completionChunks(model([
+    { type: 'text-delta', index: 0, text: '42' },
+    { type: 'usage', usage: { inputTokens: 5, outputTokens: 1, totalTokens: 6 } },
+    { type: 'finish', reason: { kind: 'stop' } },
+  ], value => { options = value; }), request({ usage: { include: true }, reasoning: { enabled: false } })));
+  assert.equal(options.usage, undefined);
+  assert.equal(options.reasoningEffort, 'off');
+  assert.equal(chunks.at(-1).usage.total_tokens, 6);
+  assert.equal(chunks.at(-1).usage.completion_tokens_details, undefined);
+  for (const usage of [{ include: 'yes' }, { include: true, raw: true }, null])
+    await assert.rejects(validateCompletionRequest(model([]), request({ usage })));
+});
+
+test('unknown usage remains unknown and explicit zero reasoning remains explicit', async () => {
+  for (const [usage, expected] of [[{}, {}],
+    [{ inputTokens: 2, outputTokens: 1, reasoningTokens: 0 }, { prompt_tokens: 2, completion_tokens: 1, total_tokens: 3, completion_tokens_details: { reasoning_tokens: 0 } }]]) {
+    const chunks = await collect(completionChunks(model([{ type: 'usage', usage }, { type: 'finish', reason: { kind: 'stop' } }]), request()));
+    assert.deepEqual(chunks.at(-1).usage, expected);
+  }
+});
+
+test('final tool block supplies late identity and remaining arguments without duplication', async () => {
+  const chunks = await collect(completionChunks(model([
+    { type: 'tool-call-delta', index: 0, id: '', argumentsDelta: '{"x":' },
+    { type: 'tool-call-delta', index: 0, id: '', argumentsDelta: '' },
+    { type: 'block-end', index: 0, block: { type: 'tool-call', id: 'late-id', name: 'lookup', arguments: '{"x":1}' } },
+    { type: 'finish', reason: { kind: 'tool-calls' } },
+  ]), request()));
+  const calls = chunks.flatMap(c => c.choices).flatMap(c => c.delta.tool_calls || []);
+  assert.equal(calls.map(c => c.id || '').join(''), 'late-id');
+  assert.equal(calls.map(c => c.function.name || '').join(''), 'lookup');
+  assert.equal(calls.map(c => c.function.arguments).join(''), '{"x":1}');
 });

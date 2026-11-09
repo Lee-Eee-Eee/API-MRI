@@ -24,13 +24,16 @@ from .fingerprint import _append, _clean, _transport_info, _adapter_unsupported
 from .records import content_hash
 
 SCHEMA = "api-mri-service/1"
+TOOL_FLOW = "auto-roundtrip/2"
 DEFAULT_BUDGET = {"max_requests": 6, "max_output_tokens": 768}
 MAX_RESPONSE_BYTES = 64 * 1024
 MAX_EVENTS = 512
 MAX_RECORDS_BYTES = 6 * 1024 * 1024
 HEADER_NAMES = ("content-type", "x-request-id", "request-id", "x-api2d-cache", "x-cache", "cf-cache-status", "retry-after", "x-api-mri-transport")
 TRANSPORT_ERRORS = {"request_cancelled", "request_timeout", "network_error", "response_size_limit", "invalid_stream_response"}
-HALTING_ERRORS = {"authentication_error", "permission_error", "rate_limited", "network_error", "request_timeout", "response_size_limit"}
+DSH_ERRORS = {"dsh_upstream_" + kind for kind in ("auth", "quota", "rate_limit", "timeout", "transport", "request", "server", "empty", "context", "unknown")} | {
+    "dsh_adapter_unavailable", "dsh_request_cancelled", "dsh_model_error"}
+HALTING_ERRORS = {"authentication_error", "permission_error", "rate_limited", "network_error", "request_timeout", "response_size_limit"} | DSH_ERRORS
 TOOL = {"type": "function", "function": {"name": "lookup_sample", "description": "Read one value from the local synthetic sample table.",
     "parameters": {"type": "object", "properties": {"sample_id": {"type": "string", "enum": ["MRI-17"]},
         "field": {"type": "string", "enum": ["temperature"]}}, "required": ["sample_id", "field"], "additionalProperties": False}}}
@@ -41,7 +44,7 @@ TOOL_DISTRACTOR = {"type": "function", "function": {"name": "lookup_unit_legend"
 
 
 def _config(payload: dict) -> tuple[dict, str | None, str | None]:
-    allowed = {"candidate", "checks", "samples", "max_tokens", "timeout", "budget", "token_parameter", "stream_usage"}
+    allowed = {"candidate", "checks", "samples", "max_tokens", "timeout", "budget", "token_parameter", "stream_usage", "reasoning_off", "tool_roundtrip_choice"}
     if not isinstance(payload, dict) or set(payload) - allowed:
         raise ValueError("服务检测配置包含不支持的字段。")
     candidate = payload.get("candidate")
@@ -82,6 +85,14 @@ def _config(payload: dict) -> tuple[dict, str | None, str | None]:
     if type(stream_usage) is not bool:
         raise ValueError("stream_usage须为布尔值。")
     clean.update(token_parameter=token_parameter, stream_usage=stream_usage)
+    if "reasoning_off" in payload:
+        if type(payload["reasoning_off"]) is not bool:
+            raise ValueError("reasoning_off须为布尔值。")
+        clean["reasoning_off"] = payload["reasoning_off"]
+    if "tool_roundtrip_choice" in payload:
+        if not isinstance(payload["tool_roundtrip_choice"], str) or payload["tool_roundtrip_choice"] not in {"none", "auto"}:
+            raise ValueError("tool_roundtrip_choice请选择none或auto。")
+        clean["tool_roundtrip_choice"] = payload["tool_roundtrip_choice"]
     for name, (default, lower, upper) in values.items():
         value = payload.get(name, default)
         if type(value) is not int or not lower <= value <= upper:
@@ -104,14 +115,16 @@ def plan_service_quality(payload: dict) -> dict:
     stages = ([{"id": "stream", "label": "流式响应", "requests": config["samples"]}] if "stream" in config["checks"] else [])
     if "tools" in config["checks"]:
         stages += [{"id": "tool_forced", "label": "指定工具与参数", "requests": 1},
-                   {"id": "tool_roundtrip", "label": "读取工具结果", "requests": 1, "conditional": True},
                    {"id": "tool_auto", "label": "自主选择工具", "requests": 1},
+                   {"id": "tool_roundtrip", "label": "读取工具结果", "requests": 1, "conditional": True},
                    {"id": "tool_no_call", "label": "无需工具时直接回答", "requests": 1}]
     total = sum(stage["requests"] for stage in stages)
     capacity = min(config["budget"]["max_requests"], config["budget"]["max_output_tokens"] // config["max_tokens"], total)
     return {"kind": "service_quality", "schema": SCHEMA, "candidate": config["candidate"], "checks": config["checks"],
             "samples": config["samples"], "max_tokens": config["max_tokens"], "timeout": config["timeout"],
             "token_parameter": config["token_parameter"], "stream_usage": config["stream_usage"],
+            **({"reasoning_off": config["reasoning_off"]} if "reasoning_off" in config else {}),
+            **({"tool_roundtrip_choice": config["tool_roundtrip_choice"]} if "tool_roundtrip_choice" in config else {}),
             "stages": stages, "planned_requests": total, "maximum_requests": capacity,
             "maximum_requested_output_tokens": capacity * config["max_tokens"], "budget": config["budget"],
             "network_retries": 0, "concurrency": 1,
@@ -137,7 +150,7 @@ def _http_error(status: int | None) -> str | None:
     return {401: "authentication_error", 403: "permission_error", 429: "rate_limited"}.get(status, "server_error" if status >= 500 else "http_error")
 
 
-def _derive_error(row, body=None):
+def _derive_error(row, body=None, *, legacy=False):
     """Classify saved protocol observations; a supplied verdict is never input."""
     body = body if body is not None else row["request"]
     status, transport = row.get("http_status"), row.get("transport_error")
@@ -145,6 +158,12 @@ def _derive_error(row, body=None):
         raise ValueError("invalid_http_status")
     if transport is not None and transport not in TRANSPORT_ERRORS:
         raise ValueError("invalid_transport_error")
+    if not legacy and _transport_info([row]):
+        values = [row.get("raw_response")] + [event.get("data") for event in row.get("events", [])]
+        for value in values:
+            code = value.get("error", {}).get("code") if isinstance(value, dict) and isinstance(value.get("error"), dict) else None
+            if code in DSH_ERRORS:
+                return code
     if _http_error(status):
         return _http_error(status)
     if transport:
@@ -280,8 +299,12 @@ def _request(client, config, key, body, cancelled=None, clock=None) -> dict:
                         value = json.loads(data, parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
                     except (ValueError, RecursionError):
                         raise ValueError("invalid_sse_json") from None
-                    if not isinstance(value, dict) or value.get("error"):
+                    if not isinstance(value, dict):
                         raise ValueError("sse_api_error")
+                    if value.get("error"):
+                        code = value["error"].get("code") if isinstance(value["error"], dict) else None
+                        if not _transport_info([row]) or code not in DSH_ERRORS:
+                            raise ValueError("sse_api_error")
                     if len(row["events"]) >= MAX_EVENTS:
                         raise OverflowError
                     row["events"].append({"at_ms": at, "data": value})
@@ -385,20 +408,18 @@ def _redact_result(value, secrets):
     return cleaned
 
 
-def _tool_check(row: dict) -> dict:
-    """Validate exactly one call before executing the local fixture."""
+def _legacy_tool_check(row: dict) -> dict:
+    """Reproduce the v1 single-call assessor for existing evidence files."""
     if unsupported := _adapter_unsupported(row):
         return {"status": "unsupported", "reason": unsupported}
     if row.get("error"):
         return {"status": "error", "reason": row["error"]}
-    raw = row.get("raw_response")
     try:
-        message = raw["choices"][0]["message"]
+        message = row["raw_response"]["choices"][0]["message"]
         calls = message.get("tool_calls")
         if not isinstance(calls, list) or len(calls) != 1:
             return {"status": "failed", "reason": "expected_one_tool_call"}
-        call = calls[0]
-        identifier = call.get("id")
+        call, identifier = calls[0], calls[0].get("id")
         if call.get("type") != "function" or not isinstance(identifier, str) or not identifier or len(identifier) > 200 or any(ord(c) < 32 for c in identifier):
             return {"status": "failed", "reason": "invalid_tool_call_id"}
         function = call["function"]
@@ -409,18 +430,64 @@ def _tool_check(row: dict) -> dict:
             return {"status": "failed", "reason": "invalid_arguments"}
         if row.get("finish_reason") in {"length", "max_tokens", "content_filter", "error"}:
             return {"status": "failed", "reason": "truncated_tool_call"}
-        safe_call = {"id": identifier, "type": "function", "function": {"name": "lookup_sample", "arguments": function["arguments"]}}
-        return {"status": "passed", "reason": "name_and_arguments_valid", "call": safe_call,
-                "message": {"role": "assistant", "content": message.get("content") if isinstance(message.get("content"), str) else None, "tool_calls": [safe_call]}}
+        safe = {"id": identifier, "type": "function", "function": {"name": "lookup_sample", "arguments": function["arguments"]}}
+        return {"status": "passed", "reason": "name_and_arguments_valid", "call": safe,
+                "message": {"role": "assistant", "content": message.get("content") if isinstance(message.get("content"), str) else None, "tool_calls": [safe]}}
     except (KeyError, TypeError, ValueError, IndexError, AttributeError, RecursionError):
         return {"status": "failed", "reason": "invalid_tool_arguments_json"}
 
 
-def _assessment(stage, row, receipt=None):
+def _tool_check(row: dict, *, legacy=False) -> dict:
+    """Validate bounded calls to the offered synthetic tools before execution."""
+    if legacy:
+        return _legacy_tool_check(row)
+    if unsupported := _adapter_unsupported(row):
+        return {"status": "unsupported", "reason": unsupported}
+    if row.get("error"):
+        return {"status": "error", "reason": row["error"]}
+    if row.get("finish_reason") in {"length", "max_tokens"}:
+        return {"status": "failed", "reason": "truncated_tool_call"}
+    raw = row.get("raw_response")
+    try:
+        message = raw["choices"][0]["message"]
+        calls = message.get("tool_calls")
+        if not isinstance(calls, list) or not 1 <= len(calls) <= 4:
+            return {"status": "failed", "reason": "missing_or_excess_tool_calls"}
+        offered = {tool["function"]["name"] for tool in row["request"].get("tools", [])}
+        safe_calls, identifiers, sample = [], set(), None
+        for call in calls:
+            identifier = call.get("id")
+            if (call.get("type") != "function" or not isinstance(identifier, str) or not identifier
+                    or len(identifier) > 200 or any(ord(c) < 32 for c in identifier) or identifier in identifiers):
+                return {"status": "failed", "reason": "invalid_tool_call_id"}
+            identifiers.add(identifier)
+            function = call["function"]
+            name = function.get("name")
+            if name not in offered or name not in {"lookup_sample", "lookup_unit_legend"}:
+                return {"status": "failed", "reason": "wrong_tool"}
+            args = json.loads(function["arguments"], parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+            expected = {"sample_id": "MRI-17", "field": "temperature"} if name == "lookup_sample" else {"unit": "C"}
+            if args != expected:
+                return {"status": "failed", "reason": "invalid_arguments"}
+            safe_call = {"id": identifier, "type": "function", "function": {"name": name, "arguments": function["arguments"]}}
+            safe_calls.append(safe_call)
+            if name == "lookup_sample":
+                sample = safe_call
+        if sample is None:
+            return {"status": "failed", "reason": "wrong_tool"}
+        if row.get("finish_reason") in {"length", "max_tokens", "content_filter", "error"}:
+            return {"status": "failed", "reason": "truncated_tool_call"}
+        return {"status": "passed", "reason": "name_and_arguments_valid", "call": sample, "calls": safe_calls,
+                "message": {"role": "assistant", "content": message.get("content") if isinstance(message.get("content"), str) else None, "tool_calls": safe_calls}}
+    except (KeyError, TypeError, ValueError, IndexError, AttributeError, RecursionError):
+        return {"status": "failed", "reason": "invalid_tool_arguments_json"}
+
+
+def _assessment(stage, row, receipt=None, tool_flow=TOOL_FLOW):
     if stage.startswith("tool_") and (unsupported := _adapter_unsupported(row)):
         return {"status": "unsupported", "reason": unsupported}
     if stage in {"tool_forced", "tool_auto"}:
-        checked = _tool_check(row)
+        checked = _tool_check(row, legacy=tool_flow != TOOL_FLOW)
         return {name: checked[name] for name in ("status", "reason")}
     if stage == "tool_roundtrip":
         raw = row.get("raw_response")
@@ -446,12 +513,16 @@ def _assessment(stage, row, receipt=None):
     return None
 
 
-def _stages(config):
-    return (["stream"] * config["samples"] if "stream" in config["checks"] else []) + (["tool_forced", "tool_roundtrip", "tool_auto", "tool_no_call"] if "tools" in config["checks"] else [])
+def _stages(config, tool_flow=TOOL_FLOW):
+    tools = (["tool_forced", "tool_auto", "tool_roundtrip", "tool_no_call"] if tool_flow == TOOL_FLOW
+             else ["tool_forced", "tool_roundtrip", "tool_auto", "tool_no_call"])
+    return (["stream"] * config["samples"] if "stream" in config["checks"] else []) + (tools if "tools" in config["checks"] else [])
 
 
-def _body(config, stage, marker, previous=None, receipt=None):
+def _body(config, stage, marker, previous=None, receipt=None, tool_flow=TOOL_FLOW):
     body = {"model": config["candidate"]["model"], config["token_parameter"]: config["max_tokens"]}
+    if config.get("reasoning_off"):
+        body["reasoning"] = {"enabled": False}
     if stage == "stream":
         body.update(messages=[{"role": "user", "content": f"Measurement {marker}. Write the integers 1 through 40, one per line, and no other text."}], stream=True)
         if config["stream_usage"]:
@@ -462,9 +533,20 @@ def _body(config, stage, marker, previous=None, receipt=None):
         if stage == "tool_forced":
             body["tool_choice"] = {"type": "function", "function": {"name": "lookup_sample"}}
         elif stage == "tool_roundtrip":
-            body["messages"] += [previous["message"], {"role": "tool", "tool_call_id": previous["call"]["id"],
-                "content": json.dumps({"value": 21.5, "unit": "C", "receipt": receipt}, separators=(",", ":"))}]
-            body["tool_choice"] = "none"
+            if tool_flow == TOOL_FLOW:
+                body["tools"] = previous.get("tools", [TOOL])
+                body["messages"] = [previous.get("user", user), previous["message"]]
+                # Only validated, offered synthetic functions reach this branch.
+                for call in previous["calls"]:
+                    result = ({"value": 21.5, "unit": "C", "receipt": receipt} if call["function"]["name"] == "lookup_sample"
+                              else {"unit": "C", "meaning": "degrees Celsius"})
+                    body["messages"].append({"role": "tool", "tool_call_id": call["id"],
+                        "content": json.dumps(result, separators=(",", ":"))})
+                body["messages"].append({"role": "user", "content": "Read the sample result. Reply exactly: value unit receipt, using the three returned fields."})
+            else:
+                body["messages"] += [previous["message"], {"role": "tool", "tool_call_id": previous["call"]["id"],
+                    "content": json.dumps({"value": 21.5, "unit": "C", "receipt": receipt}, separators=(",", ":"))}]
+            body["tool_choice"] = config.get("tool_roundtrip_choice", "none")
         elif stage == "tool_auto":
             body["tools"] = [TOOL, TOOL_DISTRACTOR]
             body["messages"] = [{"role": "user", "content": f"Measurement {marker}. What is sample MRI-17's measured temperature? Obtain the measured value from the available records. After a result is returned, reply with its value and unit."}]
@@ -503,6 +585,8 @@ def _report(records):
     transport = _transport_info(rows)
     streams = [row for row in rows if row["stage"] == "stream"]
     successful = [row for row in rows if not row.get("error")]
+    unsupported = [row for row in rows if _adapter_unsupported(row)]
+    evaluated = [row for row in rows if not _adapter_unsupported(row)]
     stream_ok = [row for row in streams if not row.get("error")]
     tools = {}
     for stage in ("tool_forced", "tool_roundtrip", "tool_auto", "tool_no_call"):
@@ -511,7 +595,8 @@ def _report(records):
             tools[stage] = {**matches[0]["assessment"], "request_index": matches[0]["sequence"] - 1}
         else:
             tools[stage] = {"status": "skipped", "reason": "not_selected" if "tools" not in config["checks"] else "not_reached_or_dependency_failed"}
-            if stage == "tool_roundtrip" and tools.get("tool_forced", {}).get("status") == "unsupported":
+            if (stage == "tool_roundtrip" and manifest.get("tool_flow") != TOOL_FLOW
+                    and tools.get("tool_forced", {}).get("status") == "unsupported"):
                 tools[stage]["reason"] = "adapter_does_not_support_forced_call"
     request_rows = []
     for row in rows:
@@ -525,9 +610,10 @@ def _report(records):
         "synthetic": manifest["synthetic"], "candidate": config["candidate"], "checks": config["checks"], "created_at": manifest["created_at"],
         **({"transport": transport} if transport else {}),
         "service_quality": {"connection": {"attempted_requests": len(rows), "http_successes": sum(row["http_status"] is not None and 200 <= row["http_status"] < 300 for row in rows),
-                "successful_requests": len(successful), "success_rate": len(successful) / len(rows) if rows else None,
-                "errors": dict(Counter(row["error"] for row in rows if row["error"])),
-                "headers_ms": _percentiles([row["timing"]["headers_ms"] for row in rows]),
+                "evaluated_requests": len(evaluated), "unsupported_requests": len(unsupported),
+                "successful_requests": len(successful), "success_rate": len(successful) / len(evaluated) if evaluated else None,
+                "errors": dict(Counter(row["error"] for row in evaluated if row["error"])),
+                "headers_ms": _percentiles([row["timing"]["headers_ms"] for row in evaluated]),
                 "response_ms": _percentiles([row["timing"]["response_ms"] for row in successful])},
             "stream": {"attempted_samples": len(streams), "successful_samples": len(stream_ok),
                 "headers_ms": _percentiles([row["timing"]["headers_ms"] for row in stream_ok]),
@@ -540,14 +626,16 @@ def _report(records):
                 "characters_per_second": _percentiles([row["metrics"]["characters_per_second"] for row in stream_ok]),
                 "truncated_samples": sum(row["finish_reason"] in {"length", "max_tokens"} for row in streams)},
             "tools": tools, "requests": request_rows,
-            "tool_harness": {"name": "API-MRI minimal tool loop", "version": 1,
+            "tool_harness": {"name": "API-MRI minimal tool loop", "version": 2 if manifest.get("tool_flow") == TOOL_FLOW else 1,
                 "protocol": "OpenAI-compatible Chat Completions", "executor": "synthetic lookup table",
+                "roundtrip_tool_choice": config.get("tool_roundtrip_choice", "none"),
                 "prompt_policy": "fixed", "repair_attempts": 0, "parallel_execution": False,
                 "scope": "model + API adapter + fixed executor and result feedback"}},
         "collection": {"planned_requests": len(_stages(config)), "completed_requests": len(rows), "cancelled": cancelled,
             "stop_code": finish["stop_code"], "failure": failure},
         "cost": _cost(rows, config, manifest["synthetic"]),
         "definitions": {"headers_ms": "发出请求到收到HTTP响应头，包含网络、排队与服务端处理。",
+            "connection_success_rate": "成功完成数÷可执行请求数。DSH适配器在调用上游前明确拒绝的参数另计为unsupported_requests；原始HTTP状态保留。",
             "first_content_ms": "发出请求到首个非空正文事件；角色、空块和推理另记。",
             "output_tokens_per_second": "供应商返回的completion_tokens÷完整响应秒数，可能包含推理tokens。",
             "visible_decode_tokens_per_second": "标准SSE不提供首块token数，精确正文解码速率保留未知。",
@@ -575,7 +663,8 @@ def markdown_service_report(report):
     lines = ["# API-MRI 服务测量", "", f"模型别名：{report['candidate']['model']}", "",
         f"状态：{report['status']}；{'合成演示' if report['synthetic'] else '客户端实测'}。", "",
         "| 观察 | 结果 |", "| --- | --- |",
-        f"| 成功请求 | {data['connection']['successful_requests']}/{data['connection']['attempted_requests']} |",
+        f"| 成功请求 | {data['connection']['successful_requests']}/{data['connection'].get('evaluated_requests', data['connection']['attempted_requests'])} |",
+        f"| 适配器不支持 | {data['connection'].get('unsupported_requests', 0)} |",
         f"| 首正文中位数 | {show(data['stream']['first_content_ms']['median'])} ms |",
         f"| 返回用量／完整响应时间 | {show(data['stream']['output_tokens_per_second']['median'])} tokens/s |",
         f"| 正文事件间隔p95 | {show(data['stream']['content_event_gaps_ms']['p95'])} ms |", "",
@@ -605,7 +694,7 @@ def run_service_quality(payload, out, progress=None, cancelled=None, *, transpor
     (out / "sampling_plan.json").write_text(json.dumps(_clean(plan, secrets), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     records, path = [], out / "service_records.jsonl"
     marker, receipt = uuid4().hex[:12], "R" + uuid4().hex[:12]
-    _append(path, records, {"type": "manifest", "schema": SCHEMA, "config": config, "synthetic": synthetic,
+    _append(path, records, {"type": "manifest", "schema": SCHEMA, "tool_flow": TOOL_FLOW, "config": config, "synthetic": synthetic,
         "created_at": datetime.now(timezone.utc).isoformat(), "run_marker": marker})
     stop, failure, forced, request_count = "complete", None, None, 0
     with httpx.Client(timeout=config["timeout"], follow_redirects=False, trust_env=False, transport=transport) as client:
@@ -627,8 +716,10 @@ def run_service_quality(payload, out, progress=None, cancelled=None, *, transpor
             saved["assessment"] = _assessment(stage, saved, receipt)
             saved["metrics"] = _rates(saved)
             _append(path, records, saved)
-            if stage == "tool_forced":
-                forced = _tool_check(saved)
+            if stage in {"tool_forced", "tool_auto"}:
+                checked = _tool_check(saved)
+                if checked["status"] == "passed" or forced is None:
+                    forced = {**checked, "user": body["messages"][0], "tools": body.get("tools", [])}
             request_count += 1
             if progress:
                 progress({"phase": "service_quality", "completed": request_count, "total": plan["maximum_requests"],
@@ -647,10 +738,10 @@ def run_service_quality(payload, out, progress=None, cancelled=None, *, transpor
     return report
 
 
-def _validate_observations(row):
+def _validate_observations(row, *, legacy=False):
     """Re-derive display fields from captured JSON/SSE and timing observations."""
     timing = row["timing"]
-    if "transport_error" not in row or row.get("error") != _derive_error(row):
+    if "transport_error" not in row or row.get("error") != _derive_error(row, legacy=legacy):
         raise ValueError
     required = {"headers_ms", "first_content_ms", "first_reasoning_ms", "last_content_ms", "response_ms", "content_event_gaps_ms"}
     if set(timing) != required or not isinstance(row.get("content"), str) or type(row.get("reasoning_observed")) is not bool:
@@ -734,8 +825,11 @@ def parse_service_records(text):
             raise ValueError
         if not isinstance(manifest.get("run_marker"), str) or not re.fullmatch(r"[0-9a-f]{12}", manifest["run_marker"]):
             raise ValueError
+        tool_flow = manifest.get("tool_flow")
+        if tool_flow not in {None, TOOL_FLOW}:
+            raise ValueError
         previous, requests, expected_index, forced = None, [], 0, None
-        stages = _stages(config)
+        stages = _stages(config, tool_flow)
         for index, row in enumerate(records):
             if not isinstance(row, dict) or row.get("sequence") != index or row.get("previous_hash") != previous:
                 raise ValueError
@@ -748,22 +842,28 @@ def parse_service_records(text):
                     raise ValueError
                 if not isinstance(row.get("timing"), dict) or not isinstance(row.get("usage"), dict) or not isinstance(row.get("metrics"), dict):
                     raise ValueError
-                _validate_observations(row)
+                # v1 records predate structured DSH error classification. Their
+                # captured verdict is checked with the original rules; the
+                # record bytes and hash chain remain unchanged.
+                _validate_observations(row, legacy=tool_flow is None)
                 if stages[expected_index] == "tool_roundtrip" and (forced is None or forced.get("status") != "passed"):
                     expected_index += 1
                 if row["stage"] != stages[expected_index]:
                     raise ValueError
                 receipt = None
                 if row["stage"] == "tool_roundtrip":
-                    fixture = json.loads(row["request"]["messages"][-1]["content"])
+                    fixture = next((json.loads(message["content"]) for message in row["request"]["messages"]
+                                   if message["role"] == "tool" and message["tool_call_id"] == forced["call"]["id"]), None)
                     receipt = fixture["receipt"]
                     if not isinstance(receipt, str) or not re.fullmatch(r"R[0-9a-f]{12}", receipt):
                         raise ValueError
-                expected_body = _body(config, row["stage"], manifest["run_marker"] + "-" + str(expected_index), forced, receipt)
-                if row["request"] != expected_body or row["assessment"] != _assessment(row["stage"], row, receipt):
+                expected_body = _body(config, row["stage"], manifest["run_marker"] + "-" + str(expected_index), forced, receipt, tool_flow)
+                if row["request"] != expected_body or row["assessment"] != _assessment(row["stage"], row, receipt, tool_flow):
                     raise ValueError
-                if row["stage"] == "tool_forced":
-                    forced = _tool_check(row)
+                if row["stage"] == "tool_forced" or row["stage"] == "tool_auto" and tool_flow == TOOL_FLOW:
+                    checked = _tool_check(row, legacy=tool_flow != TOOL_FLOW)
+                    if checked["status"] == "passed" or forced is None:
+                        forced = {**checked, "user": row["request"]["messages"][0], "tools": row["request"].get("tools", [])}
                 expected_index += 1
                 requests.append(row)
         if len(requests) > config["budget"]["max_requests"] or len(requests) * config["max_tokens"] > config["budget"]["max_output_tokens"]:
@@ -825,7 +925,8 @@ def demo_service_quality(out, *, checks=None):
             return httpx.Response(200, headers={"content-type": "text/event-stream"}, text=data)
         message = {"role": "assistant", "content": "HELLO"}
         if body.get("tool_choice") == "none":
-            fixture = json.loads(body["messages"][-1]["content"])
+            fixture = next(json.loads(message["content"]) for message in body["messages"] if message["role"] == "tool"
+                           and "value" in json.loads(message["content"]))
             message["content"] = f"{fixture['value']} {fixture['unit']} {fixture['receipt']}"
         elif body["messages"][0]["content"].endswith("Do not use any tools."):
             pass

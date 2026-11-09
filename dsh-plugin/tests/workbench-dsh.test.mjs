@@ -8,7 +8,7 @@ const html = await readFile(new URL('../../src/relay_audit/static/index.html', i
 const source = await readFile(new URL('../../src/relay_audit/static/app.js', import.meta.url), 'utf8');
 const origin = 'dsh-app://app', nonce = 'workbench-test-nonce-12345';
 const base = 'http://127.0.0.1:9876/v1';
-const models = [{ id: 'configured:model-one', label: 'Model One · Provider A', provider: 'Provider A', model: 'model-one' },
+const models = [{ id: 'configured:model-one', label: 'Model One · Provider A', provider: 'Provider A', model: 'model-one', fingerprint_supported: true },
   { id: 'configured:model-two', label: 'Model Two · Provider B', provider: 'Provider B', model: 'model-two' }];
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
@@ -231,4 +231,26 @@ test('selectors remain locked after the authorized run has entered the queue', a
   assert.equal(app.nodes.get('api-source').disabled, true);
   assert.equal(app.nodes.get('api-dsh-model').disabled, true);
   assert.equal(app.nodes.get('showcase-source').disabled, true);
+});
+
+test('DSH defaults leave room for tool JSON and preserve the advertised reasoning control', async () => {
+  const app = await workbench(); await app.hello(); await app.catalog();
+  assert.equal(app.nodes.get('output-tokens').value, '256');
+  assert.equal(app.nodes.get('token-cap').value, '1536');
+  assert.equal(app.nodes.get('timeout').value, '60');
+  assert.equal(app.api.dsh().models[0].fingerprint_supported, true);
+  await app.nodes.get('check-form').fire('submit');
+  const plan = app.requests.filter(r => r.path === '/api/plan').at(-1).body;
+  assert.equal(plan.reasoning_off, true);
+  assert.equal(plan.tool_roundtrip_choice, 'auto');
+});
+
+test('unconfirmed reasoning-off support blocks shared probes before requesting an authorization', async () => {
+  for (const supported of [null, false]) {
+    const app = await workbench(); await app.hello();
+    await app.catalog({ models: [{ ...models[0], fingerprint_supported: supported }] });
+    await assert.rejects(app.api.request('/api/runs', { mode: 'identify', candidate: app.api.candidate() }), /未声明可关闭推理/);
+    assert.equal(app.messages.some(message => message.value.type === 'api-mri:dsh:lease'), false);
+    assert.equal(app.requests.some(request => request.path === '/api/runs' && request.body), false);
+  }
 });

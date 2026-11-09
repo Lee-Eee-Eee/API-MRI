@@ -125,7 +125,7 @@ def validate_job(payload: Any, *, library_dir: Path | None = None) -> dict:
         from .service_quality import parse_service_records, plan_service_quality
 
         if mode == "service":
-            config = {key: payload[key] for key in ("candidate", "checks", "samples", "max_tokens", "timeout", "budget", "token_parameter", "stream_usage") if key in payload}
+            config = {key: payload[key] for key in ("candidate", "checks", "samples", "max_tokens", "timeout", "budget", "token_parameter", "stream_usage", "reasoning_off", "tool_roundtrip_choice") if key in payload}
             plan_service_quality(config)
             clean["service_config"] = config
         elif mode == "service_demo":

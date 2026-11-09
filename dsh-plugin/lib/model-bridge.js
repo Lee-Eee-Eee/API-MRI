@@ -1,10 +1,13 @@
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
-import { listConfiguredModels, validateCompletionRequest, completionChunks } from './dsh-adapter.js';
+import { listConfiguredModels, validateCompletionRequest, completionChunks, publicCompletionError } from './dsh-adapter.js';
 
 export const BRIDGE_LIMITS = Object.freeze({ maxRequests: 128, maxOutputTokens: 65536, lifetimeMs: 2 * 60 * 60 * 1000 });
 const MAX_BODY = 512 * 1024;
-function fault(status, code, message) { return Object.assign(new Error(message), { status, code, safeForClient: true }); }
+class BridgeError extends Error {
+  constructor(status, code, message) { super(message); this.status = status; this.code = code; this.safeForClient = true; }
+}
+function fault(status, code, message) { return new BridgeError(status, code, message); }
 
 export async function readJson(req, maximum = MAX_BODY) {
   const chunks = []; let size = 0;
@@ -116,11 +119,13 @@ export function createModelBridge(llm, { now = Date.now, lifetimeMs = BRIDGE_LIM
         if (!controller.signal.aborted) send(200, aggregate(chunks, body.model));
       }
     } catch (error) {
-      if (!res.headersSent) {
-        // Only our validation errors carry messages. Provider errors may include secrets.
-        const safe = error.safeForClient === true && Number.isInteger(error.status) && error.status >= 400 && error.status < 500;
-        send(safe ? error.status : 502, { error: { code: safe ? error.code : 'dsh_model_error',
-          message: safe ? error.message : 'DSH 模型调用失败，请检查该模型在 DSH 中的连接。' } });
+      const safe = error instanceof BridgeError ? error : publicCompletionError(error);
+      const value = { error: { code: safe.code, message: safe.message } };
+      if (!res.headersSent) send(safe.status, value);
+      else if (!res.destroyed && !controller?.signal.aborted) {
+        // A terminal error frame retains the cause without pretending a successful
+        // [DONE]. Raw DSH/provider messages never reach this branch.
+        res.end(`data: ${JSON.stringify(value)}\n\n`);
       } else res.destroy();
     } finally { if (acquired) lease.busy = false; }
   }

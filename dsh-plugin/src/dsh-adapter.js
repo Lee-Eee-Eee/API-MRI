@@ -3,10 +3,40 @@ import { randomUUID } from 'node:crypto';
 export class DshAdapterError extends Error {
   constructor(message, code = 'unsupported_parameter', status = 422) {
     super(message); this.name = 'DshAdapterError'; this.code = code; this.status = status;
-    this.safeForClient = status === 422;
+    this.safeForClient = true;
   }
 }
 const fail = (message, code, status) => { throw new DshAdapterError(message, code, status); };
+// Raw provider messages, status values, and arbitrary codes can contain credentials.
+// Only fixed protocol codes cross the bridge; an upstream auth failure is not a
+// failure of the temporary local lease, so keep it under a 502 response.
+const UPSTREAM_FAILURES = Object.freeze({
+  AUTH: ['dsh_upstream_auth', 'DSH 上游鉴权失败，请在 DSH 中检查该服务的登录或密钥。'],
+  MISSING_CREDENTIAL: ['dsh_upstream_auth', 'DSH 上游尚未配置凭据，请先在 DSH 中完成登录或配置密钥。'],
+  INVALID_CREDENTIAL: ['dsh_upstream_auth', 'DSH 上游凭据无效，请在 DSH 中更新登录或密钥。'],
+  QUOTA: ['dsh_upstream_quota', 'DSH 上游额度不足，请在对应服务中检查余额或用量。'],
+  ACCOUNT_QUOTA: ['dsh_upstream_quota', 'DSH 上游账户额度不足，请检查该账户的用量。'],
+  RATE_LIMIT: ['dsh_upstream_rate_limit', 'DSH 上游触发限流，请稍后重试。'],
+  TIMEOUT: ['dsh_upstream_timeout', 'DSH 上游响应超时。'],
+  TRANSPORT: ['dsh_upstream_transport', 'DSH 与上游的连接中断，请检查该服务的网络连接。'],
+  INVALID_REQUEST: ['dsh_upstream_request', 'DSH 上游拒绝了本次请求参数。'],
+  UNSUPPORTED_REASONING_EFFORT: ['unsupported_reasoning', 'DSH 当前模型不支持指定的推理设置。'],
+  NO_ADAPTER: ['dsh_adapter_unavailable', 'DSH 当前模型的服务适配器不可用，请刷新模型目录。'],
+  SERVER: ['dsh_upstream_server', 'DSH 上游服务暂时不可用。'],
+  EMPTY_RESPONSE: ['dsh_upstream_empty', 'DSH 上游返回了空响应。'],
+  CONTEXT_WINDOW_EXCEEDED: ['dsh_upstream_context', '本次请求超过了 DSH 上游模型的上下文限制。'],
+  ABORTED: ['dsh_request_cancelled', 'DSH 模型调用已取消。'],
+});
+export function publicCompletionError(error) {
+  if (error instanceof DshAdapterError) return { status: error.status, code: error.code, message: error.message };
+  const mapped = Object.hasOwn(UPSTREAM_FAILURES, error?.code) ? UPSTREAM_FAILURES[error.code] : null;
+  return mapped ? { status: error.code === 'UNSUPPORTED_REASONING_EFFORT' ? 422 : 502, code: mapped[0], message: mapped[1] }
+    : { status: 502, code: 'dsh_model_error', message: 'DSH 模型调用失败，请检查该模型在 DSH 中的连接。' };
+}
+function upstreamFailure(code) {
+  const value = publicCompletionError({ code });
+  throw new DshAdapterError(value.message, value.code, value.status);
+}
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const text = value => typeof value === 'string' && value.length > 0;
 function keys(value, allowed, location) {
@@ -92,7 +122,13 @@ function messagesFor(rows, route) {
 export async function validateCompletionRequest(llm, request, { signal } = {}) {
   if (signal?.aborted) fail('DSH request cancelled.', 'ABORTED', 499);
   keys(request, ['model', 'messages', 'stream', 'stream_options', 'temperature', 'max_tokens', 'max_completion_tokens',
-    'stop', 'reasoning_effort', 'reasoning', 'tools', 'tool_choice'], 'completion request');
+    'stop', 'reasoning_effort', 'reasoning', 'tools', 'tool_choice', 'usage'], 'completion request');
+  // OpenRouter-style usage is a response option used by API-MRI's probes.
+  // DSH already produces terminal usage; never forward this vendor field.
+  if (request.usage !== undefined) {
+    keys(request.usage, ['include'], 'usage');
+    if (typeof request.usage.include !== 'boolean') fail('usage.include must be boolean.', 'invalid_request');
+  }
   const route = decodeModelId(request.model);
   const options = { ...route, messages: messagesFor(request.messages, route), signal };
   if (request.stream !== undefined && typeof request.stream !== 'boolean') fail('stream must be boolean.', 'invalid_request');
@@ -124,7 +160,11 @@ export async function validateCompletionRequest(llm, request, { signal } = {}) {
       return { name: tool.function.name, description: tool.function.description || '', parameters: tool.function.parameters };
     });
   }
-  if (request.tool_choice === 'none') delete options.tools;
+  if (request.tool_choice === 'none') {
+    if (options.tools?.length && request.messages.some(row => row.role === 'assistant' && row.tool_calls?.length))
+      fail('DSH cannot force tool_choice none while retaining historical tool declarations.', 'unsupported_tool_choice');
+    delete options.tools;
+  }
   else if (request.tool_choice !== undefined && request.tool_choice !== 'auto') fail('DSH adapter does not expose forced tool_choice.');
   let effort = request.reasoning_effort;
   if (request.reasoning !== undefined) {
@@ -143,12 +183,22 @@ export async function validateCompletionRequest(llm, request, { signal } = {}) {
 }
 
 function usageFor(value) {
-  const count = name => typeof value[name] === 'number' && Number.isFinite(value[name]) && value[name] >= 0 ? value[name] : 0;
-  const prompt = count('inputTokens') + count('cacheReadTokens') + count('cacheWriteTokens');
-  const output = count('outputTokens');
-  return { prompt_tokens: prompt, completion_tokens: output, total_tokens: value.totalTokens ?? prompt + output,
-    prompt_tokens_details: { cached_tokens: count('cacheReadTokens'), cache_write_tokens: count('cacheWriteTokens') },
-    completion_tokens_details: { reasoning_tokens: count('reasoningTokens') } };
+  const valid = number => typeof number === 'number' && Number.isFinite(number) && number >= 0;
+  const count = name => valid(value[name]) ? value[name] : undefined;
+  const input = count('inputTokens'), output = count('outputTokens');
+  const cacheRead = count('cacheReadTokens'), cacheWrite = count('cacheWriteTokens');
+  const prompt = input === undefined ? undefined : input + (cacheRead ?? 0) + (cacheWrite ?? 0);
+  const total = count('totalTokens') ?? (prompt !== undefined && output !== undefined ? prompt + output : undefined);
+  const reasoning = count('reasoningTokens');
+  // DSH's pi-ai adapter folds reasoning into outputTokens and omits the split.
+  // Missing reasoning accounting must remain missing, rather than becoming zero.
+  return { ...(prompt === undefined ? {} : { prompt_tokens: prompt }),
+    ...(output === undefined ? {} : { completion_tokens: output }),
+    ...(total === undefined ? {} : { total_tokens: total }),
+    ...(cacheRead === undefined && cacheWrite === undefined ? {} : {
+      prompt_tokens_details: { ...(cacheRead === undefined ? {} : { cached_tokens: cacheRead }),
+        ...(cacheWrite === undefined ? {} : { cache_write_tokens: cacheWrite }) } }),
+    ...(reasoning === undefined ? {} : { completion_tokens_details: { reasoning_tokens: reasoning } }) };
 }
 
 /** One DSH adapter attempt, with no Agent tools, context injection or retry loop. */
@@ -164,38 +214,54 @@ export async function* completionChunks(llm, request, { signal, prepared } = {})
   function tool(index, value, complete = false) {
     let entry = tools.get(index);
     const first = !entry;
-    if (first) { entry = { index: tools.size, id: value.id }; tools.set(index, entry); }
-    if (value.id && value.id !== entry.id || value.name && entry.name && value.name !== entry.name) fail('DSH tool identity changed within one block.', 'invalid_stream', 502);
-    const newName = value.name && !entry.name;
+    if (first) { entry = { index: tools.size, arguments: '' }; tools.set(index, entry); }
+    if (value.id && entry.id && value.id !== entry.id || value.name && entry.name && value.name !== entry.name)
+      fail('DSH tool identity changed within one block.', 'invalid_stream', 502);
+    const newId = value.id && !entry.id, newName = value.name && !entry.name;
+    if (newId) entry.id = value.id;
     if (newName) entry.name = value.name;
-    return { index: entry.index, ...(first ? { id: entry.id, type: 'function' } : {}), function: {
-      ...(newName ? { name: value.name } : {}), arguments: complete ? value.arguments : value.argumentsDelta || '',
+    let argumentsDelta = value.argumentsDelta || '';
+    if (complete) {
+      if (typeof value.arguments !== 'string' || !value.arguments.startsWith(entry.arguments))
+        fail('DSH completed tool arguments disagree with the streamed arguments.', 'invalid_stream', 502);
+      argumentsDelta = value.arguments.slice(entry.arguments.length);
+    }
+    entry.arguments += argumentsDelta;
+    if (!first && !newId && !newName && !argumentsDelta) return null;
+    return { index: entry.index, ...(first ? { type: 'function' } : {}), ...(newId ? { id: entry.id } : {}), function: {
+      ...(newName ? { name: value.name } : {}), arguments: argumentsDelta,
     } };
   }
+
   for await (const value of llm.stream({ ...prepared.options, signal: signal || prepared.options.signal })) {
     if (signal?.aborted) fail('DSH request cancelled.', 'ABORTED', 499);
     if (value.type === 'text-delta' || value.type === 'reasoning-delta') {
       deltas.add(value.index); yield chunk({ [value.type === 'text-delta' ? 'content' : 'reasoning_content']: value.text });
     } else if (value.type === 'tool-call-delta') {
-      deltas.add(value.index); yield chunk({ tool_calls: [tool(value.index, value)] });
+      deltas.add(value.index);
+      const update = tool(value.index, value);
+      if (update) yield chunk({ tool_calls: [update] });
     } else if (value.type === 'block-end') {
-      if (!deltas.has(value.index)) {
+      if (value.block.type === 'tool-call') {
+        const update = tool(value.index, value.block, true);
+        if (update) yield chunk({ tool_calls: [update] });
+      }
+      else if (!deltas.has(value.index)) {
         if (value.block.type === 'text') yield chunk({ content: value.block.text });
         else if (value.block.type === 'reasoning') yield chunk({ reasoning_content: value.block.text });
-        else if (value.block.type === 'tool-call') yield chunk({ tool_calls: [tool(value.index, value.block, true)] });
         else fail('DSH returned unsupported content.', 'unsupported_content', 502);
       }
     } else if (value.type === 'usage') usage = usageFor(value.usage);
     else if (value.type === 'finish') {
       const reason = value.reason?.kind;
-      if (reason === 'error' || reason === 'aborted') fail(`DSH adapter request failed (${value.reason.failure?.code || reason}).`, value.reason.failure?.code || reason, reason === 'aborted' ? 499 : 502);
+      if (reason === 'error' || reason === 'aborted') upstreamFailure(reason === 'aborted' ? 'ABORTED' : value.reason.failure?.code);
       const finish = { stop: 'stop', 'tool-calls': 'tool_calls', 'max-tokens': 'length' }[reason];
       if (!finish) fail('DSH returned an unknown finish reason.', 'invalid_stream', 502);
       yield chunk({}, finish); ended = true; break;
     } else if (value.type !== 'block-start') fail('DSH returned an unknown stream event.', 'invalid_stream', 502);
   }
   if (!ended) fail('DSH stream ended without a terminal result.', 'incomplete_stream', 502);
-  if (usage && (request.stream !== true || request.stream_options?.include_usage)) {
+  if (usage && (request.stream !== true || request.stream_options?.include_usage || request.usage?.include === true)) {
     yield { id, object: 'chat.completion.chunk', created, model: prepared.modelId, choices: [], usage };
   }
 }
