@@ -30,7 +30,10 @@ const result = { schema: 1, checkedAt: new Date().toISOString(), pluginVersion: 
 const processes = [];
 let hostOutput = '', apiOutput = '', cookie, hostUrl, apiUrl, upstreamCalls = 0;
 const syntheticKey = 'api-mri-synthetic-fixture-not-a-real-key';
-const bank = JSON.parse(await readFile(path.join(source, 'src/relay_audit/data/identification/one-token-202607.json'), 'utf8'));
+const bankPath = runtime
+  ? path.join(path.dirname(runtime), '_internal/relay_audit/data/identification/one-token-202607.json')
+  : path.join(source, 'src/relay_audit/data/identification/one-token-202607.json');
+const bank = JSON.parse(await readFile(bankPath, 'utf8'));
 const observations = [];
 
 function answerFor(messages) {

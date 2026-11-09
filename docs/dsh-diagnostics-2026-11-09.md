@@ -31,6 +31,14 @@
 
 共 17 次桥接请求，其中 1 次在桥接层拒绝；16 次上游完成请求。供应商返回用量合计 1,854 输入、179 输出 tokens，账单金额未查询。测速数字来自这一轮单样本，用于检查实现。
 
+## 正式安装包
+
+0.9.3 已安装到 desktop profile，供应商配置和其他直接依赖保持原样。运行包从正式 Release 自动下载并校验，SHA-256 为 `56c91f9dd4c27f9e2e943e97ed847a84f76e86f52bc6eea84439af89a326eeca`。[启动检查](dsh-installed-check-2026-11-09.json)、[重复进入检查](dsh-installed-autostart-2026-11-09.json)及[安装后测评与回放](dsh-installed-model-check-2026-11-09.json)均通过。后者使用合成上游，未增加真实模型调用。
+
+当前 DSH 为 0.2.2-rc.1，测试使用同一套已安装宿主与适配器。[发布构建](https://github.com/Lee-Eee-Eee/API-MRI/actions/runs/42541831814)通过 62 项插件测试、501 项完整 Python 测试、281 项轻量环境测试和 12 项便携验收。轻量测试覆盖完整套件的一部分。已有 3 份服务记录和 3 份候选指纹记录也能被新版解析，文件字节未改动。
+
+完全退出 DSH 后重新打开一次，再从左侧 API-MRI 选择 DSH 已配置模型。以后进入插件会自动启动运行程序。
+
 ## 可重复检查
 
 [隔离全链脚本](../dsh-plugin/tests/host-model-e2e.mjs)运行真实已安装 DSH 与官方 pi-ai 适配器，上游使用回环地址的合成 SSE 服务。它覆盖 `/api/plan`、临时授权、`/api/runs`、原始证据下载和离线复算，断言复算不会再次调用上游。
@@ -40,5 +48,7 @@ node dsh-plugin/tests/host-model-e2e.mjs --out docs/dsh-model-e2e-check.json
 ```
 
 [机器可读结果](dsh-model-e2e-check.json)记录该隔离检查。它不使用真实供应商账户。真实调用结果另见上表。
+
+验收已安装插件及便携程序时，另加 `--plugin-root <插件目录> --runtime <API-MRI.exe路径>`。此时参考探针从运行包读取，后端直接执行安装包。
 
 DSH 的工具控制和推理控制依据[官方模型适配器说明](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/llm/llm-deepseek/README.md)及本机安装的 `dsh-llm`、`dsh-llm-pi-ai`、`dsh-llm-deepseek` 实现核对。

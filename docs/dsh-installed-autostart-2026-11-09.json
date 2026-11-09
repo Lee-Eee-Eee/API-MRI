@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "checkedAt": "2026-11-09T00:53:27.259Z",
+  "pluginVersion": "0.9.3",
+  "isolatedProfile": true,
+  "privateConfigurationRead": false,
+  "realModelCalls": 0,
+  "status": "passed",
+  "checks": {
+    "hostAuthentication": true,
+    "hostIndex": true,
+    "pluginInBootIndex": true,
+    "unauthenticatedRejected": true,
+    "runtimeStartedAutomatically": true,
+    "runtimeIdentityAndEmbedding": true,
+    "configuredModelUiPresent": true,
+    "modelCatalog": true,
+    "repeatedEntryReusesRuntime": true
+  },
+  "authenticationStatus": 303,
+  "authenticationCookiePresent": true,
+  "configuredModelsInIsolatedProfile": 0,
+  "repeat": {
+    "phase": "ready",
+    "sameUrl": true,
+    "samePid": true
+  },
+  "ownedProcessesStopped": true
+}
