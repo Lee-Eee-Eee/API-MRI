@@ -5,9 +5,10 @@ import { mkdtemp, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
+import { setTimeout as delay } from 'node:timers/promises';
 import { validateRuntime, validEmbedOrigin, runtimeRequestOrigin, safeEnvironment, downloadRuntime, createRuntimeManager } from '../src/runtime.js';
 const bytes=Buffer.alloc(2048,42);
-const spec={version:'0.9.4',url:'https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v0.9.4/API-MRI-0.9.4-windows-x64.zip',sha256:createHash('sha256').update(bytes).digest('hex'),size_bytes:bytes.length};
+const spec={version:'0.9.5',url:'https://github.com/Lee-Eee-Eee/API-MRI/releases/download/v0.9.5/API-MRI-0.9.5-windows-x64.zip',sha256:createHash('sha256').update(bytes).digest('hex'),size_bytes:bytes.length};
 
 test('authenticated desktop bridge may omit Origin, Web must match the requested embed origin',()=>{
   assert.equal(runtimeRequestOrigin({}, {embedOrigin:'dsh-app://app'}),'dsh-app://app');
@@ -40,15 +41,15 @@ test('download streams exact bytes, rejects tampering and off-host redirects',as
 
 test('installed runtime starts once, reports ready URL, and owns its child only',async()=>{
   const root=await mkdtemp(path.join(tmpdir(),'api-mri-runtime-'));
-  const target=path.join(root,'0.9.4');await mkdir(path.join(target,'API-MRI-0.9.4-windows-x64'),{recursive:true});
-  await writeFile(path.join(target,'API-MRI-0.9.4-windows-x64','API-MRI.exe'),'fixture');
+  const target=path.join(root,'0.9.5');await mkdir(path.join(target,'API-MRI-0.9.5-windows-x64'),{recursive:true});
+  await writeFile(path.join(target,'API-MRI-0.9.5-windows-x64','API-MRI.exe'),'fixture');
   await writeFile(path.join(target,'runtime-receipt.json'),JSON.stringify(spec));
   const manifest=path.join(root,'manifest.json');await writeFile(manifest,JSON.stringify(spec));
   await mkdir(path.join(root,'data'));await writeFile(path.join(root,'data','.portable-session.json'),JSON.stringify({version:spec.version,installation_id:'fixture-install',port:19765,token:'ab'.repeat(32)}));
   let starts=0,kills=0,args;
   const manager=createRuntimeManager({root,platform:'win32',arch:'x64',manifestUrl:manifest,
     spawnChild(exe,argv,options){starts++;args=argv;assert.equal(options.windowsHide,true);const child=new EventEmitter();child.kill=()=>kills++;return child;},
-    fetcher:async(url)=>starts?new Response(JSON.stringify(String(url).endsWith('bootstrap')?{version:'0.9.4',embedding:{origins:['dsh-app://app']}}:{version:spec.version,installation_id:'fixture-install'})):new Response(null,{status:503})});
+    fetcher:async(url)=>starts?new Response(JSON.stringify(String(url).endsWith('bootstrap')?{version:'0.9.5',embedding:{origins:['dsh-app://app']}}:{version:spec.version,installation_id:'fixture-install'})):new Response(null,{status:503})});
   await manager.start('dsh-app://app');await manager.start('dsh-app://app');
   for(let i=0;i<40&&manager.snapshot().phase!=='ready';i++)await new Promise(r=>setTimeout(r,10));
   assert.equal(starts,1);assert.equal(manager.snapshot().url,'http://127.0.0.1:19765');
@@ -73,14 +74,14 @@ function fixtureZip(name,content) {
 test('fresh Windows install verifies and extracts the ZIP before starting; traversal never escapes', {skip:process.platform!=='win32',timeout:450000},async()=>{
   for(const malicious of [false,true]) {
     const root=await mkdtemp(path.join(tmpdir(),'api-mri-fresh-'));
-    const payload=Buffer.alloc(2048,37),zip=fixtureZip(malicious?'../escaped.exe':'API-MRI-0.9.4-windows-x64/API-MRI.exe',payload);
+    const payload=Buffer.alloc(2048,37),zip=fixtureZip(malicious?'../escaped.exe':'API-MRI-0.9.5-windows-x64/API-MRI.exe',payload);
     const fixture={...spec,sha256:createHash('sha256').update(zip).digest('hex'),size_bytes:zip.length};
     const manifest=path.join(root,'manifest.json');await writeFile(manifest,JSON.stringify(fixture));
     await mkdir(path.join(root,'data'));await writeFile(path.join(root,'data','.portable-session.json'),JSON.stringify({version:spec.version,installation_id:'fixture-install',port:19765,token:'ac'.repeat(32)}));
     let starts=0;
     const manager=createRuntimeManager({root,manifestUrl:manifest,
       spawnChild(){starts++;const c=new EventEmitter();c.kill=()=>{};return c;},
-      fetcher:async(url)=>String(url).endsWith('.zip')?new Response(zip):starts?new Response(JSON.stringify(String(url).endsWith('bootstrap')?{version:'0.9.4',embedding:{origins:['dsh-app://app']}}:{version:spec.version,installation_id:'fixture-install'})):new Response(null,{status:503})});
+      fetcher:async(url)=>String(url).endsWith('.zip')?new Response(zip):starts?new Response(JSON.stringify(String(url).endsWith('bootstrap')?{version:'0.9.5',embedding:{origins:['dsh-app://app']}}:{version:spec.version,installation_id:'fixture-install'})):new Response(null,{status:503})});
     await manager.start('dsh-app://app');
     // A cold Windows runner may spend over 30 seconds starting .NET/Defender.
     // Match the extractor's 180-second bound instead of ending mid-extraction.
@@ -88,7 +89,7 @@ test('fresh Windows install verifies and extracts the ZIP before starting; trave
     while(Date.now()<deadline&&!['error','ready'].includes(manager.snapshot().phase))await new Promise(r=>setTimeout(r,50));
     if(malicious){assert.equal(manager.snapshot().phase,'error');assert.equal(starts,0);}
     else{assert.equal(manager.snapshot().phase,'ready');assert.equal(starts,1);
-      assert.deepEqual(await readFile(path.join(root,'0.9.4','API-MRI-0.9.4-windows-x64','API-MRI.exe')),payload);}
+      assert.deepEqual(await readFile(path.join(root,'0.9.5','API-MRI-0.9.5-windows-x64','API-MRI.exe')),payload);}
     manager.dispose();
   }
 });
@@ -129,6 +130,34 @@ test('an authenticated healthy instance is reused without spawning or owning its
   await manager.start('dsh-app://app');await waitPhase(manager,'ready');
   assert.equal(manager.snapshot().reused,true);assert.equal(manager.snapshot().url,'http://127.0.0.1:19766');
   manager.dispose();assert.equal(manager.snapshot().phase,'closed');
+});
+
+test('bootstrap slower than two seconds can start and survive repeated status checks',{timeout:20000},async()=>{
+  const fixture=await installedFixture();let starts=0,bootstrapCalls=0;
+  const manager=createRuntimeManager({...fixture,pollMs:2500,startupTimeoutMs:2500,
+    fetcher:async(url,{signal}={})=>{
+      if(!starts)return new Response(null,{status:503});
+      assert.ok(signal instanceof AbortSignal);
+      if(String(url).endsWith('bootstrap')) {
+        bootstrapCalls++;
+        // Respect the supplied deadline: the previous two-second signal aborts
+        // this request, just as a slow packaged backend does during startup.
+        await delay(2100,undefined,{signal});
+      }
+      return healthResponse(url);
+    },
+    spawnChild(){starts++;const child=new EventEmitter();child.kill=()=>{};return child;},
+  });
+  try {
+    await manager.start('dsh-app://app');
+    const deadline=Date.now()+8000;
+    while(Date.now()<deadline&&!['ready','error'].includes(manager.snapshot().phase))await delay(10);
+    assert.equal(manager.snapshot().phase,'ready',manager.snapshot().error);
+    for(let i=0;i<2;i++)assert.equal((await manager.status()).phase,'ready');
+    assert.equal(starts,1);
+    assert.equal(bootstrapCalls,3);
+    assert.equal(manager.snapshot().url,'http://127.0.0.1:19766');
+  } finally {manager.dispose();}
 });
 
 test('a launcher that exits zero after forwarding to a live instance is successful',async()=>{

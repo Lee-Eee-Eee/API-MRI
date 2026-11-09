@@ -10,7 +10,7 @@ const manifest = JSON.parse(await readFile(new URL('../../package.json', import.
 
 test('official DSH bundle and client manifests select shared host services', async () => {
   assert.equal(manifest.name, 'dsh-api-mri');
-  assert.equal(manifest.version, '0.9.4');
+  assert.equal(manifest.version, '0.9.5');
   assert.equal(manifest.dsh.bundle.patch, './dsh-plugin/cordis.patch.yml');
   assert.deepEqual(manifest.dsh.client, { platform: 'web', inject: ['@deepseek-ai/dsh-client-ui-slots'] });
   assert.equal(manifest.peerDependencies['dsh-better-sidebar'], undefined);

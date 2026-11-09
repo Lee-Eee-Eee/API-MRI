@@ -1,6 +1,6 @@
 # Windows 便携版
 
-从 [Releases](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest) 下载 `API-MRI-0.9.4-windows-x64.zip`，完整解压到一个可以写入的文件夹，双击 `API-MRI.exe`。程序自带 Python 和 CPU 分析依赖，不需要管理员权限。
+从 [Releases](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest) 下载 `API-MRI-0.9.5-windows-x64.zip`，完整解压到一个可以写入的文件夹，双击 `API-MRI.exe`。程序自带 Python 和 CPU 分析依赖，不需要管理员权限。
 
 浏览器会打开工作台。先点击“试用示例”即可查看合成结果，不需要 Key。真实检测时填写 API 地址、模型名和 Key，核对计划后开始。请求从这台电脑发往填写的服务地址；密钥只用于本次运行，不写入浏览器持久存储或配置文件。
 

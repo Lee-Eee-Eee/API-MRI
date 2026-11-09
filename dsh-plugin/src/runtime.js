@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 import { request as httpsRequest, Agent as HttpsAgent } from 'node:https';
 import { Readable } from 'node:stream';
 const exec = promisify(execFile);
-const VERSION = '0.9.4';
+const VERSION = '0.9.5';
 class RuntimeError extends Error {}
 
 export function runtimeFetch(url,options={}) {
@@ -141,7 +141,7 @@ export function createRuntimeManager({root, platform=process.platform, arch=proc
       if(!identity.ok)return null;
       const owner=await identity.json();
       if(owner.version!==VERSION || owner.installation_id!==record.installation_id)return null;
-      const response=await fetcher(url+'/api/bootstrap',{signal:AbortSignal.timeout(2000)}),bootstrap=await response.json();
+      const response=await fetcher(url+'/api/bootstrap',{signal:AbortSignal.timeout(10000)}),bootstrap=await response.json();
       return response.ok && bootstrap.version===VERSION && bootstrap.embedding?.origins?.includes(origin)?url:null;
     }catch{return null;}
   }

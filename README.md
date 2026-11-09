@@ -23,11 +23,11 @@ DSH入口的服务测量默认每请求256 tokens；只测速512配额，只工�
 
 ## 开始使用
 
-**Windows 用户：** 在 [Releases](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest) 下载 `API-MRI-0.9.4-windows-x64.zip`，完整解压后双击 `API-MRI.exe`。无需安装 Python。浏览器打开工作台，另有一个小窗口用于打开页面和退出程序。使用与升级步骤见[便携版指南](docs/portable.md)。
+**Windows 用户：** 在 [Releases](https://github.com/Lee-Eee-Eee/API-MRI/releases/latest) 下载 `API-MRI-0.9.5-windows-x64.zip`，完整解压后双击 `API-MRI.exe`。无需安装 Python。浏览器打开工作台，另有一个小窗口用于打开页面和退出程序。使用与升级步骤见[便携版指南](docs/portable.md)。
 
 安装后点击“试用示例”，即可查看流式时间线和工具调用结果。示例使用本地合成响应；模型指纹示例从参考分布合成，两者均不调用模型 API。
 
-**DSH 用户：** 安装[0.9.4插件包](dsh-plugin/README.md)，从原生左栏打开API-MRI。进入后自动启动，直接选择DSH已配置模型，无需再填地址和Key。
+**DSH 用户：** 安装[0.9.5插件包](dsh-plugin/README.md)，从原生左栏打开API-MRI。进入后自动启动，直接选择DSH已配置模型，无需再填地址和Key。
 
 **只想看作品：** “示例馆”默认展示42道有充分对照的题目，统一名称并按发布日期排序，模型与运行档位分开选择。SVG、HTML和WebGL原作在页内按需预览，保留提示、出处和已知参数。[来源与方法](docs/classic-examples.md)
 
