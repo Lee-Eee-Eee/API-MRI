@@ -1,0 +1,77 @@
+{
+  "checked_at": "2026-11-09T08:28:28.861233+00:00",
+  "version": "0.9.5",
+  "status": "passed",
+  "release_url": "https://github.com/Lee-Eee-Eee/API-MRI/releases/tag/v0.9.5",
+  "source_commits": [
+    "67669550849d5422441bb1246fc1ef519f54391c",
+    "5fd3787ffc2e2e07877843c31a409f8ad75f4446"
+  ],
+  "ci_run": "https://github.com/Lee-Eee-Eee/API-MRI/actions/runs/42584370477",
+  "ci_tests": {
+    "python": 630,
+    "core_only": 405,
+    "plugin": 73,
+    "portable_acceptance": 12
+  },
+  "runtime_sha256": "8c460822fbae16626d8221ffbf8337d4f9051e6cc52591aa7094e5e9f6c37431",
+  "plugin_sha256": "8fae2b0632a0e405349e6bb744eb1916d57ff536805056e9f07412e1779b515f",
+  "other_profile_dependencies_unchanged": true,
+  "profile_bundles_unchanged": true,
+  "automatic_download_and_start": {
+    "checkedAt": "2026-11-09T08:24:54.447Z",
+    "pluginVersion": "0.9.5",
+    "realModelCalls": 0,
+    "status": "passed",
+    "referenceModelCount": 134,
+    "referenceBank": "rolling-20261109-core8-v1",
+    "referencePackCount": 28,
+    "manualReferenceCollection": true,
+    "runtimeVersion": "0.9.5",
+    "archiveSha256": "8c460822fbae16626d8221ffbf8337d4f9051e6cc52591aa7094e5e9f6c37431",
+    "seconds": 63
+  },
+  "real_dsh_isolated_host_checks": {
+    "hostAuthentication": true,
+    "hostIndex": true,
+    "pluginInBootIndex": true,
+    "unauthenticatedRejected": true,
+    "runtimeStartedAutomatically": true,
+    "runtimeIdentityAndEmbedding": true,
+    "configuredModelUiPresent": true,
+    "modelCatalog": true,
+    "repeatedEntryReusesRuntime": true
+  },
+  "packaged_dsh_adapter_checks": {
+    "hostAuthentication": true,
+    "configuredModelViaOfficialAdapter": true,
+    "speedAndReplay": true,
+    "toolAutoMultipleCallsRoundtripAndReplay": true,
+    "identificationProtocolAndReplay": true,
+    "referenceCapture96ViaOfficialAdapter": true,
+    "referencePublishActiveAndIdempotent": true,
+    "publishedRollingIdentification": true,
+    "zeroCallRecomparePreservesOriginalEvidence": true,
+    "rollingAndRecomparisonOfflineReplay": true,
+    "actualToolResultsReachedUpstream": true
+  },
+  "synthetic_measurements": {
+    "speedRequests": 2,
+    "toolRequests": 4,
+    "identificationRequests": 12,
+    "identificationCompletedCells": 3,
+    "referenceRequests": 96,
+    "referenceHoldoutAnswers": 32,
+    "referenceModelsBeforePublish": 134,
+    "referenceModelsAfterPublish": 135,
+    "publishedRollingIdentificationRequests": 12,
+    "recomparisonCalls": 0,
+    "reusedFingerprintAnswers": 12,
+    "offlineReplayCalls": 0,
+    "upstreamSyntheticRequests": 125
+  },
+  "validation_real_model_calls": 0,
+  "pilot_real_model_calls": 192,
+  "pilot_provider_reported_output_tokens": 326,
+  "pilot_scope": "same source and capture window, disjoint repetitions; no cross-day or open-set calibration"
+}
