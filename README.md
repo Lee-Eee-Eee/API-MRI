@@ -29,6 +29,8 @@ DSH入口的服务测量默认每请求256 tokens；只测速512配额，只工�
 
 **DSH 用户：** 安装[0.9.5插件包](dsh-plugin/README.md)，从原生左栏打开API-MRI。进入后自动启动，直接选择DSH已配置模型，无需再填地址和Key。
 
+[社区市场收录申请](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/14485)已提交，等待审核。
+
 **只想看作品：** “示例馆”默认展示42道有充分对照的题目，统一名称并按发布日期排序，模型与运行档位分开选择。SVG、HTML和WebGL原作在页内按需预览，保留提示、出处和已知参数。[来源与方法](docs/classic-examples.md)
 
 **想了解能力：** “能力参考”按榜单展示模型排名，可切换版本与运行条件、搜索型号、展开各推理档位的成绩和出处。[数据与方法](docs/capability-reference.md)

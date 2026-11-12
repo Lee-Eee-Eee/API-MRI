@@ -64,7 +64,9 @@ npm pack --ignore-scripts
 
 开发时可在源码目录运行`npm run build:dsh`，再用`dsh plugin --profile desktop add <源码目录>`链接。安装已发布插件包时直接使用上面的`.tgz`命令。
 
-自己的发现页索引由`dsh-plugin/market-index.mjs`生成，固定到发布提交，随Release提供；未提交第三方插件市场。
+已向社区插件目录提交[收录申请 #14485](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/14485)，正在等待审核。通过后由 DSH Market 同步；目前可用上面的预构建包安装。
+
+自己的发现页索引由`dsh-plugin/market-index.mjs`生成，固定到发布提交，随Release提供。市场预览由仓库根目录的[`screenshots.json`](../screenshots.json)声明；测速与指纹截图使用界面内标明的合成示例。
 
 ## 接入依据
 
